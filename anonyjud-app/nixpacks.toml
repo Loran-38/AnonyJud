@@ -1,0 +1,8 @@
+[phases.build]
+cmds = ["npm ci", "npm run build"]
+
+[phases.start]
+cmd = "npx serve -s build -l $PORT"
+
+[variables]
+NODE_ENV = "production" 
