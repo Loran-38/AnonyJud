@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -13,12 +13,12 @@ const DashboardPage = () => {
 
   // Charger les projets depuis Firebase
   useEffect(() => {
-    if (currentUser) {
-      loadProjects();
-    }
-  }, [currentUser]);
+    loadProjects();
+  }, [loadProjects]);
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
+    if (!currentUser) return;
+    
     try {
       const projectsRef = collection(db, 'projects');
       const q = query(projectsRef, where('userId', '==', currentUser.uid));
@@ -43,7 +43,7 @@ const DashboardPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser, selectedProject]);
 
   const createProject = async (projectData) => {
     if (!canCreateProject()) {
