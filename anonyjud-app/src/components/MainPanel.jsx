@@ -41,6 +41,8 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
     try {
       // Afficher les tiers pour le débogage
       console.log("Tiers envoyés pour anonymisation:", selectedProject.tiers);
+      console.log("URL utilisée pour l'API:", `${config.API_BASE_URL}/anonymize/text`);
+      console.log("Configuration complète:", config);
       
       const response = await fetch(`${config.API_BASE_URL}/anonymize/text`, {
         method: 'POST',
