@@ -4,7 +4,7 @@ import TiersForm from "./TiersForm";
 /**
  * Sidebar affichant la liste des projets et permettant d'en créer ou supprimer.
  */
-function Sidebar({ projects, selectedProject, setSelectedProject, setProjects }) {
+function Sidebar({ projects, selectedProject, setSelectedProject, createProject, deleteProject, canCreateProject, userPlan, maxProjects }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(null); // Stocke l'objet projet à supprimer
 
@@ -17,14 +17,11 @@ function Sidebar({ projects, selectedProject, setSelectedProject, setProjects })
     if (!nomProjet.trim()) return;
     
     const newProject = {
-      id: Date.now(),
       nom: nomProjet.trim(),
       tiers: tiersPourNouveauProjet,
     };
     
-    const updatedProjects = [...projects, newProject];
-    setProjects(updatedProjects);
-    setSelectedProject(newProject);
+    createProject(newProject);
     
     setShowCreateModal(false);
     setNomProjet("");
@@ -35,14 +32,7 @@ function Sidebar({ projects, selectedProject, setSelectedProject, setProjects })
   const handleDeleteProject = (projectToDelete) => {
     if (!projectToDelete) return;
     
-    const updatedProjects = projects.filter(p => p.id !== projectToDelete.id);
-    setProjects(updatedProjects);
-    
-    // Si le projet supprimé était sélectionné, désélectionner
-    if (selectedProject && selectedProject.id === projectToDelete.id) {
-      setSelectedProject(null);
-    }
-    
+    deleteProject(projectToDelete.id);
     setShowConfirmDelete(null);
   };
 
@@ -62,8 +52,21 @@ function Sidebar({ projects, selectedProject, setSelectedProject, setProjects })
         <div className="p-4">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-md font-semibold text-gray-300">Projets</h3>
-            <span className="bg-blue-600 text-xs rounded-full px-2 py-1">{projects.length}</span>
+            <span className="bg-blue-600 text-xs rounded-full px-2 py-1">
+              {projects.length}{maxProjects !== -1 ? `/${maxProjects}` : ''}
+            </span>
           </div>
+          
+          {userPlan && (
+            <div className="mb-4 p-2 bg-gray-700 bg-opacity-50 rounded text-xs">
+              <p className="text-gray-400">Plan: <span className="text-white font-medium">{userPlan}</span></p>
+              {maxProjects !== -1 && (
+                <p className="text-gray-400">
+                  Limite: {projects.length}/{maxProjects} projets
+                </p>
+              )}
+            </div>
+          )}
           
           <div className="flex-1 overflow-y-auto space-y-1 mb-4 max-h-[calc(100vh-220px)]">
             {projects.length === 0 && (
@@ -108,12 +111,20 @@ function Sidebar({ projects, selectedProject, setSelectedProject, setProjects })
           </div>
           
           <button
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded transition-colors duration-150 flex items-center justify-center"
+            className={`w-full py-2 px-4 rounded transition-colors duration-150 flex items-center justify-center ${
+              canCreateProject() 
+                ? "bg-blue-600 hover:bg-blue-700 text-white" 
+                : "bg-gray-600 text-gray-400 cursor-not-allowed"
+            }`}
             onClick={() => {
-              setNomProjet('');
-              setTiersPourNouveauProjet([]);
-              setShowCreateModal(true);
+              if (canCreateProject()) {
+                setNomProjet('');
+                setTiersPourNouveauProjet([]);
+                setShowCreateModal(true);
+              }
             }}
+            disabled={!canCreateProject()}
+            title={canCreateProject() ? "Créer un nouveau projet" : "Limite de projets atteinte"}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
