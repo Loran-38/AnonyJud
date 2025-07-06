@@ -8,6 +8,8 @@ const config = {
   }
 };
 
-const environment = process.env.NODE_ENV || 'production';
+// Forcer l'utilisation de l'URL Railway en production
+const isLocalhost = window.location.hostname === 'localhost';
+const environment = isLocalhost ? 'development' : 'production';
 
 export default config[environment]; 
