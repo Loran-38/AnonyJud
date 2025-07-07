@@ -88,6 +88,71 @@ def test_multiple_champs_personnalises():
     
     print("Test multiple réussi!")
 
+def test_nouveau_format_custom_fields():
+    """
+    Test pour vérifier si l'anonymiseur traite correctement le nouveau format customFields.
+    """
+    # Cas de test avec le nouveau format customFields
+    texte = "Entreprise ACME SARL (SIRET: 12345678901234) gérée par Jean Dupont (Réf: REF-2023-789)"
+    tiers = [
+        {
+            "nom": "Dupont",
+            "prenom": "Jean",
+            "societe": "ACME SARL",
+            "customFields": [
+                {
+                    "id": 1,
+                    "label": "SIRET",
+                    "value": "12345678901234"
+                },
+                {
+                    "id": 2,
+                    "label": "Reference",
+                    "value": "REF-2023-789"
+                }
+            ]
+        }
+    ]
+    
+    # Anonymiser le texte
+    texte_anonymise, mapping = anonymize_text(texte, tiers)
+    
+    print("\nTest nouveau format customFields:")
+    print("Texte original:", texte)
+    print("Texte anonymisé:", texte_anonymise)
+    print("Mapping:", mapping)
+    
+    # Vérifier si les informations ont été remplacées
+    assert "12345678901234" not in texte_anonymise, "Le numéro SIRET n'a pas été anonymisé"
+    assert "REF-2023-789" not in texte_anonymise, "La référence n'a pas été anonymisée"
+    assert "ACME SARL" not in texte_anonymise, "La société n'a pas été anonymisée"
+    assert "Jean" not in texte_anonymise, "Le prénom n'a pas été anonymisé"
+    assert "Dupont" not in texte_anonymise, "Le nom n'a pas été anonymisé"
+    
+    # Vérifier si les balises personnalisées sont présentes
+    siret_tag_present = any("SIRET" in tag for tag in mapping.keys())
+    reference_tag_present = any("REFERENCE" in tag for tag in mapping.keys())
+    societe_tag_present = any("SOCIETE" in tag for tag in mapping.keys())
+    nom_tag_present = any("NOM" in tag for tag in mapping.keys())
+    prenom_tag_present = any("PRENOM" in tag for tag in mapping.keys())
+    
+    assert siret_tag_present, "Aucune balise SIRET n'a été créée"
+    assert reference_tag_present, "Aucune balise REFERENCE n'a été créée"
+    assert societe_tag_present, "Aucune balise SOCIETE n'a été créée"
+    assert nom_tag_present, "Aucune balise NOM n'a été créée"
+    assert prenom_tag_present, "Aucune balise PRENOM n'a été créée"
+    
+    # Test de dé-anonymisation
+    texte_deanonymise = deanonymize_text(texte_anonymise, mapping)
+    print("Texte dé-anonymisé:", texte_deanonymise)
+    
+    # Vérifier si le texte dé-anonymisé correspond au texte original
+    assert texte_deanonymise == texte, "La dé-anonymisation n'a pas restauré le texte original"
+    
+    print("Test nouveau format customFields réussi!")
+
 if __name__ == "__main__":
     test_champ_personnalise()
-    test_multiple_champs_personnalises() 
+    test_multiple_champs_personnalises()
+    test_nouveau_format_custom_fields()
+    print("\nTous les tests sont réussis! ✅") 

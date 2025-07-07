@@ -168,7 +168,42 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                         
                     counters["SOCIETE"] += 1
             
-            # Traiter le champ personnalisé
+            # Traiter les champs personnalisés (nouveau format)
+            if tier.get("customFields") and isinstance(tier["customFields"], list):
+                for custom_field in tier["customFields"]:
+                    if isinstance(custom_field, dict):
+                        champ_value = custom_field.get("value")
+                        champ_label = custom_field.get("label")
+                        
+                        if champ_value and isinstance(champ_value, str):
+                            champ_value = champ_value.strip()
+                            if champ_value and len(champ_value) > 1:
+                                # Utiliser le label personnalisé s'il existe, sinon "PERSO"
+                                label_base = "PERSO"
+                                if champ_label and isinstance(champ_label, str):
+                                    label_perso = champ_label.strip()
+                                    # Nettoyer le label pour qu'il soit utilisable comme balise
+                                    if label_perso:
+                                        label_base = re.sub(r'[^A-Za-z]', '', label_perso.upper())
+                                        if not label_base:  # Si le label ne contient pas de lettres
+                                            label_base = "PERSO"
+                                
+                                tag = f"{label_base}{counters['PERSO']}"
+                                mapping[tag] = champ_value
+                                
+                                # Remplacer toutes les occurrences (insensible à la casse)
+                                pattern = re.compile(re.escape(champ_value), re.IGNORECASE)
+                                anonymized = pattern.sub(tag, anonymized)
+                                
+                                # Variantes: en majuscules, minuscules
+                                if champ_value.upper() != champ_value:
+                                    anonymized = anonymized.replace(champ_value.upper(), tag)
+                                if champ_value.lower() != champ_value:
+                                    anonymized = anonymized.replace(champ_value.lower(), tag)
+                                    
+                                counters["PERSO"] += 1
+            
+            # Traiter le champ personnalisé (ancien format pour compatibilité)
             if tier.get("champPerso"):
                 champ_perso = tier["champPerso"]
                 if champ_perso and isinstance(champ_perso, str):
