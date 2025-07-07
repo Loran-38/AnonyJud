@@ -7,6 +7,7 @@ import PricingPage from './pages/PricingPage';
 import SignupPage from './pages/SignupPage';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import AccountPage from './pages/AccountPage';
 import './index.css';
 
 // Composant pour protéger les routes privées
@@ -55,6 +56,14 @@ function AppContent() {
             element={
               <PrivateRoute>
                 <DashboardPage />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/account" 
+            element={
+              <PrivateRoute>
+                <AccountPage />
               </PrivateRoute>
             } 
           />

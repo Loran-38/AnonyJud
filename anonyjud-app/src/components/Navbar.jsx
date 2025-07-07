@@ -66,7 +66,10 @@ const Navbar = () => {
             {currentUser ? (
               <div className="flex items-center space-x-3">
                 {/* Info utilisateur */}
-                <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-3 py-2">
+                <Link 
+                  to="/account"
+                  className="flex items-center space-x-2 bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2 transition-colors"
+                >
                   <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                     <span className="text-white font-medium text-sm">
                       {(currentUser.displayName || 'U').charAt(0).toUpperCase()}
@@ -82,7 +85,7 @@ const Navbar = () => {
                       </p>
                     )}
                   </div>
-                </div>
+                </Link>
                 
                 {/* Bouton déconnexion */}
                 <button
@@ -162,7 +165,11 @@ const Navbar = () => {
               <div className="pt-3 border-t border-gray-200">
                 {currentUser ? (
                   <div className="space-y-3">
-                    <div className="flex items-center space-x-3 px-3 py-2 bg-white rounded-lg">
+                    <Link 
+                      to="/account"
+                      className="flex items-center space-x-3 px-3 py-2 bg-white hover:bg-gray-50 rounded-lg transition-colors"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
                       <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                         <span className="text-white font-medium text-sm">
                           {(currentUser.displayName || 'U').charAt(0).toUpperCase()}
@@ -178,7 +185,7 @@ const Navbar = () => {
                           </p>
                         )}
                       </div>
-                    </div>
+                    </Link>
                     <button
                       onClick={() => {
                         handleLogout();
