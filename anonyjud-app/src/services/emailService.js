@@ -178,11 +178,11 @@ export const customEmailTemplate = {
             Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe sécurisé.
           </p>
 
-          <div style="text-align: center;">
-            <a href="{{resetLink}}" class="button">
-              Réinitialiser mon mot de passe
-            </a>
-          </div>
+                     <div style="text-align: center;">
+             <a href="%LINK%" class="button">
+               Réinitialiser mon mot de passe
+             </a>
+           </div>
 
           <div class="security-note">
             <div class="security-title">
@@ -212,17 +212,17 @@ export const customEmailTemplate = {
             Cet email a été envoyé par AnonyJud - Solution d'anonymisation juridique
           </p>
           
-          <div class="footer-links">
-            <a href="{{siteUrl}}" class="footer-link">Accueil</a>
-            <a href="{{siteUrl}}/pricing" class="footer-link">Tarifs</a>
-            <a href="{{siteUrl}}/contact" class="footer-link">Support</a>
-          </div>
+                     <div class="footer-links">
+             <a href="https://anonyjud-app-production.up.railway.app" class="footer-link">Accueil</a>
+             <a href="https://anonyjud-app-production.up.railway.app/pricing" class="footer-link">Tarifs</a>
+             <a href="mailto:support@anonyjud.com" class="footer-link">Support</a>
+           </div>
           
           <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-            <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-              Si vous avez des difficultés avec le bouton, copiez et collez ce lien dans votre navigateur :<br>
-              <span style="word-break: break-all; color: #2563eb;">{{resetLink}}</span>
-            </p>
+                         <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+               Si vous avez des difficultés avec le bouton, copiez et collez ce lien dans votre navigateur :<br>
+               <span style="word-break: break-all; color: #2563eb;">%LINK%</span>
+             </p>
           </div>
         </div>
       </div>
