@@ -11,11 +11,7 @@ const DashboardPage = () => {
   const [selectedProject, setSelectedProject] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Charger les projets depuis Firebase
-  useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
-
+  // Fonction pour charger les projets depuis Firebase
   const loadProjects = useCallback(async () => {
     if (!currentUser) return;
     
@@ -44,6 +40,11 @@ const DashboardPage = () => {
       setLoading(false);
     }
   }, [currentUser, selectedProject]);
+
+  // Charger les projets au montage du composant
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
   const createProject = async (projectData) => {
     if (!canCreateProject()) {
