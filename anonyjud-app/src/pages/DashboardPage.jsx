@@ -57,6 +57,18 @@ const DashboardPage = () => {
       return;
     }
 
+    // Test de connexion Firebase
+    try {
+      console.log('Test de connexion Firebase...');
+      const testQuery = query(collection(db, 'projects'), where('userId', '==', currentUser.uid));
+      const testSnapshot = await getDocs(testQuery);
+      console.log('Connexion Firebase OK, nombre de projets existants:', testSnapshot.size);
+    } catch (testError) {
+      console.error('Erreur de connexion Firebase:', testError);
+      alert(`Erreur de connexion Firebase: ${testError.message}`);
+      return;
+    }
+
     try {
       const newProject = {
         ...projectData,
@@ -66,6 +78,7 @@ const DashboardPage = () => {
       };
 
       console.log('Données du projet à créer:', newProject);
+      console.log('Collection de destination:', collection(db, 'projects'));
       
       const docRef = await addDoc(collection(db, 'projects'), newProject);
       console.log('Projet créé avec ID:', docRef.id);
@@ -80,10 +93,21 @@ const DashboardPage = () => {
       setSelectedProject(projectWithId);
       
       console.log('Projet créé avec succès');
+      alert('Projet créé avec succès !');
       
     } catch (error) {
       console.error('Erreur lors de la création du projet:', error);
-      alert('Erreur lors de la création du projet. Vérifiez la console pour plus de détails.');
+      console.error('Code d\'erreur:', error.code);
+      console.error('Message d\'erreur:', error.message);
+      console.error('Détails complets:', error);
+      
+      if (error.code === 'permission-denied') {
+        alert('Erreur de permissions Firebase. Vérifiez les règles de sécurité Firestore.');
+      } else if (error.code === 'unavailable') {
+        alert('Service Firebase indisponible. Vérifiez votre connexion internet.');
+      } else {
+        alert(`Erreur lors de la création du projet: ${error.message}`);
+      }
     }
   };
 
@@ -138,7 +162,7 @@ const DashboardPage = () => {
     <div className="min-h-screen bg-gray-100">
       {/* Header Dashboard */}
       <div className="bg-white shadow-sm border-b">
-        <div className="w-full max-w-7xl mx-auto px-4 py-4">
+        <div className="w-full px-4 py-4">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -162,7 +186,7 @@ const DashboardPage = () => {
       </div>
 
       {/* Main Content */}
-      <div className="w-full max-w-7xl mx-auto px-4 py-6">
+      <div className="w-full px-4 py-6">
         <div className="flex h-[calc(100vh-200px)] gap-6">
           {/* Sidebar */}
           <div className="w-80 bg-white rounded-lg shadow-sm overflow-hidden">
