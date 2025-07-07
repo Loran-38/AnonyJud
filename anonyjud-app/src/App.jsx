@@ -8,6 +8,7 @@ import SignupPage from './pages/SignupPage';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import AccountPage from './pages/AccountPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import './index.css';
 
 // Composant pour protéger les routes privées
@@ -46,6 +47,14 @@ function AppContent() {
             element={
               <PublicRoute>
                 <LoginPage />
+              </PublicRoute>
+            } 
+          />
+          <Route 
+            path="/forgot-password" 
+            element={
+              <PublicRoute>
+                <ForgotPasswordPage />
               </PublicRoute>
             } 
           />
