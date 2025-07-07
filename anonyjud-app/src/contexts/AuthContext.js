@@ -113,10 +113,13 @@ export function AuthProvider({ children }) {
     }
   }
 
-  function canCreateProject() {
+  function canCreateProject(currentProjectsCount = 0) {
     if (!userProfile) return false;
     const plan = PLANS[userProfile.plan];
-    return plan.maxProjects === -1 || userProfile.projectsCount < plan.maxProjects;
+    console.log('canCreateProject - Plan:', plan);
+    console.log('canCreateProject - Projets actuels:', currentProjectsCount);
+    console.log('canCreateProject - Max projets:', plan.maxProjects);
+    return plan.maxProjects === -1 || currentProjectsCount < plan.maxProjects;
   }
 
   useEffect(() => {

@@ -36,7 +36,7 @@ function Sidebar({ projects, selectedProject, setSelectedProject, createProject,
 
   return (
     <>
-      <aside className="w-72 bg-gray-800 text-white flex flex-col flex-shrink-0 shadow-lg">
+      <aside className="w-full h-full bg-gray-800 text-white flex flex-col shadow-lg">
         <div className="p-4 border-b border-gray-700">
           <h2 className="text-xl font-bold flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -50,9 +50,9 @@ const DashboardPage = () => {
     console.log('createProject appelé avec:', projectData);
     console.log('currentUser:', currentUser);
     console.log('userProfile:', userProfile);
-    console.log('canCreateProject():', canCreateProject());
+    console.log('canCreateProject():', canCreateProject(projects.length));
     
-    if (!canCreateProject()) {
+    if (!canCreateProject(projects.length)) {
       alert(`Vous avez atteint la limite de votre plan ${PLANS[userProfile.plan]?.name}. Passez à un plan supérieur pour créer plus de projets.`);
       return;
     }
@@ -196,7 +196,7 @@ const DashboardPage = () => {
               setSelectedProject={setSelectedProject}
               createProject={createProject}
               deleteProject={deleteProject}
-              canCreateProject={canCreateProject}
+              canCreateProject={() => canCreateProject(projects.length)}
               userPlan={userProfile?.plan || 'FREE'}
               maxProjects={PLANS[userProfile?.plan || 'FREE']?.maxProjects}
             />
@@ -223,7 +223,7 @@ const DashboardPage = () => {
                   <p className="text-gray-600 mb-4">
                     Créez un nouveau projet ou sélectionnez un projet existant pour commencer l'anonymisation.
                   </p>
-                  {canCreateProject() && (
+                  {canCreateProject(projects.length) && (
                     <button
                       onClick={() => {
                         const projectName = prompt('Nom du projet:');
