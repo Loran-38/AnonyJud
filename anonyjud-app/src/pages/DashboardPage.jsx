@@ -47,6 +47,11 @@ const DashboardPage = () => {
   }, [loadProjects]);
 
   const createProject = async (projectData) => {
+    console.log('createProject appelé avec:', projectData);
+    console.log('currentUser:', currentUser);
+    console.log('userProfile:', userProfile);
+    console.log('canCreateProject():', canCreateProject());
+    
     if (!canCreateProject()) {
       alert(`Vous avez atteint la limite de votre plan ${PLANS[userProfile.plan]?.name}. Passez à un plan supérieur pour créer plus de projets.`);
       return;
@@ -57,20 +62,28 @@ const DashboardPage = () => {
         ...projectData,
         userId: currentUser.uid,
         createdAt: new Date().toISOString(),
-        tiers: []
+        tiers: projectData.tiers || []
       };
 
+      console.log('Données du projet à créer:', newProject);
+      
       const docRef = await addDoc(collection(db, 'projects'), newProject);
+      console.log('Projet créé avec ID:', docRef.id);
+      
       const projectWithId = { id: docRef.id, ...newProject };
       
-      setProjects(prev => [...prev, projectWithId]);
+      setProjects(prev => {
+        const updatedProjects = [...prev, projectWithId];
+        console.log('Projets mis à jour:', updatedProjects);
+        return updatedProjects;
+      });
       setSelectedProject(projectWithId);
       
-      // Mettre à jour le compteur de projets dans le profil utilisateur
-      // TODO: Implémenter la mise à jour du compteur
+      console.log('Projet créé avec succès');
       
     } catch (error) {
       console.error('Erreur lors de la création du projet:', error);
+      alert('Erreur lors de la création du projet. Vérifiez la console pour plus de détails.');
     }
   };
 
@@ -125,7 +138,7 @@ const DashboardPage = () => {
     <div className="min-h-screen bg-gray-100">
       {/* Header Dashboard */}
       <div className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
+        <div className="w-full max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -149,7 +162,7 @@ const DashboardPage = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-6">
+      <div className="w-full max-w-7xl mx-auto px-4 py-6">
         <div className="flex h-[calc(100vh-200px)] gap-6">
           {/* Sidebar */}
           <div className="w-80 bg-white rounded-lg shadow-sm overflow-hidden">

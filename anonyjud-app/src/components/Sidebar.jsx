@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import TiersForm from "./TiersForm";
 
 /**
  * Sidebar affichant la liste des projets et permettant d'en créer ou supprimer.
@@ -10,7 +9,6 @@ function Sidebar({ projects, selectedProject, setSelectedProject, createProject,
 
   // États locaux pour le formulaire de la modale de création
   const [nomProjet, setNomProjet] = useState("");
-  const [tiersPourNouveauProjet, setTiersPourNouveauProjet] = useState([]);
 
   // Fonction pour créer un nouveau projet
   const handleCreateProject = () => {
@@ -18,14 +16,14 @@ function Sidebar({ projects, selectedProject, setSelectedProject, createProject,
     
     const newProject = {
       nom: nomProjet.trim(),
-      tiers: tiersPourNouveauProjet,
+      tiers: [],
     };
     
+    console.log('Création du projet:', newProject);
     createProject(newProject);
     
     setShowCreateModal(false);
     setNomProjet("");
-    setTiersPourNouveauProjet([]);
   };
   
   // Fonction pour supprimer un projet
@@ -119,7 +117,6 @@ function Sidebar({ projects, selectedProject, setSelectedProject, createProject,
             onClick={() => {
               if (canCreateProject()) {
                 setNomProjet('');
-                setTiersPourNouveauProjet([]);
                 setShowCreateModal(true);
               }
             }}
@@ -171,16 +168,14 @@ function Sidebar({ projects, selectedProject, setSelectedProject, createProject,
             
             <div className="mb-6">
               <h4 className="text-md font-medium text-gray-700 mb-3">Ajouter des tiers au projet (optionnel)</h4>
-              <TiersForm 
-                tiers={tiersPourNouveauProjet} 
-                setProjects={(newProjects) => {
-                  // Nous n'utilisons que la partie tiers du nouveau projet
-                  if (newProjects && newProjects.length > 0) {
-                    setTiersPourNouveauProjet(newProjects[newProjects.length - 1].tiers || []);
-                  }
-                }}
-                projects={[]}
-              />
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 mb-3">
+                  Vous pourrez ajouter des tiers après la création du projet.
+                </p>
+                <div className="text-xs text-gray-500">
+                  Les tiers permettent de personnaliser l'anonymisation pour chaque personne impliquée dans le dossier.
+                </div>
+              </div>
             </div>
             
             <div className="flex justify-end gap-3 border-t pt-4">
