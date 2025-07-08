@@ -181,95 +181,95 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
-            <select 
-              name="categorie" 
-              value={form.categorie} 
-              onChange={handleChange} 
+          <select 
+            name="categorie" 
+            value={form.categorie} 
+            onChange={handleChange} 
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-            >
+          >
               {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-            </select>
+          </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
-            <input 
-              name="nom" 
-              value={form.nom} 
-              onChange={handleChange} 
+          <input 
+            name="nom" 
+            value={form.nom} 
+            onChange={handleChange} 
               placeholder="Nom de famille" 
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-            />
+          />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
-            <input 
-              name="prenom" 
-              value={form.prenom} 
-              onChange={handleChange} 
-              placeholder="Prénom" 
+          <input 
+            name="prenom" 
+            value={form.prenom} 
+            onChange={handleChange} 
+            placeholder="Prénom" 
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-            />
+          />
           </div>
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
-            <input 
-              name="adresse" 
-              value={form.adresse} 
-              onChange={handleChange} 
-              placeholder="Adresse complète" 
+          <input 
+            name="adresse" 
+            value={form.adresse} 
+            onChange={handleChange} 
+            placeholder="Adresse complète" 
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-            />
+          />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone fixe</label>
-            <input 
-              name="telephone" 
-              value={form.telephone} 
-              onChange={handleChange} 
+          <input 
+            name="telephone" 
+            value={form.telephone} 
+            onChange={handleChange} 
               placeholder="01 23 45 67 89" 
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-            />
+          />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Portable</label>
-            <input 
-              name="portable" 
-              value={form.portable} 
-              onChange={handleChange} 
+          <input 
+            name="portable" 
+            value={form.portable} 
+            onChange={handleChange} 
               placeholder="06 12 34 56 78" 
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-            />
+          />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-            <input 
-              name="email" 
+          <input 
+            name="email" 
               type="email"
-              value={form.email} 
-              onChange={handleChange} 
+            value={form.email} 
+            onChange={handleChange} 
               placeholder="exemple@email.com" 
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-            />
+          />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Société</label>
-            <input 
-              name="societe" 
-              value={form.societe} 
-              onChange={handleChange} 
+          <input 
+            name="societe" 
+            value={form.societe} 
+            onChange={handleChange} 
               placeholder="Nom de la société" 
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-            />
+          />
           </div>
         </div>
-
+          
         {/* Section Champs Personnalisés */}
         <div className="border-t pt-6">
           <div className="flex items-center justify-between mb-4">
@@ -296,14 +296,14 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                     placeholder="Nom du champ (ex: N° dossier)"
                     className="border border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                   />
-                  <input
+              <input 
                     type="text"
                     value={field.value}
                     onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
                     placeholder="Valeur à anonymiser"
                     className="border border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                  />
-                </div>
+              />
+            </div>
                 <button
                   onClick={() => removeCustomField(field.id)}
                   className="text-red-500 hover:text-red-700 hover:bg-red-100 p-2 rounded-lg transition-all duration-200"
@@ -329,13 +329,13 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                   className="border border-blue-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                   autoFocus
                 />
-                <input
+              <input 
                   type="text"
                   value={newCustomField.value}
                   onChange={(e) => setNewCustomField({...newCustomField, value: e.target.value})}
-                  placeholder="Valeur à anonymiser"
+                placeholder="Valeur à anonymiser" 
                   className="border border-blue-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                />
+              />
               </div>
               <div className="flex justify-end space-x-2">
                 <button
@@ -374,16 +374,16 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
 
         {/* Bouton d'ajout du tiers */}
         <div className="pt-6 border-t">
-          <button 
-            type="button" 
+        <button 
+          type="button" 
             className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
-            onClick={handleAdd}
-          >
+          onClick={handleAdd}
+        >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
+          </svg>
             <span>Ajouter ce tiers au projet</span>
-          </button>
+        </button>
         </div>
       </div>
       
@@ -406,8 +406,8 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
         {tiers.length === 0 ? (
           <div className="p-12 text-center">
             <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
             <h3 className="text-lg font-medium text-gray-700 mb-2">Aucun tiers ajouté</h3>
             <p className="text-gray-500">Commencez par ajouter votre premier tiers avec le formulaire ci-dessus.</p>
           </div>
@@ -421,13 +421,13 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                       {idx + 1}
                     </div>
                     <div>
-                      <select 
-                        value={t.categorie} 
-                        onChange={e => handleEditField(idx, "categorie", e.target.value)} 
+                    <select 
+                      value={t.categorie} 
+                      onChange={e => handleEditField(idx, "categorie", e.target.value)} 
                         className="text-lg font-semibold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
-                      >
+                    >
                         {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                      </select>
+                    </select>
                     </div>
                   </div>
                   <button 
@@ -522,29 +522,29 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                     <div className="space-y-2">
                       {t.customFields.map((field) => (
                         <div key={field.id} className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg">
-                          <input
+                    <input 
                             type="text"
                             value={field.label || ""}
                             onChange={(e) => handleEditCustomField(idx, field.id, 'label', e.target.value)}
                             placeholder="Nom du champ"
                             className="flex-1 border border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
                           />
-                          <input
+                    <input 
                             type="text"
                             value={field.value || ""}
                             onChange={(e) => handleEditCustomField(idx, field.id, 'value', e.target.value)}
                             placeholder="Valeur"
                             className="flex-1 border border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
                           />
-                          <button
+                    <button 
                             onClick={() => removeCustomFieldFromTiers(idx, field.id)}
                             className="text-red-500 hover:text-red-700 hover:bg-red-100 p-1 rounded transition-all duration-200"
                             title="Supprimer ce champ"
-                          >
+                    >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                      </svg>
+                    </button>
                         </div>
                       ))}
                     </div>
@@ -565,7 +565,7 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                 </div>
               </div>
             ))}
-          </div>
+        </div>
         )}
       </div>
 

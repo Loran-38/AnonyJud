@@ -116,8 +116,8 @@ function Sidebar({ projects, selectedProject, setSelectedProject, createProject,
             }`}
             onClick={() => {
               if (canCreateProject()) {
-                setNomProjet('');
-                setShowCreateModal(true);
+              setNomProjet('');
+              setShowCreateModal(true);
               }
             }}
             disabled={!canCreateProject()}

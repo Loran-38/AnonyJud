@@ -1,9 +1,15 @@
 [phases.build]
-cmds = ["npm install", "npm run build"]
+cmds = [
+  "npm ci --cache /tmp/.npm --prefer-offline --no-audit --no-fund",
+  "npm run build -- --no-source-map"
+]
 
 [phases.start]
 cmd = "npx serve -s build -l $PORT"
 
 [variables]
-NODE_ENV = "production" 
-CI = "true" 
+NODE_ENV = "production"
+CI = "true"
+NPM_CONFIG_CACHE = "/tmp/.npm"
+GENERATE_SOURCEMAP = "false"
+DISABLE_ESLINT_PLUGIN = "true" 
