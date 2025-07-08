@@ -5,9 +5,9 @@
     "buildCommand": "npm ci --cache /tmp/.npm --prefer-offline && npm run build:prod"
   },
   "deploy": {
-    "startCommand": "npx serve -c serve.json -l $PORT",
-    "healthcheckPath": "/health",
-    "healthcheckTimeout": 300,
+    "startCommand": "npx serve -s build -l $PORT",
+    "healthcheckPath": "/",
+    "healthcheckTimeout": 180,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
