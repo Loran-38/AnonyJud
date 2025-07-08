@@ -19,10 +19,24 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
 
   const [isAddingCustomField, setIsAddingCustomField] = useState(false);
   const [newCustomField, setNewCustomField] = useState({ label: "", value: "" });
+  
+  // État pour gérer quels tiers sont développés dans l'accordéon
+  const [expandedTiers, setExpandedTiers] = useState(new Set());
 
   const categories = [
     "Demandeur", "Défendeur", "Avocat", "Conseil", "Sapiteur", "Tribunal", "Autres"
   ];
+
+  // Fonction pour basculer l'état développé/réduit d'un tiers
+  const toggleTierExpansion = (index) => {
+    const newExpanded = new Set(expandedTiers);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedTiers(newExpanded);
+  };
 
   const handleChange = e => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -83,14 +97,30 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
   };
 
   const handleDelete = idx => {
-    const updatedTiers = tiers.filter((_, i) => i !== idx);
-    
-    if (projectId && updateProject) {
-      const projectToUpdate = projects.find(p => p.id === projectId);
-      if (projectToUpdate) {
-        const updatedProject = { ...projectToUpdate, tiers: updatedTiers };
-        updateProject(updatedProject);
+    if (window.confirm("Êtes-vous sûr de vouloir supprimer ce tiers ?")) {
+      const updatedTiers = tiers.filter((_, i) => i !== idx);
+      
+      if (projectId && updateProject) {
+        const projectToUpdate = projects.find(p => p.id === projectId);
+        if (projectToUpdate) {
+          const updatedProject = { ...projectToUpdate, tiers: updatedTiers };
+          updateProject(updatedProject);
+        }
       }
+      
+      // Retirer le tiers de la liste des tiers développés et réajuster les indices
+      const newExpanded = new Set(expandedTiers);
+      newExpanded.delete(idx);
+      // Réajuster les indices pour les tiers suivants
+      const adjustedExpanded = new Set();
+      newExpanded.forEach(i => {
+        if (i < idx) {
+          adjustedExpanded.add(i);
+        } else if (i > idx) {
+          adjustedExpanded.add(i - 1);
+        }
+      });
+      setExpandedTiers(adjustedExpanded);
     }
   };
 
@@ -414,158 +444,204 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
         ) : (
           <div className="divide-y divide-gray-200">
             {tiers.map((t, idx) => (
-              <div key={idx} className="p-6 hover:bg-gray-50 transition-colors duration-200">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3">
+              <div key={idx} className="transition-all duration-200">
+                {/* Vue compacte - toujours visible */}
+                <div 
+                  className="p-4 hover:bg-gray-50 cursor-pointer flex items-center justify-between"
+                  onClick={() => toggleTierExpansion(idx)}
+                >
+                  <div className="flex items-center space-x-4">
                     <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm">
                       {idx + 1}
                     </div>
-                    <div>
-                    <select 
-                      value={t.categorie} 
-                      onChange={e => handleEditField(idx, "categorie", e.target.value)} 
-                        className="text-lg font-semibold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
-                    >
-                        {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                    </select>
+                    <div className="flex items-center space-x-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {t.categorie}
+                      </span>
+                      <div className="flex items-center space-x-2">
+                        {t.nom && <span className="font-medium text-gray-900">{t.nom}</span>}
+                        {t.prenom && <span className="text-gray-700">{t.prenom}</span>}
+                        {!t.nom && !t.prenom && t.societe && <span className="font-medium text-gray-900">{t.societe}</span>}
+                        {!t.nom && !t.prenom && !t.societe && <span className="text-gray-500 italic">Tiers sans nom</span>}
+                      </div>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => handleDelete(idx)} 
-                    className="text-red-500 hover:text-red-700 hover:bg-red-100 p-2 rounded-lg transition-all duration-200"
-                    title="Supprimer ce tiers"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Informations de base */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Nom</label>
-                    <input 
-                      value={t.nom || ""} 
-                      onChange={e => handleEditField(idx, "nom", e.target.value)} 
-                      placeholder="Nom"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Prénom</label>
-                    <input 
-                      value={t.prenom || ""} 
-                      onChange={e => handleEditField(idx, "prenom", e.target.value)} 
-                      placeholder="Prénom"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-                    />
-                  </div>
-                  <div className="md:col-span-2 lg:col-span-1">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
-                    <input 
-                      value={t.email || ""} 
-                      onChange={e => handleEditField(idx, "email", e.target.value)} 
-                      placeholder="Email"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-                    />
-                  </div>
-                  <div className="md:col-span-2 lg:col-span-3">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Adresse</label>
-                    <input 
-                      value={t.adresse || ""} 
-                      onChange={e => handleEditField(idx, "adresse", e.target.value)} 
-                      placeholder="Adresse complète"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Téléphone</label>
-                    <input 
-                      value={t.telephone || ""} 
-                      onChange={e => handleEditField(idx, "telephone", e.target.value)} 
-                      placeholder="Téléphone"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Portable</label>
-                    <input 
-                      value={t.portable || ""} 
-                      onChange={e => handleEditField(idx, "portable", e.target.value)} 
-                      placeholder="Portable"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Société</label>
-                    <input 
-                      value={t.societe || ""} 
-                      onChange={e => handleEditField(idx, "societe", e.target.value)} 
-                      placeholder="Société"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-                    />
-                  </div>
-                </div>
-
-                {/* Champs personnalisés du tiers */}
-                {(t.customFields && t.customFields.length > 0) && (
-                  <div className="border-t pt-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h6 className="text-sm font-semibold text-gray-700 flex items-center">
-                        <svg className="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
-                        </svg>
-                        Champs personnalisés
-                      </h6>
-                    </div>
-                    <div className="space-y-2">
-                      {t.customFields.map((field) => (
-                        <div key={field.id} className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg">
-                    <input 
-                            type="text"
-                            value={field.label || ""}
-                            onChange={(e) => handleEditCustomField(idx, field.id, 'label', e.target.value)}
-                            placeholder="Nom du champ"
-                            className="flex-1 border border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
-                          />
-                    <input 
-                            type="text"
-                            value={field.value || ""}
-                            onChange={(e) => handleEditCustomField(idx, field.id, 'value', e.target.value)}
-                            placeholder="Valeur"
-                            className="flex-1 border border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
-                          />
+                  <div className="flex items-center space-x-2">
+                    {/* Indicateur de champs personnalisés */}
+                    {t.customFields && t.customFields.length > 0 && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        {t.customFields.length} champ{t.customFields.length > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {/* Bouton de suppression */}
                     <button 
-                            onClick={() => removeCustomFieldFromTiers(idx, field.id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-100 p-1 rounded transition-all duration-200"
-                            title="Supprimer ce champ"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(idx);
+                      }}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-100 p-2 rounded-lg transition-all duration-200"
+                      title="Supprimer ce tiers"
                     >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
+                    {/* Icône d'expansion/réduction */}
+                    <svg 
+                      className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedTiers.has(idx) ? 'rotate-180' : ''}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Vue détaillée - révélée au clic */}
+                {expandedTiers.has(idx) && (
+                  <div className="px-4 pb-6 bg-gray-50 border-t animate-fade-in">
+                    <div className="pt-4">
+                      {/* Sélecteur de catégorie */}
+                      <div className="mb-4">
+                        <label className="block text-xs font-medium text-gray-500 mb-2">Catégorie</label>
+                        <select 
+                          value={t.categorie} 
+                          onChange={e => handleEditField(idx, "categorie", e.target.value)} 
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        >
+                          {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </select>
+                      </div>
+
+                      {/* Informations de base */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Nom</label>
+                          <input 
+                            value={t.nom || ""} 
+                            onChange={e => handleEditField(idx, "nom", e.target.value)} 
+                            placeholder="Nom"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
+                          />
                         </div>
-                      ))}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Prénom</label>
+                          <input 
+                            value={t.prenom || ""} 
+                            onChange={e => handleEditField(idx, "prenom", e.target.value)} 
+                            placeholder="Prénom"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
+                          />
+                        </div>
+                        <div className="md:col-span-2 lg:col-span-1">
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
+                          <input 
+                            value={t.email || ""} 
+                            onChange={e => handleEditField(idx, "email", e.target.value)} 
+                            placeholder="Email"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
+                          />
+                        </div>
+                        <div className="md:col-span-2 lg:col-span-3">
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Adresse</label>
+                          <input 
+                            value={t.adresse || ""} 
+                            onChange={e => handleEditField(idx, "adresse", e.target.value)} 
+                            placeholder="Adresse complète"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Téléphone</label>
+                          <input 
+                            value={t.telephone || ""} 
+                            onChange={e => handleEditField(idx, "telephone", e.target.value)} 
+                            placeholder="Téléphone"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Portable</label>
+                          <input 
+                            value={t.portable || ""} 
+                            onChange={e => handleEditField(idx, "portable", e.target.value)} 
+                            placeholder="Portable"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Société</label>
+                          <input 
+                            value={t.societe || ""} 
+                            onChange={e => handleEditField(idx, "societe", e.target.value)} 
+                            placeholder="Société"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
+                          />
+                        </div>
+                      </div>
+
+                      {/* Champs personnalisés du tiers */}
+                      {(t.customFields && t.customFields.length > 0) && (
+                        <div className="border-t pt-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h6 className="text-sm font-semibold text-gray-700 flex items-center">
+                              <svg className="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                              </svg>
+                              Champs personnalisés
+                            </h6>
+                          </div>
+                          <div className="space-y-2">
+                            {t.customFields.map((field) => (
+                              <div key={field.id} className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg">
+                                <input 
+                                  type="text"
+                                  value={field.label || ""}
+                                  onChange={(e) => handleEditCustomField(idx, field.id, 'label', e.target.value)}
+                                  placeholder="Nom du champ"
+                                  className="flex-1 border border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
+                                />
+                                <input 
+                                  type="text"
+                                  value={field.value || ""}
+                                  onChange={(e) => handleEditCustomField(idx, field.id, 'value', e.target.value)}
+                                  placeholder="Valeur"
+                                  className="flex-1 border border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
+                                />
+                                <button 
+                                  onClick={() => removeCustomFieldFromTiers(idx, field.id)}
+                                  className="text-red-500 hover:text-red-700 hover:bg-red-100 p-1 rounded transition-all duration-200"
+                                  title="Supprimer ce champ"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Bouton pour ajouter un champ personnalisé à ce tiers */}
+                      <div className="mt-4 pt-4 border-t">
+                        <button
+                          onClick={() => addCustomFieldToTiers(idx)}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-2 rounded-lg transition-all duration-200 flex items-center space-x-2 text-sm font-medium"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          <span>Ajouter un champ personnalisé</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
-
-                {/* Bouton pour ajouter un champ personnalisé à ce tiers */}
-                <div className="mt-4 pt-4 border-t">
-                  <button
-                    onClick={() => addCustomFieldToTiers(idx)}
-                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-2 rounded-lg transition-all duration-200 flex items-center space-x-2 text-sm font-medium"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    <span>Ajouter un champ personnalisé</span>
-                  </button>
-                </div>
               </div>
             ))}
-        </div>
+          </div>
         )}
       </div>
 
