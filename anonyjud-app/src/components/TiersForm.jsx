@@ -20,12 +20,29 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
   const [isAddingCustomField, setIsAddingCustomField] = useState(false);
   const [newCustomField, setNewCustomField] = useState({ label: "", value: "" });
   
+  // État pour gérer l'affichage du formulaire d'ajout
+  const [showAddForm, setShowAddForm] = useState(false);
+  
   // État pour gérer quels tiers sont développés dans l'accordéon
   const [expandedTiers, setExpandedTiers] = useState(new Set());
 
   const categories = [
     "Demandeur", "Défendeur", "Avocat", "Conseil", "Sapiteur", "Tribunal", "Autres"
   ];
+
+  // Fonction pour obtenir les couleurs des catégories avec plus de contraste
+  const getCategoryColor = (categorie) => {
+    const colors = {
+      "Demandeur": "bg-blue-100 text-blue-900 border border-blue-300",
+      "Défendeur": "bg-red-100 text-red-900 border border-red-300",
+      "Avocat": "bg-purple-100 text-purple-900 border border-purple-300",
+      "Conseil": "bg-green-100 text-green-900 border border-green-300",
+      "Sapiteur": "bg-orange-100 text-orange-900 border border-orange-300",
+      "Tribunal": "bg-gray-100 text-gray-900 border border-gray-400",
+      "Autres": "bg-yellow-100 text-yellow-900 border border-yellow-300"
+    };
+    return colors[categorie] || "bg-gray-100 text-gray-900 border border-gray-300";
+  };
 
   // Fonction pour basculer l'état développé/réduit d'un tiers
   const toggleTierExpansion = (index) => {
@@ -82,7 +99,7 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
       setProjects([...projects, { tiers: updatedTiers }]);
     }
     
-    // Réinitialiser le formulaire
+    // Réinitialiser le formulaire et fermer le formulaire d'ajout
     setForm({ 
       nom: "", 
       prenom: "", 
@@ -91,9 +108,11 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
       portable: "", 
       email: "", 
       societe: "", 
-      categorie: form.categorie,
+      categorie: "Demandeur",
       customFields: []
     });
+    setShowAddForm(false);
+    setIsAddingCustomField(false);
   };
 
   const handleDelete = idx => {
@@ -195,231 +214,9 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
 
   return (
     <div className="space-y-6">
-      {/* Formulaire d'ajout de tiers */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <div className="flex items-center justify-between mb-6">
-          <h4 className="text-lg font-semibold text-gray-800">Ajouter un nouveau tiers</h4>
-          <div className="flex items-center space-x-2 text-sm text-gray-500">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Remplissez au moins un champ</span>
-          </div>
-        </div>
-
-        {/* Champs de base */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
-          <select 
-            name="categorie" 
-            value={form.categorie} 
-            onChange={handleChange} 
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-          >
-              {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-          </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
-          <input 
-            name="nom" 
-            value={form.nom} 
-            onChange={handleChange} 
-              placeholder="Nom de famille" 
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-          />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
-          <input 
-            name="prenom" 
-            value={form.prenom} 
-            onChange={handleChange} 
-            placeholder="Prénom" 
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-          />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
-          <input 
-            name="adresse" 
-            value={form.adresse} 
-            onChange={handleChange} 
-            placeholder="Adresse complète" 
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-          />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone fixe</label>
-          <input 
-            name="telephone" 
-            value={form.telephone} 
-            onChange={handleChange} 
-              placeholder="01 23 45 67 89" 
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-          />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Portable</label>
-          <input 
-            name="portable" 
-            value={form.portable} 
-            onChange={handleChange} 
-              placeholder="06 12 34 56 78" 
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-          />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-          <input 
-            name="email" 
-              type="email"
-            value={form.email} 
-            onChange={handleChange} 
-              placeholder="exemple@email.com" 
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-          />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Société</label>
-          <input 
-            name="societe" 
-            value={form.societe} 
-            onChange={handleChange} 
-              placeholder="Nom de la société" 
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-          />
-          </div>
-        </div>
-          
-        {/* Section Champs Personnalisés */}
-        <div className="border-t pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h5 className="text-md font-semibold text-gray-800 flex items-center">
-              <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
-              </svg>
-              Champs personnalisés
-            </h5>
-            <span className="text-sm text-gray-500">
-              {form.customFields.length} champ{form.customFields.length > 1 ? 's' : ''}
-            </span>
-          </div>
-
-          {/* Liste des champs personnalisés existants */}
-          <div className="space-y-3 mb-4">
-            {form.customFields.map((field, index) => (
-              <div key={field.id} className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg border border-blue-200 animate-fade-in">
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    value={field.label}
-                    onChange={(e) => updateCustomField(field.id, 'label', e.target.value)}
-                    placeholder="Nom du champ (ex: N° dossier)"
-                    className="border border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                  />
-              <input 
-                    type="text"
-                    value={field.value}
-                    onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
-                    placeholder="Valeur à anonymiser"
-                    className="border border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-              />
-            </div>
-                <button
-                  onClick={() => removeCustomField(field.id)}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-100 p-2 rounded-lg transition-all duration-200"
-                  title="Supprimer ce champ"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* Zone d'ajout de nouveau champ personnalisé */}
-          {isAddingCustomField ? (
-            <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200 animate-fade-in">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                <input
-                  type="text"
-                  value={newCustomField.label}
-                  onChange={(e) => setNewCustomField({...newCustomField, label: e.target.value})}
-                  placeholder="Nom du champ (ex: N° SIRET, Référence...)"
-                  className="border border-blue-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                  autoFocus
-                />
-              <input 
-                  type="text"
-                  value={newCustomField.value}
-                  onChange={(e) => setNewCustomField({...newCustomField, value: e.target.value})}
-                placeholder="Valeur à anonymiser" 
-                  className="border border-blue-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-              />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <button
-                  onClick={() => {
-                    setIsAddingCustomField(false);
-                    setNewCustomField({ label: "", value: "" });
-                  }}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-all duration-200"
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={addCustomField}
-                  disabled={!newCustomField.label.trim()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 flex items-center space-x-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  <span>Ajouter</span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsAddingCustomField(true)}
-              className="w-full p-4 border-2 border-dashed border-blue-300 hover:border-blue-400 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-all duration-200 flex items-center justify-center space-x-2 group"
-            >
-              <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              <span className="font-medium">Ajouter un champ personnalisé</span>
-            </button>
-          )}
-        </div>
-
-        {/* Bouton d'ajout du tiers */}
-        <div className="pt-6 border-t">
-        <button 
-          type="button" 
-            className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
-          onClick={handleAdd}
-        >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-            <span>Ajouter ce tiers au projet</span>
-        </button>
-        </div>
-      </div>
-      
-      {/* Liste des tiers */}
+      {/* Liste des tiers avec bouton d'ajout */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <h4 className="text-lg font-semibold text-gray-800 flex items-center">
             <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -430,46 +227,59 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
             <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
               {tiers.length} tiers
             </span>
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150 flex items-center space-x-2 shadow-sm hover:shadow-md"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              <span>Ajouter un tiers</span>
+            </button>
           </div>
         </div>
 
         {tiers.length === 0 ? (
           <div className="p-12 text-center">
             <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
             <h3 className="text-lg font-medium text-gray-700 mb-2">Aucun tiers ajouté</h3>
-            <p className="text-gray-500">Commencez par ajouter votre premier tiers avec le formulaire ci-dessus.</p>
+            <p className="text-gray-500">Commencez par ajouter votre premier tiers en cliquant sur le bouton "Ajouter un tiers".</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-gray-300">
             {tiers.map((t, idx) => (
               <div key={idx} className="transition-all duration-200">
                 {/* Vue compacte - toujours visible */}
                 <div 
-                  className="p-4 hover:bg-gray-50 cursor-pointer flex items-center justify-between"
+                  className={`p-5 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition-all duration-200 ${
+                    idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                  } ${expandedTiers.has(idx) ? 'border-l-4 border-blue-500' : ''}`}
                   onClick={() => toggleTierExpansion(idx)}
                 >
                   <div className="flex items-center space-x-4">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm">
+                    <div className="w-9 h-9 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm shadow-sm">
                       {idx + 1}
                     </div>
                     <div className="flex items-center space-x-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                        getCategoryColor(t.categorie)
+                      }`}>
                         {t.categorie}
                       </span>
                       <div className="flex items-center space-x-2">
-                        {t.nom && <span className="font-medium text-gray-900">{t.nom}</span>}
-                        {t.prenom && <span className="text-gray-700">{t.prenom}</span>}
-                        {!t.nom && !t.prenom && t.societe && <span className="font-medium text-gray-900">{t.societe}</span>}
-                        {!t.nom && !t.prenom && !t.societe && <span className="text-gray-500 italic">Tiers sans nom</span>}
+                        {t.nom && <span className="font-semibold text-gray-900 text-sm">{t.nom}</span>}
+                        {t.prenom && <span className="text-gray-700 text-sm">{t.prenom}</span>}
+                        {!t.nom && !t.prenom && t.societe && <span className="font-semibold text-gray-900 text-sm">{t.societe}</span>}
+                        {!t.nom && !t.prenom && !t.societe && <span className="text-gray-500 italic text-sm">Tiers sans nom</span>}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-3">
                     {/* Indicateur de champs personnalisés */}
                     {t.customFields && t.customFields.length > 0 && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
                         {t.customFields.length} champ{t.customFields.length > 1 ? 's' : ''}
                       </span>
                     )}
@@ -479,7 +289,7 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                         e.stopPropagation();
                         handleDelete(idx);
                       }}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-100 p-2 rounded-lg transition-all duration-200"
+                      className="text-red-600 hover:text-red-800 hover:bg-red-100 p-2 rounded-lg transition-all duration-200 border border-transparent hover:border-red-200"
                       title="Supprimer ce tiers"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -488,7 +298,7 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                     </button>
                     {/* Icône d'expansion/réduction */}
                     <svg 
-                      className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedTiers.has(idx) ? 'rotate-180' : ''}`}
+                      className={`w-5 h-5 text-gray-600 transition-transform duration-200 ${expandedTiers.has(idx) ? 'rotate-180' : ''}`}
                       fill="none" 
                       stroke="currentColor" 
                       viewBox="0 0 24 24"
@@ -500,7 +310,7 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
 
                 {/* Vue détaillée - révélée au clic */}
                 {expandedTiers.has(idx) && (
-                  <div className="px-4 pb-6 bg-gray-50 border-t animate-fade-in">
+                  <div className="px-6 pb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-t border-blue-200 animate-fade-in">
                     <div className="pt-4">
                       {/* Sélecteur de catégorie */}
                       <div className="mb-4">
@@ -644,6 +454,245 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
           </div>
         )}
       </div>
+
+      {/* Formulaire d'ajout conditionnel */}
+      {showAddForm && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 animate-fade-in">
+          <div className="flex items-center justify-between mb-6">
+            <h4 className="text-lg font-semibold text-gray-800">Ajouter un nouveau tiers</h4>
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Remplissez au moins un champ</span>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddForm(false);
+                  setIsAddingCustomField(false);
+                  setNewCustomField({ label: "", value: "" });
+                }}
+                className="text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Fermer le formulaire"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Champs de base */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
+              <select 
+                name="categorie" 
+                value={form.categorie} 
+                onChange={handleChange} 
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              >
+                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+              <input 
+                name="nom" 
+                value={form.nom} 
+                onChange={handleChange} 
+                placeholder="Nom de famille" 
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
+              <input 
+                name="prenom" 
+                value={form.prenom} 
+                onChange={handleChange} 
+                placeholder="Prénom" 
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
+              <input 
+                name="adresse" 
+                value={form.adresse} 
+                onChange={handleChange} 
+                placeholder="Adresse complète" 
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone fixe</label>
+              <input 
+                name="telephone" 
+                value={form.telephone} 
+                onChange={handleChange} 
+                placeholder="01 23 45 67 89" 
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Portable</label>
+              <input 
+                name="portable" 
+                value={form.portable} 
+                onChange={handleChange} 
+                placeholder="06 12 34 56 78" 
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+              <input 
+                name="email" 
+                type="email"
+                value={form.email} 
+                onChange={handleChange} 
+                placeholder="exemple@email.com" 
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Société</label>
+              <input 
+                name="societe" 
+                value={form.societe} 
+                onChange={handleChange} 
+                placeholder="Nom de la société" 
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+              />
+            </div>
+          </div>
+            
+          {/* Section Champs Personnalisés */}
+          <div className="border-t pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h5 className="text-md font-semibold text-gray-800 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                </svg>
+                Champs personnalisés
+              </h5>
+              <span className="text-sm text-gray-500">
+                {form.customFields.length} champ{form.customFields.length > 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {/* Liste des champs personnalisés existants */}
+            <div className="space-y-3 mb-4">
+              {form.customFields.map((field, index) => (
+                <div key={field.id} className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg border border-blue-200 animate-fade-in">
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      value={field.label}
+                      onChange={(e) => updateCustomField(field.id, 'label', e.target.value)}
+                      placeholder="Nom du champ (ex: N° dossier)"
+                      className="border border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    />
+                    <input 
+                      type="text"
+                      value={field.value}
+                      onChange={(e) => updateCustomField(field.id, 'value', e.target.value)}
+                      placeholder="Valeur à anonymiser"
+                      className="border border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    />
+                  </div>
+                  <button
+                    onClick={() => removeCustomField(field.id)}
+                    className="text-red-500 hover:text-red-700 hover:bg-red-100 p-2 rounded-lg transition-all duration-200"
+                    title="Supprimer ce champ"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Zone d'ajout de nouveau champ personnalisé */}
+            {isAddingCustomField ? (
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200 animate-fade-in">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                  <input
+                    type="text"
+                    value={newCustomField.label}
+                    onChange={(e) => setNewCustomField({...newCustomField, label: e.target.value})}
+                    placeholder="Nom du champ (ex: N° SIRET, Référence...)"
+                    className="border border-blue-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    autoFocus
+                  />
+                  <input 
+                    type="text"
+                    value={newCustomField.value}
+                    onChange={(e) => setNewCustomField({...newCustomField, value: e.target.value})}
+                    placeholder="Valeur à anonymiser" 
+                    className="border border-blue-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => {
+                      setIsAddingCustomField(false);
+                      setNewCustomField({ label: "", value: "" });
+                    }}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={addCustomField}
+                    disabled={!newCustomField.label.trim()}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 flex items-center space-x-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>Ajouter</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsAddingCustomField(true)}
+                className="w-full p-4 border-2 border-dashed border-blue-300 hover:border-blue-400 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-all duration-200 flex items-center justify-center space-x-2 group"
+              >
+                <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span className="font-medium">Ajouter un champ personnalisé</span>
+              </button>
+            )}
+          </div>
+
+          {/* Bouton d'ajout du tiers */}
+          <div className="pt-6 border-t">
+            <button 
+              type="button" 
+              className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
+              onClick={handleAdd}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              <span>Ajouter ce tiers au projet</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         @keyframes fade-in {
