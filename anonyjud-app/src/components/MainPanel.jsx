@@ -13,6 +13,8 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
   const [dragActive, setDragActive] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [uploadedFileName, setUploadedFileName] = useState('');
   const fileInputRef = useRef(null);
 
   // Réinitialiser les champs lorsque le projet sélectionné change
@@ -21,6 +23,8 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
     setAnonymizedText('');
     setMapping({});
     setError('');
+    setUploadedFile(null);
+    setUploadedFileName('');
   }, [selectedProject]);
 
   // Fonction pour anonymiser le texte
@@ -120,6 +124,10 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
     setIsProcessing(true);
 
     try {
+      // Sauvegarder le fichier uploadé pour les téléchargements futurs
+      setUploadedFile(file);
+      setUploadedFileName(file.name);
+      
       // Afficher les tiers pour le débogage
       console.log("Tiers envoyés pour anonymisation de fichier:", selectedProject.tiers);
       
@@ -152,6 +160,102 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
   // Fonction pour déclencher le clic sur l'input de fichier
   const onButtonClick = () => {
     fileInputRef.current.click();
+  };
+
+  // Fonction pour télécharger le fichier anonymisé
+  const downloadAnonymizedFile = async () => {
+    if (!uploadedFile || !selectedProject) {
+      setError('Aucun fichier à télécharger.');
+      return;
+    }
+
+    // Vérifier que c'est un fichier Word
+    const fileType = uploadedFile.name.split('.').pop().toLowerCase();
+    if (fileType !== 'docx') {
+      setError('Le téléchargement de fichiers anonymisés n\'est disponible que pour les fichiers Word (.docx).');
+      return;
+    }
+
+    setError('');
+    setIsProcessing(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadedFile);
+      formData.append('tiers_json', JSON.stringify(selectedProject.tiers || []));
+
+      const response = await fetch(`${config.API_BASE_URL}/anonymize/file/download`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      // Télécharger le fichier
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = uploadedFileName.replace('.docx', '_anonymise.docx');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(`Erreur lors du téléchargement: ${err.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Fonction pour télécharger le fichier dé-anonymisé
+  const downloadDeanonymizedFile = async () => {
+    if (!uploadedFile || !mapping || Object.keys(mapping).length === 0) {
+      setError('Aucun fichier anonymisé à dé-anonymiser.');
+      return;
+    }
+
+    // Vérifier que c'est un fichier Word
+    const fileType = uploadedFile.name.split('.').pop().toLowerCase();
+    if (fileType !== 'docx') {
+      setError('Le téléchargement de fichiers dé-anonymisés n\'est disponible que pour les fichiers Word (.docx).');
+      return;
+    }
+
+    setError('');
+    setIsProcessing(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadedFile);
+      formData.append('mapping_json', JSON.stringify(mapping));
+
+      const response = await fetch(`${config.API_BASE_URL}/deanonymize/file/download`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      // Télécharger le fichier
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = uploadedFileName.replace('.docx', '_deanonymise.docx');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(`Erreur lors du téléchargement: ${err.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Fonction pour dé-anonymiser le texte
@@ -278,7 +382,51 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                 <p className="text-gray-500">
                   Glissez-déposez un fichier PDF, Word ou ODT ici, ou cliquez pour sélectionner un fichier
                 </p>
+                {uploadedFileName && (
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-800 font-medium">
+                      📄 {uploadedFileName}
+                    </p>
+                  </div>
+                )}
               </div>
+
+              {/* Boutons de téléchargement pour les fichiers Word */}
+              {uploadedFile && uploadedFile.name.endsWith('.docx') && (
+                <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                  <h4 className="text-sm font-semibold text-green-800 mb-3 flex items-center">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Téléchargement de fichiers Word
+                  </h4>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      onClick={downloadAnonymizedFile}
+                      disabled={isProcessing || !selectedProject?.tiers?.length}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Télécharger anonymisé
+                    </button>
+                    <button
+                      onClick={downloadDeanonymizedFile}
+                      disabled={isProcessing || !mapping || Object.keys(mapping).length === 0}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Télécharger dé-anonymisé
+                    </button>
+                  </div>
+                  <p className="text-xs text-green-600 mt-2">
+                    💡 Ces boutons téléchargent le fichier Word original avec les modifications appliquées directement dans le document.
+                  </p>
+                </div>
+              )}
               
               {/* Texte anonymisé */}
               <div className="flex flex-col h-1/2">
