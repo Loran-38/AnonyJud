@@ -182,6 +182,8 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
     // Vérifier que c'est un fichier Word
     const fileType = uploadedFile.name.split('.').pop().toLowerCase();
     console.log('Type de fichier détecté:', fileType);
+    console.log('Nom du fichier:', uploadedFile.name);
+    console.log('Test endsWith:', uploadedFile.name.toLowerCase().endsWith('.docx'));
     
     if (fileType !== 'docx') {
       const errorMsg = 'Le téléchargement de fichiers anonymisés n\'est disponible que pour les fichiers Word (.docx).';
@@ -234,6 +236,9 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
 
     // Vérifier que c'est un fichier Word
     const fileType = uploadedFile.name.split('.').pop().toLowerCase();
+    console.log('downloadDeanonymizedFile - Type de fichier détecté:', fileType);
+    console.log('downloadDeanonymizedFile - Nom du fichier:', uploadedFile.name);
+    
     if (fileType !== 'docx') {
       setError('Le téléchargement de fichiers dé-anonymisés n\'est disponible que pour les fichiers Word (.docx).');
       return;
@@ -415,7 +420,7 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                   Téléchargement de fichiers Word
                 </h4>
                 
-                {uploadedFile && uploadedFile.name.endsWith('.docx') ? (
+                {uploadedFile && uploadedFile.name.toLowerCase().endsWith('.docx') ? (
                   <>
                     <div className="flex flex-col sm:flex-row gap-3">
                       <button
@@ -464,7 +469,7 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                       </svg>
                       Uploadez un fichier Word (.docx) pour voir les boutons de téléchargement.
                     </p>
-                    {uploadedFile && !uploadedFile.name.endsWith('.docx') && (
+                    {uploadedFile && !uploadedFile.name.toLowerCase().endsWith('.docx') && (
                       <p className="text-xs text-orange-600 mt-1">
                         ⚠️ Fichier actuel : {uploadedFile.name} - Seuls les fichiers .docx sont supportés pour le téléchargement.
                       </p>
