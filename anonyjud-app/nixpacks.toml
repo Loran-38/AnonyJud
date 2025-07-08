@@ -1,9 +1,30 @@
+[phases.setup]
+nixPkgs = ["nodejs-18_x", "npm-9_x"]
+aptPkgs = ["build-essential", "python3"]
+
+[phases.install]
+dependsOn = ["setup"]
+cmds = [
+  "npm ci --only=production --no-audit --no-fund",
+  "npm cache clean --force"
+]
+
 [phases.build]
-cmds = ["npm install", "npm run build"]
+dependsOn = ["install"]
+cmds = [
+  "npm run build"
+]
 
 [phases.start]
-cmd = "npx serve -s build -l $PORT"
+cmd = "npx serve -s build -l $PORT --no-clipboard"
 
 [variables]
-NODE_ENV = "production" 
-CI = "true" 
+NODE_ENV = "production"
+CI = "true"
+GENERATE_SOURCEMAP = "false"
+DISABLE_ESLINT_PLUGIN = "true"
+FAST_REFRESH = "false"
+
+[build]
+buildCommand = "npm run build"
+installCommand = "npm ci --only=production --no-audit --no-fund" 
