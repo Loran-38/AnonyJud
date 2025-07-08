@@ -128,6 +128,10 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
       setUploadedFile(file);
       setUploadedFileName(file.name);
       
+      // Debugging pour vérifier l'état du fichier
+      console.log("Fichier uploadé:", file.name, "Type:", file.type);
+      console.log("Extension détectée:", file.name.split('.').pop().toLowerCase());
+      
       // Afficher les tiers pour le débogage
       console.log("Tiers envoyés pour anonymisation de fichier:", selectedProject.tiers);
       
@@ -392,60 +396,81 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
               </div>
 
               {/* Section téléchargement de fichiers */}
-              {uploadedFile && uploadedFile.name.endsWith('.docx') && (
-                <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200 shadow-sm">
-                  <h4 className="text-sm font-semibold text-green-800 mb-3 flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Téléchargement de fichiers Word
-                  </h4>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                      onClick={downloadAnonymizedFile}
-                      disabled={isProcessing || !selectedProject?.tiers?.length}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm hover:shadow-md transform hover:scale-105"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Télécharger fichier anonymisé
-                    </button>
-                    <button
-                      onClick={downloadDeanonymizedFile}
-                      disabled={isProcessing || !mapping || Object.keys(mapping).length === 0}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm hover:shadow-md transform hover:scale-105"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Télécharger fichier dé-anonymisé
-                    </button>
-                  </div>
-                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-xs text-blue-700 font-medium flex items-center">
-                      <svg className="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200 shadow-sm">
+                <h4 className="text-sm font-semibold text-green-800 mb-3 flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Téléchargement de fichiers Word
+                </h4>
+                
+                {uploadedFile && uploadedFile.name.endsWith('.docx') ? (
+                  <>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={downloadAnonymizedFile}
+                        disabled={isProcessing || !selectedProject?.tiers?.length}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm hover:shadow-md transform hover:scale-105"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Télécharger fichier anonymisé
+                      </button>
+                      <button
+                        onClick={downloadDeanonymizedFile}
+                        disabled={isProcessing || !mapping || Object.keys(mapping).length === 0}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm hover:shadow-md transform hover:scale-105"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Télécharger fichier dé-anonymisé
+                      </button>
+                    </div>
+                    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-xs text-blue-700 font-medium flex items-center">
+                        <svg className="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Ces boutons téléchargent le fichier Word original avec les modifications appliquées directement dans le document.
+                      </p>
+                    </div>
+                    {!selectedProject?.tiers?.length && (
+                      <div className="mt-2 p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <p className="text-xs text-yellow-700 font-medium">
+                          ⚠️ Ajoutez des tiers pour activer le téléchargement du fichier anonymisé.
+                        </p>
+                      </div>
+                    )}
+                    {(!mapping || Object.keys(mapping).length === 0) && (
+                      <div className="mt-2 p-2 bg-orange-50 rounded-lg border border-orange-200">
+                        <p className="text-xs text-orange-700 font-medium">
+                          ⚠️ Effectuez d'abord une anonymisation pour activer le téléchargement dé-anonymisé.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-600 flex items-center">
+                      <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      Ces boutons téléchargent le fichier Word original avec les modifications appliquées directement dans le document.
+                      Uploadez un fichier Word (.docx) pour voir les boutons de téléchargement.
                     </p>
+                    {uploadedFile && !uploadedFile.name.endsWith('.docx') && (
+                      <p className="text-xs text-orange-600 mt-1">
+                        ⚠️ Fichier actuel : {uploadedFile.name} - Seuls les fichiers .docx sont supportés pour le téléchargement.
+                      </p>
+                    )}
+                    {/* Debug info */}
+                    <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-500">
+                      Debug: {uploadedFile ? `Fichier: ${uploadedFile.name}, Extension: ${uploadedFile.name.split('.').pop()}` : 'Aucun fichier uploadé'}
+                    </div>
                   </div>
-                  {!selectedProject?.tiers?.length && (
-                    <div className="mt-2 p-2 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <p className="text-xs text-yellow-700 font-medium">
-                        ⚠️ Ajoutez des tiers pour activer le téléchargement du fichier anonymisé.
-                      </p>
-                    </div>
-                  )}
-                  {(!mapping || Object.keys(mapping).length === 0) && (
-                    <div className="mt-2 p-2 bg-orange-50 rounded-lg border border-orange-200">
-                      <p className="text-xs text-orange-700 font-medium">
-                        ⚠️ Effectuez d'abord une anonymisation pour activer le téléchargement dé-anonymisé.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
               
               {/* Texte anonymisé */}
               <div className="flex flex-col h-1/2">
