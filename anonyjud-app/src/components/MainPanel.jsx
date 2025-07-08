@@ -168,20 +168,31 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
 
   // Fonction pour télécharger le fichier anonymisé
   const downloadAnonymizedFile = async () => {
+    console.log('downloadAnonymizedFile appelée');
+    console.log('uploadedFile:', uploadedFile);
+    console.log('selectedProject:', selectedProject);
+    
     if (!uploadedFile || !selectedProject) {
-      setError('Aucun fichier à télécharger.');
+      const errorMsg = 'Aucun fichier à télécharger.';
+      console.error(errorMsg);
+      setError(errorMsg);
       return;
     }
 
     // Vérifier que c'est un fichier Word
     const fileType = uploadedFile.name.split('.').pop().toLowerCase();
+    console.log('Type de fichier détecté:', fileType);
+    
     if (fileType !== 'docx') {
-      setError('Le téléchargement de fichiers anonymisés n\'est disponible que pour les fichiers Word (.docx).');
+      const errorMsg = 'Le téléchargement de fichiers anonymisés n\'est disponible que pour les fichiers Word (.docx).';
+      console.error(errorMsg);
+      setError(errorMsg);
       return;
     }
 
     setError('');
     setIsProcessing(true);
+    console.log('Début du téléchargement du fichier anonymisé...');
 
     try {
       const formData = new FormData();
@@ -409,7 +420,7 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                     <div className="flex flex-col sm:flex-row gap-3">
                       <button
                         onClick={downloadAnonymizedFile}
-                        disabled={isProcessing || !selectedProject?.tiers?.length}
+                        disabled={isProcessing}
                         className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm hover:shadow-md transform hover:scale-105"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -419,7 +430,7 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                       </button>
                       <button
                         onClick={downloadDeanonymizedFile}
-                        disabled={isProcessing || !mapping || Object.keys(mapping).length === 0}
+                        disabled={isProcessing}
                         className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm hover:shadow-md transform hover:scale-105"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -436,20 +447,14 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                         Ces boutons téléchargent le fichier Word original avec les modifications appliquées directement dans le document.
                       </p>
                     </div>
-                    {!selectedProject?.tiers?.length && (
-                      <div className="mt-2 p-2 bg-yellow-50 rounded-lg border border-yellow-200">
-                        <p className="text-xs text-yellow-700 font-medium">
-                          ⚠️ Ajoutez des tiers pour activer le téléchargement du fichier anonymisé.
-                        </p>
-                      </div>
-                    )}
-                    {(!mapping || Object.keys(mapping).length === 0) && (
-                      <div className="mt-2 p-2 bg-orange-50 rounded-lg border border-orange-200">
-                        <p className="text-xs text-orange-700 font-medium">
-                          ⚠️ Effectuez d'abord une anonymisation pour activer le téléchargement dé-anonymisé.
-                        </p>
-                      </div>
-                    )}
+                    <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-xs text-blue-700 font-medium">
+                        ℹ️ <strong>Téléchargement anonymisé :</strong> Disponible même sans tiers (anonymisation basique)
+                      </p>
+                      <p className="text-xs text-blue-700 font-medium mt-1">
+                        ℹ️ <strong>Téléchargement dé-anonymisé :</strong> Nécessite une anonymisation préalable
+                      </p>
+                    </div>
                   </>
                 ) : (
                   <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -466,7 +471,8 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                     )}
                     {/* Debug info */}
                     <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-500">
-                      Debug: {uploadedFile ? `Fichier: ${uploadedFile.name}, Extension: ${uploadedFile.name.split('.').pop()}` : 'Aucun fichier uploadé'}
+                      <div>Debug: {uploadedFile ? `Fichier: ${uploadedFile.name}, Extension: ${uploadedFile.name.split('.').pop()}` : 'Aucun fichier uploadé'}</div>
+                      <div>Tiers: {selectedProject?.tiers?.length || 0} | Mapping: {mapping ? Object.keys(mapping).length : 0} | Processing: {isProcessing ? 'Oui' : 'Non'}</div>
                     </div>
                   </div>
                 )}
