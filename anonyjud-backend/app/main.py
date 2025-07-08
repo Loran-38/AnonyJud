@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Dict, List, Any, Optional
 import json
@@ -12,25 +11,12 @@ from docx import Document  # python-docx pour les fichiers Word
 import io
 from odf import text as odf_text, teletype
 from odf.opendocument import load
-import time
-import logging
 
 from .anonymizer import anonymize_text
 from .deanonymizer import deanonymize_text
 from .models import TextAnonymizationRequest, TextDeanonymizationRequest
 
-# Configuration du logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Configuration FastAPI optimisée
-app = FastAPI(
-    title="AnonyJud API",
-    description="API d'anonymisation de documents juridiques",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
+app = FastAPI()
 
 # Configuration CORS pour permettre les requêtes depuis le frontend
 app.add_middleware(
@@ -41,110 +27,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Variables globales pour le monitoring
-startup_time = time.time()
-
-@app.on_event("startup")
-async def startup_event():
-    """Événement de démarrage pour initialiser l'application"""
-    global startup_time
-    startup_time = time.time()
-    logger.info("🚀 AnonyJud API démarrée avec succès")
-
 @app.get("/")
 def read_root():
-    """Endpoint racine"""
-    return {
-        "message": "AnonyJud API is running",
-        "version": "1.0.0",
-        "status": "healthy",
-        "uptime": time.time() - startup_time
-    }
-
-@app.get("/health")
-def health_check():
-    """Endpoint de healthcheck pour Railway"""
-    try:
-        uptime = time.time() - startup_time
-        return JSONResponse(
-            status_code=200,
-            content={
-                "status": "healthy",
-                "service": "anonyjud-backend",
-                "version": "1.0.0",
-                "uptime": uptime,
-                "timestamp": time.time()
-            }
-        )
-    except Exception as e:
-        logger.error(f"Erreur healthcheck: {e}")
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "unhealthy",
-                "error": str(e),
-                "timestamp": time.time()
-            }
-        )
-
-@app.get("/status")
-def get_status():
-    """Endpoint de statut détaillé"""
-    return {
-        "service": "anonyjud-backend",
-        "status": "running",
-        "version": "1.0.0",
-        "uptime": time.time() - startup_time,
-        "features": {
-            "text_anonymization": True,
-            "file_anonymization": True,
-            "deanonymization": True,
-            "supported_formats": ["pdf", "docx", "odt"]
-        }
-    }
+    return {"message": "AnonyJud API is running"}
 
 @app.post("/anonymize/text")
-async def anonymize_text_endpoint(request: TextAnonymizationRequest):
-    """Endpoint pour anonymiser du texte"""
+def anonymize_text_endpoint(request: TextAnonymizationRequest):
+    """
+    Anonymise un texte en utilisant les tiers fournis.
+    """
     try:
-        logger.info(f"Anonymisation de texte demandée - {len(request.text)} caractères")
-        start_time = time.time()
-        
-        anonymized_text, mapping = anonymize_text(request.text, request.tiers)
-        
-        processing_time = time.time() - start_time
-        logger.info(f"Anonymisation terminée en {processing_time:.2f}s")
-        
-        return {
-            "anonymized_text": anonymized_text,
-            "mapping": mapping,
-            "processing_time": processing_time,
-            "status": "success"
-        }
+        anonymized, mapping = anonymize_text(request.text, request.tiers)
+        return {"anonymized_text": anonymized, "mapping": mapping}
     except Exception as e:
-        logger.error(f"Erreur lors de l'anonymisation: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors de l'anonymisation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/deanonymize/text")
-async def deanonymize_text_endpoint(request: TextDeanonymizationRequest):
-    """Endpoint pour dé-anonymiser du texte"""
+def deanonymize_text_endpoint(request: TextDeanonymizationRequest):
+    """
+    Dé-anonymise un texte en utilisant le mapping fourni.
+    """
     try:
-        logger.info(f"Dé-anonymisation de texte demandée - {len(request.anonymized_text)} caractères")
-        start_time = time.time()
-        
-        result = deanonymize_text(request.anonymized_text, request.mapping)
-        
-        processing_time = time.time() - start_time
-        logger.info(f"Dé-anonymisation terminée en {processing_time:.2f}s")
-        
-        return {
-            "deanonymized_text": result,
-            "processing_time": processing_time,
-            "status": "success"
-        }
+        deanonymized = deanonymize_text(request.anonymized_text, request.mapping)
+        return {"deanonymized_text": deanonymized}
     except Exception as e:
-        logger.error(f"Erreur lors de la dé-anonymisation: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la dé-anonymisation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/anonymize/file")
 async def anonymize_file(
@@ -196,7 +103,7 @@ def extract_and_anonymize_pdf(content: bytes, tiers: List[Dict[str, Any]]):
             text = ""
             # Extraire le texte de chaque page
             for page in pdf:
-                text += page.get_text() if hasattr(page, 'get_text') else ""
+                text += page.get_text()
         
         # Anonymiser le texte extrait
         anonymized, mapping = anonymize_text(text, tiers)

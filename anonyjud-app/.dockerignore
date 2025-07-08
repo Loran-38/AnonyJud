@@ -1,58 +1,12 @@
-# Dépendances
 node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# Production
-build
-dist
-
-# Environnement
-.env
+.git
+.gitignore
+README.md
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-
-# Logs
-logs
-*.log
-
-# Cache
-.cache
-.parcel-cache
-.next
-.nuxt
-
-# Coverage
-coverage
-.nyc_output
-
-# Tests
-__tests__
-*.test.js
-*.spec.js
-
-# IDE
-.vscode
-.idea
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Git
-.git
-.gitignore
-README.md
-CHANGELOG.md
-
-# Divers
-*.md
-!README.md
-.editorconfig
-.eslintrc*
-.prettierrc* 
+.DS_Store 
