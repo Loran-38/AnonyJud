@@ -1,24 +1,9 @@
-[phases.setup]
-nixPkgs = ["nodejs-18_x", "npm-9_x"]
-
-[phases.install]
-cmds = [
-  "npm ci --cache /tmp/.npm --prefer-offline --no-audit --no-fund --omit=dev"
-]
-
 [phases.build]
-cmds = [
-  "npm run build:prod"
-]
+cmds = ["npm install", "npm run build"]
 
 [phases.start]
 cmd = "npx serve -s build -l $PORT"
 
 [variables]
-NODE_ENV = "production"
-CI = "true"
-NPM_CONFIG_CACHE = "/tmp/.npm"
-GENERATE_SOURCEMAP = "false"
-DISABLE_ESLINT_PLUGIN = "true"
-NPM_CONFIG_PROGRESS = "false"
-NPM_CONFIG_LOGLEVEL = "error" 
+NODE_ENV = "production" 
+CI = "true" 
