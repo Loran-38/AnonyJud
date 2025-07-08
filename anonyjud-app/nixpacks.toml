@@ -1,7 +1,14 @@
+[phases.setup]
+nixPkgs = ["nodejs-18_x", "npm-9_x"]
+
+[phases.install]
+cmds = [
+  "npm ci --cache /tmp/.npm --prefer-offline --no-audit --no-fund --omit=dev"
+]
+
 [phases.build]
 cmds = [
-  "npm ci --cache /tmp/.npm --prefer-offline --no-audit --no-fund",
-  "npm run build -- --no-source-map"
+  "npm run build:prod"
 ]
 
 [phases.start]
@@ -12,4 +19,6 @@ NODE_ENV = "production"
 CI = "true"
 NPM_CONFIG_CACHE = "/tmp/.npm"
 GENERATE_SOURCEMAP = "false"
-DISABLE_ESLINT_PLUGIN = "true" 
+DISABLE_ESLINT_PLUGIN = "true"
+NPM_CONFIG_PROGRESS = "false"
+NPM_CONFIG_LOGLEVEL = "error" 
