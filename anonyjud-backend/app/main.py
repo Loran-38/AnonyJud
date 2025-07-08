@@ -117,7 +117,7 @@ async def anonymize_file_download(
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
-            anonymized_filename = f"{base_name}_anonymise.docx"
+            anonymized_filename = f"{base_name}_ANONYM.docx"
             
             # Retourner le fichier modifié
             return StreamingResponse(
@@ -154,10 +154,10 @@ async def deanonymize_file_download(
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
-            # Retirer "_anonymise" du nom si présent
-            if base_name.endswith("_anonymise"):
-                base_name = base_name[:-10]
-            deanonymized_filename = f"{base_name}_deanonymise.docx"
+            # Retirer "_ANONYM" du nom si présent
+            if base_name.endswith("_ANONYM"):
+                base_name = base_name[:-7]
+            deanonymized_filename = f"{base_name}_DESANONYM.docx"
             
             # Retourner le fichier modifié
             return StreamingResponse(
@@ -250,6 +250,8 @@ def anonymize_docx_file(content: bytes, tiers: List[Dict[str, Any]]):
     Retourne le fichier modifié et le mapping d'anonymisation.
     """
     try:
+        print(f"DEBUG: Début anonymize_docx_file avec {len(tiers)} tiers")
+        
         # Ouvrir le document Word depuis les bytes
         doc = Document(io.BytesIO(content))
         
@@ -258,20 +260,29 @@ def anonymize_docx_file(content: bytes, tiers: List[Dict[str, Any]]):
         for para in doc.paragraphs:
             full_text += para.text + "\n"
         
+        print(f"DEBUG: Texte extrait (premiers 200 chars): {full_text[:200]}...")
+        
         # Anonymiser le texte complet pour obtenir le mapping
         anonymized_text, mapping = anonymize_text(full_text, tiers)
+        
+        print(f"DEBUG: Mapping généré: {mapping}")
+        print(f"DEBUG: Texte anonymisé (premiers 200 chars): {anonymized_text[:200]}...")
         
         # Appliquer les anonymisations directement dans le document
         for para in doc.paragraphs:
             if para.text.strip():  # Seulement pour les paragraphes non vides
                 original_text = para.text
-                # Appliquer chaque remplacement du mapping
-                for original, anonymous in mapping.items():
-                    original_text = original_text.replace(original, anonymous)
+                modified_text = original_text
                 
-                # Remplacer le texte du paragraphe
-                para.clear()
-                para.add_run(original_text)
+                # Appliquer chaque remplacement du mapping (inverser pour que les tags remplacent les originaux)
+                for tag, original_value in mapping.items():
+                    modified_text = modified_text.replace(original_value, tag)
+                
+                # Remplacer le texte du paragraphe seulement si modifié
+                if modified_text != original_text:
+                    print(f"DEBUG: Paragraphe modifié: '{original_text}' -> '{modified_text}'")
+                    para.clear()
+                    para.add_run(modified_text)
         
         # Traiter également les tableaux
         for table in doc.tables:
@@ -280,22 +291,28 @@ def anonymize_docx_file(content: bytes, tiers: List[Dict[str, Any]]):
                     for para in cell.paragraphs:
                         if para.text.strip():
                             original_text = para.text
-                            # Appliquer chaque remplacement du mapping
-                            for original, anonymous in mapping.items():
-                                original_text = original_text.replace(original, anonymous)
+                            modified_text = original_text
                             
-                            # Remplacer le texte du paragraphe
-                            para.clear()
-                            para.add_run(original_text)
+                            # Appliquer chaque remplacement du mapping
+                            for tag, original_value in mapping.items():
+                                modified_text = modified_text.replace(original_value, tag)
+                            
+                            # Remplacer le texte du paragraphe seulement si modifié
+                            if modified_text != original_text:
+                                print(f"DEBUG: Cellule modifiée: '{original_text}' -> '{modified_text}'")
+                                para.clear()
+                                para.add_run(modified_text)
         
         # Sauvegarder le document modifié en bytes
         output = io.BytesIO()
         doc.save(output)
         output.seek(0)
         
+        print(f"DEBUG: Fichier anonymisé généré avec succès")
         return output.getvalue(), mapping
         
     except Exception as e:
+        print(f"DEBUG: Erreur dans anonymize_docx_file: {str(e)}")
         raise Exception(f"Erreur lors de l'anonymisation du fichier Word: {str(e)}")
 
 def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):

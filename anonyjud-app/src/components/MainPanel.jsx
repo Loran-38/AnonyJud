@@ -215,7 +215,16 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = uploadedFileName.replace('.docx', '_anonymise.docx');
+      // Extraire le nom du fichier depuis les headers de réponse
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = uploadedFileName.replace('.docx', '_ANONYM.docx');
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename=(.+)/);
+        if (filenameMatch) {
+          filename = filenameMatch[1].replace(/"/g, '');
+        }
+      }
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -266,7 +275,16 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = uploadedFileName.replace('.docx', '_deanonymise.docx');
+      // Extraire le nom du fichier depuis les headers de réponse
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = uploadedFileName.replace('.docx', '_DESANONYM.docx');
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename=(.+)/);
+        if (filenameMatch) {
+          filename = filenameMatch[1].replace(/"/g, '');
+        }
+      }
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
