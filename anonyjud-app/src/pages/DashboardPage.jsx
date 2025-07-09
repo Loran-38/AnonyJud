@@ -184,6 +184,8 @@ const DashboardPage = () => {
           <TiersManagement 
             selectedProject={selectedProject}
             updateProject={updateProject}
+            projects={projects}
+            setProjects={setProjects}
           />
         );
       case 'anonymizer':

@@ -1,7 +1,7 @@
 import React from 'react';
 import TiersForm from './TiersForm';
 
-const TiersManagement = ({ selectedProject, updateProject }) => {
+const TiersManagement = ({ selectedProject, updateProject, projects, setProjects }) => {
   if (!selectedProject) {
     return (
       <div className="h-full flex items-center justify-center text-center">
@@ -31,8 +31,11 @@ const TiersManagement = ({ selectedProject, updateProject }) => {
       
       <div className="p-6 overflow-y-auto" style={{ height: 'calc(100% - 88px)' }}>
         <TiersForm 
-          selectedProject={selectedProject}
+          projectId={selectedProject.id}
+          tiers={selectedProject.tiers || []}
           updateProject={updateProject}
+          projects={projects}
+          setProjects={setProjects}
         />
       </div>
     </div>
