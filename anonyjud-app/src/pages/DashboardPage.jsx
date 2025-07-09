@@ -3,13 +3,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import Sidebar from '../components/Sidebar';
-import MainPanel from '../components/MainPanel';
+import TiersManagement from '../components/TiersManagement';
+import AnonymizationPanel from '../components/AnonymizationPanel';
+import AiChatPanel from '../components/AiChatPanel';
 
 const DashboardPage = () => {
   const { currentUser, userProfile, canCreateProject, PLANS } = useAuth();
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('tiers');
 
   // Fonction pour charger les projets depuis Firebase
   const loadProjects = useCallback(async () => {
@@ -144,6 +147,64 @@ const DashboardPage = () => {
     }
   };
 
+  const tabs = [
+    {
+      id: 'tiers',
+      name: 'Gestion des tiers',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      )
+    },
+    {
+      id: 'anonymizer',
+      name: 'Anonymiser',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      )
+    },
+    {
+      id: 'ai-chat',
+      name: 'Chat IA',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+      )
+    }
+  ];
+
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'tiers':
+        return (
+          <TiersManagement 
+            selectedProject={selectedProject}
+            updateProject={updateProject}
+          />
+        );
+      case 'anonymizer':
+        return (
+          <AnonymizationPanel 
+            selectedProject={selectedProject}
+            projects={projects}
+            setProjects={setProjects}
+          />
+        );
+      case 'ai-chat':
+        return (
+          <AiChatPanel 
+            selectedProject={selectedProject}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -202,15 +263,33 @@ const DashboardPage = () => {
             />
           </div>
 
-          {/* Main Panel */}
+          {/* Main Panel avec onglets */}
           <div className="flex-1 bg-white rounded-lg shadow-sm overflow-hidden">
             {selectedProject ? (
-              <MainPanel
-                selectedProject={selectedProject}
-                updateProject={updateProject}
-                projects={projects}
-                setProjects={setProjects}
-              />
+              <div className="h-full flex flex-col">
+                {/* Onglets */}
+                <div className="flex border-b bg-gray-50">
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${
+                        activeTab === tab.id
+                          ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      {tab.icon}
+                      {tab.name}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Contenu de l'onglet actif */}
+                <div className="flex-1 overflow-hidden">
+                  {renderActiveTab()}
+                </div>
+              </div>
             ) : (
               <div className="h-full flex items-center justify-center text-center">
                 <div>
@@ -221,7 +300,7 @@ const DashboardPage = () => {
                     Aucun projet sélectionné
                   </h3>
                   <p className="text-gray-600 mb-4">
-                    Créez un nouveau projet ou sélectionnez un projet existant pour commencer l'anonymisation.
+                    Créez un nouveau projet ou sélectionnez un projet existant pour commencer.
                   </p>
                   {canCreateProject(projects.length) && (
                     <button
