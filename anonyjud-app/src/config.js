@@ -12,4 +12,7 @@ const config = {
 const isLocalhost = window.location.hostname === 'localhost';
 const environment = isLocalhost ? 'development' : 'production';
 
-export default config[environment]; 
+const currentConfig = config[environment];
+
+export const API_BASE_URL = currentConfig.API_BASE_URL;
+export default currentConfig; 

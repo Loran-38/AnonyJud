@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { API_BASE_URL } from '../config';
+import config from '../config';
 
 const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -53,7 +53,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       formData.append('file', uploadedFile);
       formData.append('tiers', JSON.stringify(selectedProject.tiers));
 
-      const response = await fetch(`${API_BASE_URL}/anonymize`, {
+      const response = await fetch(`${config.API_BASE_URL}/anonymize`, {
         method: 'POST',
         body: formData,
       });
@@ -82,7 +82,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/deanonymize`, {
+      const response = await fetch(`${config.API_BASE_URL}/deanonymize`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,7 +118,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       formData.append('file', uploadedFile);
       formData.append('tiers', JSON.stringify(selectedProject.tiers));
 
-      const response = await fetch(`${API_BASE_URL}/anonymize_docx`, {
+      const response = await fetch(`${config.API_BASE_URL}/anonymize_docx`, {
         method: 'POST',
         body: formData,
       });
@@ -163,7 +163,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       formData.append('file', uploadedFile);
       formData.append('mapping', JSON.stringify(mapping));
 
-      const response = await fetch(`${API_BASE_URL}/deanonymize_docx`, {
+      const response = await fetch(`${config.API_BASE_URL}/deanonymize_docx`, {
         method: 'POST',
         body: formData,
       });

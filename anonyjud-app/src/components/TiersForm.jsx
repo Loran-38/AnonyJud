@@ -8,7 +8,10 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
   const [form, setForm] = useState({
     nom: "",
     prenom: "",
-    adresse: "",
+    adresse_numero: "",
+    adresse_voie: "",
+    adresse_code_postal: "",
+    adresse_ville: "",
     telephone: "",
     portable: "",
     email: "",
@@ -103,7 +106,10 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
     setForm({ 
       nom: "", 
       prenom: "", 
-      adresse: "", 
+      adresse_numero: "",
+      adresse_voie: "",
+      adresse_code_postal: "",
+      adresse_ville: "",
       telephone: "", 
       portable: "", 
       email: "", 
@@ -353,12 +359,39 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
                           />
                         </div>
-                        <div className="md:col-span-2 lg:col-span-3">
-                          <label className="block text-xs font-medium text-gray-500 mb-1">Adresse</label>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">N°</label>
                           <input 
-                            value={t.adresse || ""} 
-                            onChange={e => handleEditField(idx, "adresse", e.target.value)} 
-                            placeholder="Adresse complète"
+                            value={t.adresse_numero || ""} 
+                            onChange={e => handleEditField(idx, "adresse_numero", e.target.value)} 
+                            placeholder="N°"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Voie</label>
+                          <input 
+                            value={t.adresse_voie || ""} 
+                            onChange={e => handleEditField(idx, "adresse_voie", e.target.value)} 
+                            placeholder="Rue, avenue, boulevard..."
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Code postal</label>
+                          <input 
+                            value={t.adresse_code_postal || ""} 
+                            onChange={e => handleEditField(idx, "adresse_code_postal", e.target.value)} 
+                            placeholder="Code postal"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Ville</label>
+                          <input 
+                            value={t.adresse_ville || ""} 
+                            onChange={e => handleEditField(idx, "adresse_ville", e.target.value)} 
+                            placeholder="Ville"
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
                           />
                         </div>
@@ -519,13 +552,46 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
               />
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">N°</label>
               <input 
-                name="adresse" 
-                value={form.adresse} 
+                name="adresse_numero" 
+                value={form.adresse_numero} 
                 onChange={handleChange} 
-                placeholder="Adresse complète" 
+                placeholder="N° de voie" 
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Voie</label>
+              <input 
+                name="adresse_voie" 
+                value={form.adresse_voie} 
+                onChange={handleChange} 
+                placeholder="Rue, avenue, boulevard..." 
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Code postal</label>
+              <input 
+                name="adresse_code_postal" 
+                value={form.adresse_code_postal} 
+                onChange={handleChange} 
+                placeholder="Code postal" 
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Ville</label>
+              <input 
+                name="adresse_ville" 
+                value={form.adresse_ville} 
+                onChange={handleChange} 
+                placeholder="Ville" 
                 className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
               />
             </div>

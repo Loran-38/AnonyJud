@@ -88,7 +88,63 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                     if prenom.lower() != prenom:
                         anonymized = anonymized.replace(prenom.lower(), tag)
             
-            # Traiter l'adresse
+            # Traiter les composants de l'adresse
+            # Numéro de voie
+            if tier.get("adresse_numero"):
+                numero = tier["adresse_numero"].strip()
+                if numero and len(numero) > 0:
+                    tag = f"NUMERO{tier_number}"
+                    mapping[tag] = numero
+                    
+                    # Remplacer toutes les occurrences
+                    pattern = re.compile(re.escape(numero), re.IGNORECASE)
+                    anonymized = pattern.sub(tag, anonymized)
+            
+            # Voie (rue, avenue, etc.)
+            if tier.get("adresse_voie"):
+                voie = tier["adresse_voie"].strip()
+                if voie and len(voie) > 2:
+                    tag = f"VOIE{tier_number}"
+                    mapping[tag] = voie
+                    
+                    # Remplacer toutes les occurrences (insensible à la casse)
+                    pattern = re.compile(re.escape(voie), re.IGNORECASE)
+                    anonymized = pattern.sub(tag, anonymized)
+                    
+                    # Variantes: en majuscules, minuscules
+                    if voie.upper() != voie:
+                        anonymized = anonymized.replace(voie.upper(), tag)
+                    if voie.lower() != voie:
+                        anonymized = anonymized.replace(voie.lower(), tag)
+            
+            # Code postal
+            if tier.get("adresse_code_postal"):
+                code_postal = tier["adresse_code_postal"].strip()
+                if code_postal and len(code_postal) > 0:
+                    tag = f"CODEPOSTAL{tier_number}"
+                    mapping[tag] = code_postal
+                    
+                    # Remplacer toutes les occurrences
+                    anonymized = anonymized.replace(code_postal, tag)
+            
+            # Ville
+            if tier.get("adresse_ville"):
+                ville = tier["adresse_ville"].strip()
+                if ville and len(ville) > 1:
+                    tag = f"VILLE{tier_number}"
+                    mapping[tag] = ville
+                    
+                    # Remplacer toutes les occurrences (insensible à la casse)
+                    pattern = re.compile(re.escape(ville), re.IGNORECASE)
+                    anonymized = pattern.sub(tag, anonymized)
+                    
+                    # Variantes: en majuscules, minuscules
+                    if ville.upper() != ville:
+                        anonymized = anonymized.replace(ville.upper(), tag)
+                    if ville.lower() != ville:
+                        anonymized = anonymized.replace(ville.lower(), tag)
+            
+            # Traiter l'adresse complète (pour compatibilité avec l'ancien format)
             if tier.get("adresse"):
                 adresse = tier["adresse"].strip()
                 if adresse and len(adresse) > 5:  # Éviter les adresses trop courtes
