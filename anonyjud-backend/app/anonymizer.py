@@ -50,24 +50,17 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
     
     else:
         # Anonymisation avancée avec les tiers fournis
-        counters = {
-            "NOM": 1,
-            "PRENOM": 1,
-            "ADRESSE": 1,
-            "TEL": 1,
-            "PORTABLE": 1,
-            "EMAIL": 1,
-            "SOCIETE": 1,
-            "PERSO": 1
-        }
-        
         # Parcourir chaque tier et anonymiser ses informations
-        for tier in tiers:
+        for tier_index, tier in enumerate(tiers):
+            # Déterminer le numéro du tiers (utiliser l'index + 1 si pas de numéro explicite)
+            tier_number = tier.get("numero", tier_index + 1)
+            # Compteur local pour les champs personnalisés de ce tiers
+            perso_count = 1
             # Traiter le nom
             if tier.get("nom"):
                 nom = tier["nom"].strip()
                 if nom and len(nom) > 1:  # Éviter les noms trop courts
-                    tag = f"NOM{counters['NOM']}"
+                    tag = f"NOM{tier_number}"
                     mapping[tag] = nom
                     
                     # Remplacer toutes les occurrences (insensible à la casse)
@@ -79,14 +72,12 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                         anonymized = anonymized.replace(nom.upper(), tag)
                     if nom.lower() != nom:
                         anonymized = anonymized.replace(nom.lower(), tag)
-                        
-                    counters["NOM"] += 1
             
             # Traiter le prénom
             if tier.get("prenom"):
                 prenom = tier["prenom"].strip()
                 if prenom and len(prenom) > 1:
-                    tag = f"PRENOM{counters['PRENOM']}"
+                    tag = f"PRENOM{tier_number}"
                     mapping[tag] = prenom
                     
                     pattern = re.compile(re.escape(prenom), re.IGNORECASE)
@@ -96,25 +87,22 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                         anonymized = anonymized.replace(prenom.upper(), tag)
                     if prenom.lower() != prenom:
                         anonymized = anonymized.replace(prenom.lower(), tag)
-                        
-                    counters["PRENOM"] += 1
             
             # Traiter l'adresse
             if tier.get("adresse"):
                 adresse = tier["adresse"].strip()
                 if adresse and len(adresse) > 5:  # Éviter les adresses trop courtes
-                    tag = f"ADRESSE{counters['ADRESSE']}"
+                    tag = f"ADRESSE{tier_number}"
                     mapping[tag] = adresse
                     
                     # Pour l'adresse, on fait un remplacement exact car elle peut contenir des caractères spéciaux
                     anonymized = anonymized.replace(adresse, tag)
-                    counters["ADRESSE"] += 1
             
             # Traiter le téléphone fixe
             if tier.get("telephone"):
                 tel = tier["telephone"].strip()
                 if tel and len(tel) > 5:
-                    tag = f"TEL{counters['TEL']}"
+                    tag = f"TEL{tier_number}"
                     mapping[tag] = tel
                     
                     # Normaliser le format du téléphone pour la recherche
@@ -124,13 +112,12 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                     
                     # Remplacer aussi le format sans espaces/points
                     anonymized = anonymized.replace(tel_clean, tag)
-                    counters["TEL"] += 1
             
             # Traiter le portable
             if tier.get("portable"):
                 portable = tier["portable"].strip()
                 if portable and len(portable) > 5:
-                    tag = f"PORTABLE{counters['PORTABLE']}"
+                    tag = f"PORTABLE{tier_number}"
                     mapping[tag] = portable
                     
                     # Même approche que pour le téléphone
@@ -139,23 +126,21 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                     anonymized = pattern.sub(tag, anonymized)
                     
                     anonymized = anonymized.replace(portable_clean, tag)
-                    counters["PORTABLE"] += 1
             
             # Traiter l'email
             if tier.get("email"):
                 email = tier["email"].strip()
                 if email and '@' in email:
-                    tag = f"EMAIL{counters['EMAIL']}"
+                    tag = f"EMAIL{tier_number}"
                     mapping[tag] = email
                     
                     anonymized = anonymized.replace(email, tag)
-                    counters["EMAIL"] += 1
             
             # Traiter la société
             if tier.get("societe"):
                 societe = tier["societe"].strip()
                 if societe and len(societe) > 1:
-                    tag = f"SOCIETE{counters['SOCIETE']}"
+                    tag = f"SOCIETE{tier_number}"
                     mapping[tag] = societe
                     
                     pattern = re.compile(re.escape(societe), re.IGNORECASE)
@@ -165,8 +150,6 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                         anonymized = anonymized.replace(societe.upper(), tag)
                     if societe.lower() != societe:
                         anonymized = anonymized.replace(societe.lower(), tag)
-                        
-                    counters["SOCIETE"] += 1
             
             # Traiter les champs personnalisés (nouveau format)
             if tier.get("customFields") and isinstance(tier["customFields"], list):
@@ -188,7 +171,7 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                                         if not label_base:  # Si le label ne contient pas de lettres
                                             label_base = "PERSO"
                                 
-                                tag = f"{label_base}{counters['PERSO']}"
+                                tag = f"{label_base}{tier_number}"
                                 mapping[tag] = champ_value
                                 
                                 # Remplacer toutes les occurrences (insensible à la casse)
@@ -200,8 +183,6 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                                     anonymized = anonymized.replace(champ_value.upper(), tag)
                                 if champ_value.lower() != champ_value:
                                     anonymized = anonymized.replace(champ_value.lower(), tag)
-                                    
-                                counters["PERSO"] += 1
             
             # Traiter le champ personnalisé (ancien format pour compatibilité)
             if tier.get("champPerso"):
@@ -219,7 +200,7 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                                 if not label_base:  # Si le label ne contient pas de lettres
                                     label_base = "PERSO"
                         
-                        tag = f"{label_base}{counters['PERSO']}"
+                        tag = f"{label_base}{tier_number}"
                         mapping[tag] = champ_perso
                         
                         # Remplacer toutes les occurrences (insensible à la casse)
@@ -231,7 +212,5 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                             anonymized = anonymized.replace(champ_perso.upper(), tag)
                         if champ_perso.lower() != champ_perso:
                             anonymized = anonymized.replace(champ_perso.lower(), tag)
-                            
-                        counters["PERSO"] += 1
     
     return anonymized, mapping 
