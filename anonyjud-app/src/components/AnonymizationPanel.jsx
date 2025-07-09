@@ -81,30 +81,46 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
     setLoading(true);
     try {
-      const formData = new FormData();
-      
       if (uploadedFile) {
+        // Upload de fichier
+        const formData = new FormData();
         formData.append('file', uploadedFile);
+        formData.append('tiers_json', JSON.stringify(selectedProject.tiers));
+
+        const response = await fetch(`${config.API_BASE_URL}/anonymize/file`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+
+        const result = await response.json();
+        setAnonymizedText(result.text);
+        setMapping(result.mapping);
       } else {
-        // Créer un fichier temporaire avec le texte saisi
-        const textBlob = new Blob([inputText], { type: 'text/plain' });
-        formData.append('file', textBlob, 'text_input.txt');
+        // Saisie de texte
+        const response = await fetch(`${config.API_BASE_URL}/anonymize/text`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: inputText,
+            tiers: selectedProject.tiers,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+
+        const result = await response.json();
+        setAnonymizedText(result.anonymized_text);
+        setMapping(result.mapping);
       }
       
-      formData.append('tiers', JSON.stringify(selectedProject.tiers));
-
-      const response = await fetch(`${config.API_BASE_URL}/anonymize`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-
-      const result = await response.json();
-      setAnonymizedText(result.anonymized_text);
-      setMapping(result.mapping);
       setDeanonymizedText('');
     } catch (error) {
       console.error('Erreur lors de l\'anonymisation:', error);
@@ -122,7 +138,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${config.API_BASE_URL}/deanonymize`, {
+      const response = await fetch(`${config.API_BASE_URL}/deanonymize/text`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -156,9 +172,9 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
     try {
       const formData = new FormData();
       formData.append('file', uploadedFile);
-      formData.append('tiers', JSON.stringify(selectedProject.tiers));
+      formData.append('tiers_json', JSON.stringify(selectedProject.tiers));
 
-      const response = await fetch(`${config.API_BASE_URL}/anonymize_docx`, {
+      const response = await fetch(`${config.API_BASE_URL}/anonymize/file/download`, {
         method: 'POST',
         body: formData,
       });
@@ -201,9 +217,9 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
     try {
       const formData = new FormData();
       formData.append('file', uploadedFile);
-      formData.append('mapping', JSON.stringify(mapping));
+      formData.append('mapping_json', JSON.stringify(mapping));
 
-      const response = await fetch(`${config.API_BASE_URL}/deanonymize_docx`, {
+      const response = await fetch(`${config.API_BASE_URL}/deanonymize/file/download`, {
         method: 'POST',
         body: formData,
       });
