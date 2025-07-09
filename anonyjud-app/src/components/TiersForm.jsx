@@ -317,110 +317,148 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                 {/* Vue détaillée - révélée au clic */}
                 {expandedTiers.has(idx) && (
                   <div className="px-6 pb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-t border-blue-200 animate-fade-in">
-                    <div className="pt-4">
+                    <div className="pt-4 space-y-6">
                       {/* Sélecteur de catégorie */}
-                      <div className="mb-4">
-                        <label className="block text-xs font-medium text-gray-500 mb-2">Catégorie</label>
+                      <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-200">
+                        <label className="block text-sm font-semibold text-blue-900 mb-2 flex items-center">
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                          </svg>
+                          Catégorie
+                        </label>
                         <select 
                           value={t.categorie} 
                           onChange={e => handleEditField(idx, "categorie", e.target.value)} 
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                          className="w-full border-2 border-blue-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white font-medium text-gray-900 shadow-sm"
                         >
                           {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                         </select>
                       </div>
 
-                      {/* Informations de base */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">Nom</label>
-                          <input 
-                            value={t.nom || ""} 
-                            onChange={e => handleEditField(idx, "nom", e.target.value)} 
-                            placeholder="Nom"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
-                          />
+                      {/* Informations personnelles */}
+                      <div className="bg-white p-4 rounded-lg shadow-sm border border-green-200">
+                        <h5 className="text-sm font-semibold text-green-900 mb-3 flex items-center">
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          Informations personnelles
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+                            <input 
+                              value={t.nom || ""} 
+                              onChange={e => handleEditField(idx, "nom", e.target.value)} 
+                              placeholder="Nom de famille"
+                              className="w-full border-2 border-green-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white shadow-sm font-medium" 
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
+                            <input 
+                              value={t.prenom || ""} 
+                              onChange={e => handleEditField(idx, "prenom", e.target.value)} 
+                              placeholder="Prénom"
+                              className="w-full border-2 border-green-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white shadow-sm font-medium" 
+                            />
+                          </div>
+                          <div className="md:col-span-2 lg:col-span-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input 
+                              value={t.email || ""} 
+                              onChange={e => handleEditField(idx, "email", e.target.value)} 
+                              placeholder="adresse@email.com"
+                              className="w-full border-2 border-green-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white shadow-sm font-medium" 
+                            />
+                          </div>
+                          <div className="md:col-span-2 lg:col-span-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Société</label>
+                            <input 
+                              value={t.societe || ""} 
+                              onChange={e => handleEditField(idx, "societe", e.target.value)} 
+                              placeholder="Nom de la société"
+                              className="w-full border-2 border-green-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white shadow-sm font-medium" 
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">Prénom</label>
-                          <input 
-                            value={t.prenom || ""} 
-                            onChange={e => handleEditField(idx, "prenom", e.target.value)} 
-                            placeholder="Prénom"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
-                          />
+                      </div>
+
+                      {/* Adresse */}
+                      <div className="bg-white p-4 rounded-lg shadow-sm border border-purple-200">
+                        <h5 className="text-sm font-semibold text-purple-900 mb-3 flex items-center">
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Adresse
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">N°</label>
+                            <input 
+                              value={t.adresse_numero || ""} 
+                              onChange={e => handleEditField(idx, "adresse_numero", e.target.value)} 
+                              placeholder="123"
+                              className="w-full border-2 border-purple-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white shadow-sm font-medium" 
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Voie</label>
+                            <input 
+                              value={t.adresse_voie || ""} 
+                              onChange={e => handleEditField(idx, "adresse_voie", e.target.value)} 
+                              placeholder="Rue, avenue, boulevard..."
+                              className="w-full border-2 border-purple-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white shadow-sm font-medium" 
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Code postal</label>
+                            <input 
+                              value={t.adresse_code_postal || ""} 
+                              onChange={e => handleEditField(idx, "adresse_code_postal", e.target.value)} 
+                              placeholder="75000"
+                              className="w-full border-2 border-purple-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white shadow-sm font-medium" 
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Ville</label>
+                            <input 
+                              value={t.adresse_ville || ""} 
+                              onChange={e => handleEditField(idx, "adresse_ville", e.target.value)} 
+                              placeholder="Ville"
+                              className="w-full border-2 border-purple-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white shadow-sm font-medium" 
+                            />
+                          </div>
                         </div>
-                        <div className="md:col-span-2 lg:col-span-1">
-                          <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
-                          <input 
-                            value={t.email || ""} 
-                            onChange={e => handleEditField(idx, "email", e.target.value)} 
-                            placeholder="Email"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">N°</label>
-                          <input 
-                            value={t.adresse_numero || ""} 
-                            onChange={e => handleEditField(idx, "adresse_numero", e.target.value)} 
-                            placeholder="N°"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-xs font-medium text-gray-500 mb-1">Voie</label>
-                          <input 
-                            value={t.adresse_voie || ""} 
-                            onChange={e => handleEditField(idx, "adresse_voie", e.target.value)} 
-                            placeholder="Rue, avenue, boulevard..."
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">Code postal</label>
-                          <input 
-                            value={t.adresse_code_postal || ""} 
-                            onChange={e => handleEditField(idx, "adresse_code_postal", e.target.value)} 
-                            placeholder="Code postal"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">Ville</label>
-                          <input 
-                            value={t.adresse_ville || ""} 
-                            onChange={e => handleEditField(idx, "adresse_ville", e.target.value)} 
-                            placeholder="Ville"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">Téléphone</label>
-                          <input 
-                            value={t.telephone || ""} 
-                            onChange={e => handleEditField(idx, "telephone", e.target.value)} 
-                            placeholder="Téléphone"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">Portable</label>
-                          <input 
-                            value={t.portable || ""} 
-                            onChange={e => handleEditField(idx, "portable", e.target.value)} 
-                            placeholder="Portable"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">Société</label>
-                          <input 
-                            value={t.societe || ""} 
-                            onChange={e => handleEditField(idx, "societe", e.target.value)} 
-                            placeholder="Société"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" 
-                          />
+                      </div>
+
+                      {/* Contact */}
+                      <div className="bg-white p-4 rounded-lg shadow-sm border border-orange-200">
+                        <h5 className="text-sm font-semibold text-orange-900 mb-3 flex items-center">
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                          Contact
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                            <input 
+                              value={t.telephone || ""} 
+                              onChange={e => handleEditField(idx, "telephone", e.target.value)} 
+                              placeholder="01 23 45 67 89"
+                              className="w-full border-2 border-orange-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white shadow-sm font-medium" 
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Portable</label>
+                            <input 
+                              value={t.portable || ""} 
+                              onChange={e => handleEditField(idx, "portable", e.target.value)} 
+                              placeholder="06 12 34 56 78"
+                              className="w-full border-2 border-orange-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white shadow-sm font-medium" 
+                            />
+                          </div>
                         </div>
                       </div>
 
@@ -488,162 +526,198 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
         )}
       </div>
 
-      {/* Formulaire d'ajout conditionnel */}
+      {/* Popup d'ajout de tiers */}
       {showAddForm && (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 animate-fade-in">
-          <div className="flex items-center justify-between mb-6">
-            <h4 className="text-lg font-semibold text-gray-800">Ajouter un nouveau tiers</h4>
-            <div className="flex items-center space-x-2">
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Remplissez au moins un champ</span>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header du popup */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xl font-bold flex items-center">
+                    <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                    Ajouter un nouveau tiers
+                  </h4>
+                  <p className="text-blue-100 mt-1">Remplissez au moins un champ pour créer un tiers</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setIsAddingCustomField(false);
+                    setNewCustomField({ label: "", value: "" });
+                  }}
+                  className="text-blue-100 hover:text-white hover:bg-blue-700 p-2 rounded-lg transition-colors"
+                  title="Fermer le formulaire"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  setShowAddForm(false);
-                  setIsAddingCustomField(false);
-                  setNewCustomField({ label: "", value: "" });
-                }}
-                className="text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition-colors"
-                title="Fermer le formulaire"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          {/* Champs de base */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
-              <select 
-                name="categorie" 
-                value={form.categorie} 
-                onChange={handleChange} 
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-              >
-                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-              </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
-              <input 
-                name="nom" 
-                value={form.nom} 
-                onChange={handleChange} 
-                placeholder="Nom de famille" 
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-              />
-            </div>
+            {/* Contenu du popup */}
+            <div className="p-6 space-y-6">
+              {/* Catégorie */}
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <label className="block text-sm font-semibold text-blue-900 mb-2 flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  Catégorie
+                </label>
+                <select 
+                  name="categorie" 
+                  value={form.categorie} 
+                  onChange={handleChange} 
+                  className="w-full border-2 border-blue-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white font-medium text-gray-900 shadow-sm"
+                >
+                  {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
-              <input 
-                name="prenom" 
-                value={form.prenom} 
-                onChange={handleChange} 
-                placeholder="Prénom" 
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-              />
-            </div>
+              {/* Informations personnelles */}
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <h5 className="text-sm font-semibold text-green-900 mb-3 flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Informations personnelles
+                </h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+                    <input 
+                      name="nom" 
+                      value={form.nom} 
+                      onChange={handleChange} 
+                      placeholder="Nom de famille" 
+                      className="w-full border-2 border-green-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white shadow-sm font-medium" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
+                    <input 
+                      name="prenom" 
+                      value={form.prenom} 
+                      onChange={handleChange} 
+                      placeholder="Prénom" 
+                      className="w-full border-2 border-green-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white shadow-sm font-medium" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input 
+                      name="email" 
+                      type="email"
+                      value={form.email} 
+                      onChange={handleChange} 
+                      placeholder="exemple@email.com" 
+                      className="w-full border-2 border-green-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white shadow-sm font-medium" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Société</label>
+                    <input 
+                      name="societe" 
+                      value={form.societe} 
+                      onChange={handleChange} 
+                      placeholder="Nom de la société" 
+                      className="w-full border-2 border-green-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white shadow-sm font-medium" 
+                    />
+                  </div>
+                </div>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">N°</label>
-              <input 
-                name="adresse_numero" 
-                value={form.adresse_numero} 
-                onChange={handleChange} 
-                placeholder="N° de voie" 
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-              />
-            </div>
+              {/* Adresse */}
+              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <h5 className="text-sm font-semibold text-purple-900 mb-3 flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Adresse
+                </h5>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">N°</label>
+                    <input 
+                      name="adresse_numero" 
+                      value={form.adresse_numero} 
+                      onChange={handleChange} 
+                      placeholder="123" 
+                      className="w-full border-2 border-purple-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white shadow-sm font-medium" 
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Voie</label>
+                    <input 
+                      name="adresse_voie" 
+                      value={form.adresse_voie} 
+                      onChange={handleChange} 
+                      placeholder="Rue, avenue, boulevard..." 
+                      className="w-full border-2 border-purple-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white shadow-sm font-medium" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Code postal</label>
+                    <input 
+                      name="adresse_code_postal" 
+                      value={form.adresse_code_postal} 
+                      onChange={handleChange} 
+                      placeholder="75000" 
+                      className="w-full border-2 border-purple-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white shadow-sm font-medium" 
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Ville</label>
+                    <input 
+                      name="adresse_ville" 
+                      value={form.adresse_ville} 
+                      onChange={handleChange} 
+                      placeholder="Ville" 
+                      className="w-full border-2 border-purple-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white shadow-sm font-medium" 
+                    />
+                  </div>
+                </div>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Voie</label>
-              <input 
-                name="adresse_voie" 
-                value={form.adresse_voie} 
-                onChange={handleChange} 
-                placeholder="Rue, avenue, boulevard..." 
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Code postal</label>
-              <input 
-                name="adresse_code_postal" 
-                value={form.adresse_code_postal} 
-                onChange={handleChange} 
-                placeholder="Code postal" 
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Ville</label>
-              <input 
-                name="adresse_ville" 
-                value={form.adresse_ville} 
-                onChange={handleChange} 
-                placeholder="Ville" 
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone fixe</label>
-              <input 
-                name="telephone" 
-                value={form.telephone} 
-                onChange={handleChange} 
-                placeholder="01 23 45 67 89" 
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Portable</label>
-              <input 
-                name="portable" 
-                value={form.portable} 
-                onChange={handleChange} 
-                placeholder="06 12 34 56 78" 
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-              <input 
-                name="email" 
-                type="email"
-                value={form.email} 
-                onChange={handleChange} 
-                placeholder="exemple@email.com" 
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Société</label>
-              <input 
-                name="societe" 
-                value={form.societe} 
-                onChange={handleChange} 
-                placeholder="Nom de la société" 
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-              />
-            </div>
-          </div>
-            
-          {/* Section Champs Personnalisés */}
-          <div className="border-t pt-6">
+              {/* Contact */}
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <h5 className="text-sm font-semibold text-orange-900 mb-3 flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  Contact
+                </h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                    <input 
+                      name="telephone" 
+                      value={form.telephone} 
+                      onChange={handleChange} 
+                      placeholder="01 23 45 67 89" 
+                      className="w-full border-2 border-orange-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white shadow-sm font-medium" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Portable</label>
+                    <input 
+                      name="portable" 
+                      value={form.portable} 
+                      onChange={handleChange} 
+                      placeholder="06 12 34 56 78" 
+                      className="w-full border-2 border-orange-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white shadow-sm font-medium" 
+                    />
+                  </div>
+                </div>
+                            </div>
+              
+              {/* Section Champs Personnalisés */}
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h5 className="text-md font-semibold text-gray-800 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -744,18 +818,20 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
             )}
           </div>
 
-          {/* Bouton d'ajout du tiers */}
-          <div className="pt-6 border-t">
-            <button 
-              type="button" 
-              className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
-              onClick={handleAdd}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              <span>Ajouter ce tiers au projet</span>
-            </button>
+              {/* Bouton d'ajout du tiers */}
+              <div className="bg-white p-4 rounded-lg border border-gray-200 sticky bottom-0">
+                <button 
+                  type="button" 
+                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
+                  onClick={handleAdd}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span>Ajouter ce tiers au projet</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
