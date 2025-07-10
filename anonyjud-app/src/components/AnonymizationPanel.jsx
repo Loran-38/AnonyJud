@@ -14,6 +14,8 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const [processedFile, setProcessedFile] = useState(null);
   const [fileProgress, setFileProgress] = useState(0);
   const [isFileReady, setIsFileReady] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   // États pour la dé-anonymisation
   const [dragActiveDeanon, setDragActiveDeanon] = useState(false);
@@ -22,6 +24,8 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const [processedFileDeanon, setProcessedFileDeanon] = useState(null);
   const [fileProgressDeanon, setFileProgressDeanon] = useState(0);
   const [isFileReadyDeanon, setIsFileReadyDeanon] = useState(false);
+  const [downloadProgressDeanon, setDownloadProgressDeanon] = useState(0);
+  const [isDownloadingDeanon, setIsDownloadingDeanon] = useState(false);
   const [deanonymizedText, setDeanonymizedText] = useState('');
   
   const fileInputRef = useRef(null);
@@ -191,7 +195,22 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const downloadAnonymizedFile = async () => {
     if (!processedFile) return;
 
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    setError('');
+
     try {
+      // Simuler une progression de téléchargement
+      const progressInterval = setInterval(() => {
+        setDownloadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return prev + 15;
+        });
+      }, 100);
+
       const formData = new FormData();
       formData.append('file', processedFile);
       formData.append('tiers_json', JSON.stringify(selectedProject.tiers || []));
@@ -206,16 +225,31 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       }
 
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `anonymise_${processedFile.name}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      
+      // Finaliser la progression
+      clearInterval(progressInterval);
+      setDownloadProgress(100);
+      
+      // Petite pause pour montrer la progression complète
+      setTimeout(() => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `anonymise_${processedFile.name}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        // Réinitialiser l'état
+        setIsDownloading(false);
+        setDownloadProgress(0);
+      }, 500);
+      
     } catch (err) {
       setError(`Erreur lors du téléchargement: ${err.message}`);
+      setIsDownloading(false);
+      setDownloadProgress(0);
     }
   };
 
@@ -257,7 +291,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
   const handleFileDeanon = async (file) => {
     if (!mapping || Object.keys(mapping).length === 0) {
-      setError('Aucun mapping disponible. Veuillez d\'abord anonymiser un fichier.');
+      setError('⚠️ Aucun mapping disponible. Veuillez d\'abord anonymiser un fichier ou du texte pour créer les correspondances nécessaires à la dé-anonymisation.');
       return;
     }
 
@@ -317,12 +351,12 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   // Fonction pour dé-anonymiser le texte
   const deanonymizeText = async () => {
     if (!anonymizedText.trim()) {
-      setError('Veuillez d\'abord anonymiser un texte.');
+      setError('⚠️ Aucun texte anonymisé disponible. Veuillez d\'abord anonymiser du texte dans la colonne de gauche.');
       return;
     }
 
     if (!mapping || Object.keys(mapping).length === 0) {
-      setError('Aucun mapping disponible.');
+      setError('⚠️ Aucun mapping disponible. Les correspondances d\'anonymisation sont nécessaires pour la dé-anonymisation.');
       return;
     }
 
@@ -359,7 +393,22 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const downloadDeanonymizedFile = async () => {
     if (!processedFileDeanon) return;
 
+    setIsDownloadingDeanon(true);
+    setDownloadProgressDeanon(0);
+    setError('');
+
     try {
+      // Simuler une progression de téléchargement
+      const progressInterval = setInterval(() => {
+        setDownloadProgressDeanon(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return prev + 15;
+        });
+      }, 100);
+
       const formData = new FormData();
       formData.append('file', processedFileDeanon);
       formData.append('mapping_json', JSON.stringify(mapping));
@@ -374,16 +423,31 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       }
 
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `deanonymise_${processedFileDeanon.name}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      
+      // Finaliser la progression
+      clearInterval(progressInterval);
+      setDownloadProgressDeanon(100);
+      
+      // Petite pause pour montrer la progression complète
+      setTimeout(() => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `deanonymise_${processedFileDeanon.name}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        // Réinitialiser l'état
+        setIsDownloadingDeanon(false);
+        setDownloadProgressDeanon(0);
+      }, 500);
+      
     } catch (err) {
       setError(`Erreur lors du téléchargement: ${err.message}`);
+      setIsDownloadingDeanon(false);
+      setDownloadProgressDeanon(0);
     }
   };
 
@@ -457,17 +521,40 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                 </div>
               )}
 
+              {/* Barre de progression du téléchargement */}
+              {isDownloading && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-blue-700">Téléchargement en cours...</span>
+                    <span className="text-sm text-blue-600">{downloadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-blue-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${downloadProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+
               {/* Bouton de téléchargement */}
               <button
                 onClick={downloadAnonymizedFile}
-                disabled={!isFileReady || isProcessing}
+                disabled={!isFileReady || isProcessing || isDownloading}
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-                  isFileReady && !isProcessing
+                  isFileReady && !isProcessing && !isDownloading
                     ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                {isFileReady && !isProcessing ? (
+                {isDownloading ? (
+                  <>
+                    <svg className="w-5 h-5 inline mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    TÉLÉCHARGEMENT...
+                  </>
+                ) : isFileReady && !isProcessing ? (
                   <>
                     <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -523,20 +610,50 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                 className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
                   dragActiveDeanon
                     ? 'border-green-500 bg-green-50'
-                    : 'border-green-300 hover:border-green-400 hover:bg-green-50'
+                    : mapping && Object.keys(mapping).length > 0
+                    ? 'border-green-300 hover:border-green-400 hover:bg-green-50'
+                    : 'border-gray-300 bg-gray-50'
                 }`}
                 onDragEnter={handleDragEnterDeanon}
                 onDragLeave={handleDragLeaveDeanon}
                 onDragOver={handleDragOverDeanon}
                 onDrop={handleDropDeanon}
-                onClick={() => fileInputDenonRef.current?.click()}
+                onClick={() => {
+                  if (mapping && Object.keys(mapping).length > 0) {
+                    fileInputDenonRef.current?.click();
+                  }
+                }}
               >
-                <svg className="mx-auto h-12 w-12 text-green-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                  <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <p className="text-green-600 font-medium">Glissez-déposez votre fichier ici</p>
-                <p className="text-green-500 text-sm mt-1">ou cliquez pour sélectionner</p>
-                <p className="text-green-400 text-xs mt-2">PDF, DOCX, ODT acceptés</p>
+                {mapping && Object.keys(mapping).length > 0 ? (
+                  <>
+                    <svg className="mx-auto h-12 w-12 text-green-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <p className="text-green-600 font-medium">Glissez-déposez votre fichier ici</p>
+                    <p className="text-green-500 text-sm mt-1">ou cliquez pour sélectionner</p>
+                    <p className="text-green-400 text-xs mt-2">PDF, DOCX, ODT acceptés</p>
+                    <div className="flex items-center justify-center mt-3">
+                      <svg className="w-4 h-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-xs text-green-600">Mapping disponible ({Object.keys(mapping).length} correspondances)</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <p className="text-gray-500 font-medium">Zone désactivée</p>
+                    <p className="text-gray-400 text-sm mt-1">Anonymisez d'abord un fichier pour créer le mapping</p>
+                    <div className="flex items-center justify-center mt-3">
+                      <svg className="w-4 h-4 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.996-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <span className="text-xs text-gray-500">Aucun mapping disponible</span>
+                    </div>
+                  </>
+                )}
                 <input
                   ref={fileInputDenonRef}
                   type="file"
@@ -565,17 +682,40 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                 </div>
               )}
 
+              {/* Barre de progression du téléchargement */}
+              {isDownloadingDeanon && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-green-700">Téléchargement en cours...</span>
+                    <span className="text-sm text-green-600">{downloadProgressDeanon}%</span>
+                  </div>
+                  <div className="w-full bg-green-200 rounded-full h-2">
+                    <div 
+                      className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${downloadProgressDeanon}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+
               {/* Bouton de téléchargement */}
               <button
                 onClick={downloadDeanonymizedFile}
-                disabled={!isFileReadyDeanon || isProcessing}
+                disabled={!isFileReadyDeanon || isProcessing || isDownloadingDeanon}
                 className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-                  isFileReadyDeanon && !isProcessing
+                  isFileReadyDeanon && !isProcessing && !isDownloadingDeanon
                     ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                {isFileReadyDeanon && !isProcessing ? (
+                {isDownloadingDeanon ? (
+                  <>
+                    <svg className="w-5 h-5 inline mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    TÉLÉCHARGEMENT...
+                  </>
+                ) : isFileReadyDeanon && !isProcessing ? (
                   <>
                     <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
