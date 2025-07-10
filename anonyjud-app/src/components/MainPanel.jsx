@@ -487,26 +487,26 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                     <h3 className="text-lg font-bold text-blue-800 bg-blue-100 rounded-full px-4 py-2 inline-block">
                       ANONYMISER
                     </h3>
-                  </div>
-                  
+              </div>
+              
                   {/* Zone de glisser-déposer pour anonymisation */}
-                  <div 
-                    className={`border-2 border-dashed rounded-lg p-6 mb-4 text-center cursor-pointer transition-colors duration-200 ${
+              <div 
+                className={`border-2 border-dashed rounded-lg p-6 mb-4 text-center cursor-pointer transition-colors duration-200 ${
                       dragActive ? 'border-blue-500 bg-blue-100' : 'border-blue-300 hover:border-blue-400 hover:bg-blue-100'
-                    }`}
-                    onDragEnter={handleDrag}
-                    onDragOver={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDrop={handleDrop}
-                    onClick={onButtonClick}
-                  >
-                    <input 
-                      ref={fileInputRef}
-                      type="file" 
-                      accept=".pdf,.doc,.docx,.odt"
-                      onChange={handleFileChange}
-                      className="hidden" 
-                    />
+                }`}
+                onDragEnter={handleDrag}
+                onDragOver={handleDrag}
+                onDragLeave={handleDrag}
+                onDrop={handleDrop}
+                onClick={onButtonClick}
+              >
+                <input 
+                  ref={fileInputRef}
+                  type="file" 
+                  accept=".pdf,.doc,.docx,.odt"
+                  onChange={handleFileChange}
+                  className="hidden" 
+                />
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
@@ -613,8 +613,8 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                       className="hidden" 
                     />
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto text-green-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
                     <p className="text-green-700 text-sm font-medium">
                       Glisser fichier
                     </p>
@@ -641,10 +641,10 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                       </div>
                       <p className="text-xs text-green-700 mt-1 text-center">
                         Traitement en cours... {fileProgressDeanon}%
-                      </p>
-                    </div>
+                </p>
+              </div>
                   )}
-                  
+              
                   {/* Bouton télécharger */}
                   <button
                     onClick={downloadDeanonymizedFile}
@@ -662,13 +662,13 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                   <div className="flex-1 flex flex-col">
                     <div className="flex justify-between items-center mb-2">
                       <h4 className="text-sm font-semibold text-green-800">Texte dé-anonymisé</h4>
-                      <button
-                        onClick={deanonymizeText}
-                        disabled={isProcessing || !anonymizedText}
+                    <button
+                      onClick={deanonymizeText}
+                      disabled={isProcessing || !anonymizedText}
                         className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-150 disabled:opacity-50"
-                      >
-                        Dé-anonymiser
-                      </button>
+                    >
+                      Dé-anonymiser
+                    </button>
                     </div>
                     <textarea
                       value={deanonymizedText}

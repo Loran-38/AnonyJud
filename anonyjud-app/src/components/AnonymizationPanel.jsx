@@ -27,9 +27,12 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const [downloadProgressDeanon, setDownloadProgressDeanon] = useState(0);
   const [isDownloadingDeanon, setIsDownloadingDeanon] = useState(false);
   const [deanonymizedText, setDeanonymizedText] = useState('');
+  const [mappingFile, setMappingFile] = useState(null);
+  const [uploadedMapping, setUploadedMapping] = useState(null);
   
   const fileInputRef = useRef(null);
   const fileInputDenonRef = useRef(null);
+  const mappingInputRef = useRef(null);
 
   if (!selectedProject) {
     return (
@@ -137,6 +140,16 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       setMapping(data.mapping);
       setProcessedFile(file);
       
+      // Sauvegarder le mapping dans localStorage pour persistance
+      if (data.mapping && Object.keys(data.mapping).length > 0) {
+        const mappingData = {
+          filename: file.name,
+          timestamp: new Date().toISOString(),
+          mapping: data.mapping
+        };
+        localStorage.setItem(`anonyJud_mapping_${file.name}`, JSON.stringify(mappingData));
+      }
+      
       // Finaliser la progression
       clearInterval(progressInterval);
       setFileProgress(100);
@@ -183,6 +196,16 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       const data = await response.json();
       setAnonymizedText(data.anonymized_text);
       setMapping(data.mapping);
+      
+      // Sauvegarder le mapping dans localStorage pour persistance
+      if (data.mapping && Object.keys(data.mapping).length > 0) {
+        const mappingData = {
+          text: inputText.substring(0, 100) + '...', // Aperçu du texte
+          timestamp: new Date().toISOString(),
+          mapping: data.mapping
+        };
+        localStorage.setItem(`anonyJud_mapping_text_${Date.now()}`, JSON.stringify(mappingData));
+      }
       
     } catch (err) {
       setError(`Erreur lors de l'anonymisation: ${err.message}`);
@@ -240,6 +263,24 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+        
+        // Télécharger également le mapping en tant que fichier JSON
+        if (mapping && Object.keys(mapping).length > 0) {
+          const mappingData = {
+            filename: processedFile.name,
+            timestamp: new Date().toISOString(),
+            mapping: mapping
+          };
+          const mappingBlob = new Blob([JSON.stringify(mappingData, null, 2)], { type: 'application/json' });
+          const mappingUrl = window.URL.createObjectURL(mappingBlob);
+          const mappingLink = document.createElement('a');
+          mappingLink.href = mappingUrl;
+          mappingLink.download = `mapping_${processedFile.name}.json`;
+          document.body.appendChild(mappingLink);
+          mappingLink.click();
+          window.URL.revokeObjectURL(mappingUrl);
+          document.body.removeChild(mappingLink);
+        }
         
         // Réinitialiser l'état
         setIsDownloading(false);
@@ -323,6 +364,18 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       // Juste préparer le fichier pour le téléchargement (pas d'appel API ici)
       setProcessedFileDeanon(file);
       
+      // Essayer de récupérer le mapping depuis localStorage
+      const savedMapping = localStorage.getItem(`anonyJud_mapping_${file.name}`);
+      if (savedMapping) {
+        try {
+          const mappingData = JSON.parse(savedMapping);
+          setUploadedMapping(mappingData.mapping);
+          setError(''); // Effacer les erreurs précédentes
+        } catch (e) {
+          console.warn('Erreur lors de la récupération du mapping:', e);
+        }
+      }
+      
       // Finaliser la progression
       clearInterval(progressInterval);
       setFileProgressDeanon(100);
@@ -332,6 +385,36 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       setError(`Erreur lors de la préparation du fichier: ${err.message}`);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // Fonction pour gérer l'upload du fichier mapping
+  const handleMappingFile = async (file) => {
+    if (!file.name.endsWith('.json')) {
+      setError('Le fichier de mapping doit être un fichier JSON.');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const mappingData = JSON.parse(text);
+      
+      if (mappingData.mapping && typeof mappingData.mapping === 'object') {
+        setUploadedMapping(mappingData.mapping);
+        setMappingFile(file);
+        setError(''); // Effacer les erreurs précédentes
+      } else {
+        setError('Format de fichier mapping invalide.');
+      }
+    } catch (err) {
+      setError(`Erreur lors de la lecture du mapping: ${err.message}`);
+    }
+  };
+
+  const handleMappingInput = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      handleMappingFile(file);
     }
   };
 
@@ -393,7 +476,9 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
       const formData = new FormData();
       formData.append('file', processedFileDeanon);
-      formData.append('mapping_json', JSON.stringify(mapping || {}));
+      // Utiliser le mapping uploadé en priorité, sinon le mapping courant
+      const mappingToUse = uploadedMapping || mapping || {};
+      formData.append('mapping_json', JSON.stringify(mappingToUse));
 
       const response = await fetch(`${config.API_BASE_URL}/deanonymize/file/download`, {
         method: 'POST',
@@ -609,12 +694,15 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                 <p className="text-green-600 font-medium">Glissez-déposez votre fichier ici</p>
                 <p className="text-green-500 text-sm mt-1">ou cliquez pour sélectionner</p>
                 <p className="text-green-400 text-xs mt-2">PDF, DOCX, ODT acceptés</p>
-                {mapping && Object.keys(mapping).length > 0 && (
+                {((mapping && Object.keys(mapping).length > 0) || (uploadedMapping && Object.keys(uploadedMapping).length > 0)) && (
                   <div className="flex items-center justify-center mt-3">
                     <svg className="w-4 h-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="text-xs text-green-600">Mapping disponible ({Object.keys(mapping).length} correspondances)</span>
+                    <span className="text-xs text-green-600">
+                      Mapping disponible ({Object.keys(uploadedMapping || mapping).length} correspondances)
+                      {uploadedMapping && <span className="ml-1 text-green-500">📁</span>}
+                    </span>
                   </div>
                 )}
                 <input
@@ -624,6 +712,44 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                   onChange={handleFileInputDeanon}
                   className="hidden"
                 />
+              </div>
+
+              {/* Section pour uploader le mapping */}
+              <div className="border-t border-green-200 pt-4">
+                <label className="block text-sm font-medium text-green-700 mb-2">
+                  Fichier de mapping (optionnel) :
+                </label>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => mappingInputRef.current?.click()}
+                    className="flex-1 px-3 py-2 border border-green-300 rounded-md text-sm text-green-700 hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  >
+                    {mappingFile ? `📁 ${mappingFile.name}` : '📁 Sélectionner un fichier JSON'}
+                  </button>
+                  {mappingFile && (
+                    <button
+                      onClick={() => {
+                        setMappingFile(null);
+                        setUploadedMapping(null);
+                      }}
+                      className="px-3 py-2 text-red-600 hover:text-red-800 text-sm"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={mappingInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleMappingInput}
+                  className="hidden"
+                />
+                {uploadedMapping && (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
+                    ✓ Mapping chargé avec {Object.keys(uploadedMapping).length} correspondances
+                  </div>
+                )}
               </div>
 
               {/* Barre de progression */}
@@ -749,14 +875,19 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
         )}
 
         {/* Mapping des correspondances */}
-        {Object.keys(mapping).length > 0 && (
+        {(Object.keys(mapping).length > 0 || (uploadedMapping && Object.keys(uploadedMapping).length > 0)) && (
           <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-lg">
-              <h3 className="text-lg font-medium text-gray-900">Correspondances d'anonymisation</h3>
+              <h3 className="text-lg font-medium text-gray-900">
+                Correspondances d'anonymisation
+                {uploadedMapping && (
+                  <span className="ml-2 text-sm font-normal text-green-600">(Mapping externe chargé)</span>
+                )}
+              </h3>
             </div>
             <div className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                {Object.entries(mapping).map(([tag, value]) => (
+                {Object.entries(uploadedMapping || mapping).map(([tag, value]) => (
                   <div key={tag} className="flex items-center justify-between p-2 bg-gray-50 rounded border">
                     <span className="font-mono text-sm text-blue-600 font-medium">{tag}</span>
                     <span className="text-sm text-gray-700">{value}</span>
