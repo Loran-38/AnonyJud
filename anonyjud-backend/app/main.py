@@ -94,6 +94,46 @@ async def anonymize_file(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/deanonymize/file")
+async def deanonymize_file(
+    file: UploadFile = File(...),
+    mapping_json: str = Form(...)
+):
+    """
+    Dé-anonymise un fichier Word, PDF ou ODT en utilisant le mapping fourni.
+    """
+    try:
+        # Convertir la chaîne JSON en mapping
+        mapping = json.loads(mapping_json)
+        
+        # Vérifier le type de fichier
+        filename = file.filename or ""
+        file_extension = os.path.splitext(filename)[1].lower()
+        
+        if file_extension == ".pdf":
+            # Traitement des fichiers PDF
+            content = await file.read()
+            pdf_text = extract_and_deanonymize_pdf(content, mapping)
+            return {"text": pdf_text}
+            
+        elif file_extension in [".doc", ".docx"]:
+            # Traitement des fichiers Word
+            content = await file.read()
+            doc_text = extract_and_deanonymize_docx(content, mapping)
+            return {"text": doc_text}
+            
+        elif file_extension == ".odt":
+            # Traitement des fichiers ODT (OpenDocument Text)
+            content = await file.read()
+            odt_text = extract_and_deanonymize_odt(content, mapping)
+            return {"text": odt_text}
+            
+        else:
+            raise HTTPException(status_code=400, detail="Format de fichier non supporté. Utilisez PDF, DOCX ou ODT.")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/anonymize/file/download")
 async def anonymize_file_download(
     file: UploadFile = File(...),
@@ -363,3 +403,76 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
         
     except Exception as e:
         raise Exception(f"Erreur lors de la dé-anonymisation du fichier Word: {str(e)}") 
+
+def extract_and_deanonymize_pdf(content: bytes, mapping: Dict[str, str]):
+    """
+    Extrait le texte d'un PDF et le dé-anonymise.
+    """
+    try:
+        # Ouvrir le PDF depuis les bytes
+        with fitz.open(stream=content, filetype="pdf") as pdf:
+            text = ""
+            # Extraire le texte de chaque page
+            for page in pdf:
+                text += page.get_text()
+        
+        # Dé-anonymiser le texte extrait
+        deanonymized = deanonymize_text(text, mapping)
+        return deanonymized
+        
+    except Exception as e:
+        raise Exception(f"Erreur lors du traitement du PDF: {str(e)}")
+
+def extract_and_deanonymize_docx(content: bytes, mapping: Dict[str, str]):
+    """
+    Extrait le texte d'un document Word et le dé-anonymise.
+    """
+    try:
+        # Ouvrir le document Word depuis les bytes
+        doc = Document(io.BytesIO(content))
+        text = ""
+        
+        # Extraire le texte de chaque paragraphe
+        for para in doc.paragraphs:
+            text += para.text + "\n"
+            
+        # Dé-anonymiser le texte extrait
+        deanonymized = deanonymize_text(text, mapping)
+        return deanonymized
+        
+    except Exception as e:
+        raise Exception(f"Erreur lors du traitement du document Word: {str(e)}")
+
+def extract_and_deanonymize_odt(content: bytes, mapping: Dict[str, str]):
+    """
+    Extrait le texte d'un document OpenDocument Text (ODT) et le dé-anonymise.
+    """
+    try:
+        # Créer un fichier temporaire pour stocker le contenu ODT
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".odt") as temp_file:
+            temp_file.write(content)
+            temp_path = temp_file.name
+        
+        try:
+            # Charger le document ODT
+            doc = load(temp_path)
+            
+            # Extraire le texte du document
+            text = ""
+            
+            # Parcourir tous les éléments de texte dans le document
+            for paragraph in doc.getElementsByType(odf_text.P):
+                text += teletype.extractText(paragraph) + "\n"
+            
+            # Dé-anonymiser le texte extrait
+            deanonymized = deanonymize_text(text, mapping)
+            
+            return deanonymized
+            
+        finally:
+            # Supprimer le fichier temporaire
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+        
+    except Exception as e:
+        raise Exception(f"Erreur lors du traitement du document ODT: {str(e)}") 
