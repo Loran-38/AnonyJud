@@ -52,7 +52,7 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
         # Anonymisation avancée avec les tiers fournis
         # Parcourir chaque tier et anonymiser ses informations
         for tier_index, tier in enumerate(tiers):
-            # Déterminer le numéro du tiers (utiliser l'index + 1 si pas de numéro explicite)
+            # Utiliser le numéro fixe du tiers ou fallback sur l'index + 1
             tier_number = tier.get("numero", tier_index + 1)
             # Compteur local pour les champs personnalisés de ce tiers
             perso_count = 1

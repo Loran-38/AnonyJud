@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from '../contexts/AuthContext';
 
 /**
@@ -42,6 +42,27 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
   
   // État pour gérer quels tiers sont développés dans l'accordéon
   const [expandedTiers, setExpandedTiers] = useState(new Set());
+
+  // Initialiser les numéros des tiers existants s'ils n'en ont pas
+  useEffect(() => {
+    if (tiers && tiers.length > 0) {
+      const needsUpdate = tiers.some(t => !t.numero);
+      if (needsUpdate) {
+        const tiersWithNumbers = tiers.map((t, idx) => ({
+          ...t,
+          numero: t.numero || idx + 1
+        }));
+        
+        if (projectId && updateProject) {
+          const projectToUpdate = projects.find(p => p.id === projectId);
+          if (projectToUpdate) {
+            const updatedProject = { ...projectToUpdate, tiers: tiersWithNumbers };
+            updateProject(updatedProject);
+          }
+        }
+      }
+    }
+  }, [tiers, projectId, updateProject, projects]);
 
   // Fonction pour obtenir les couleurs des catégories avec plus de contraste
   const getCategoryColor = (categorie) => {
@@ -97,7 +118,11 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
   const handleAdd = () => {
     if (!form.nom && !form.prenom && form.customFields.length === 0) return;
     
-    const nouveauTiers = { ...form };
+    // Calculer le prochain numéro disponible
+    const existingNumbers = tiers.map(t => t.numero || 0);
+    const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+    
+    const nouveauTiers = { ...form, numero: nextNumber };
     const updatedTiers = [...tiers, nouveauTiers];
     
     // Si nous sommes dans le contexte d'un projet existant
@@ -160,7 +185,14 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
   };
 
   const handleEditField = (idx, field, value) => {
-    const updatedTiers = tiers.map((t, i) => i === idx ? { ...t, [field]: value } : t);
+    const updatedTiers = tiers.map((t, i) => {
+      if (i === idx) {
+        // S'assurer que le tiers a un numéro fixe
+        const tiersWithNumber = t.numero ? t : { ...t, numero: idx + 1 };
+        return { ...tiersWithNumber, [field]: value };
+      }
+      return t;
+    });
     
     if (projectId && updateProject) {
       const projectToUpdate = projects.find(p => p.id === projectId);
@@ -276,7 +308,7 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                 >
                   <div className="flex items-center space-x-4">
                     <div className="w-9 h-9 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm shadow-sm">
-                      {idx + 1}
+                      {t.numero || idx + 1}
                     </div>
                     <div className="flex items-center space-x-4">
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
