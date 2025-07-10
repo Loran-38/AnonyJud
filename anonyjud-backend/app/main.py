@@ -140,18 +140,27 @@ async def deanonymize_file(
     Si le mapping est vide, essaie de détecter automatiquement les patterns.
     """
     try:
+        print(f"🚀 DEANONYMIZE_FILE ENDPOINT - Début du traitement")
+        print(f"📁 Fichier reçu: {file.filename}")
+        print(f"🗂️ Mapping JSON brut: {mapping_json}")
+        
         # Convertir la chaîne JSON en mapping
         mapping = json.loads(mapping_json)
+        print(f"🗂️ Mapping parsé: {mapping}")
+        print(f"📊 Nombre de balises dans le mapping: {len(mapping)}")
         
         # Vérifier le type de fichier
         filename = file.filename or ""
         file_extension = os.path.splitext(filename)[1].lower()
+        print(f"📄 Extension du fichier: {file_extension}")
         
         # Lire le contenu du fichier
         content = await file.read()
+        print(f"📦 Taille du fichier: {len(content)} bytes")
         
         # Si le mapping est vide, essayer de détecter automatiquement
         if not mapping or len(mapping) == 0:
+            print(f"⚠️ Mapping vide détecté, tentative de détection automatique...")
             # Extraire d'abord le texte pour détecter les patterns
             if file_extension == ".pdf":
                 with fitz.open(stream=content, filetype="pdf") as pdf:
@@ -180,27 +189,38 @@ async def deanonymize_file(
             
             # Détecter les patterns anonymisés automatiquement
             mapping = detect_anonymized_patterns(text)
+            print(f"🔍 Patterns détectés automatiquement: {mapping}")
             
             if not mapping:
+                print(f"❌ Aucun pattern d'anonymisation détecté")
                 return {"text": text, "mapping": {}, "message": "Aucun pattern d'anonymisation détecté dans le fichier"}
+        
+        print(f"🔄 Début de la désanonymisation avec mapping: {mapping}")
         
         # Procéder à la dé-anonymisation
         if file_extension == ".pdf":
+            print(f"📄 Traitement PDF...")
             pdf_text = extract_and_deanonymize_pdf(content, mapping)
+            print(f"✅ PDF désanonymisé avec succès")
             return {"text": pdf_text, "mapping": mapping}
             
         elif file_extension in [".doc", ".docx"]:
+            print(f"📄 Traitement DOCX...")
             doc_text = extract_and_deanonymize_docx(content, mapping)
+            print(f"✅ DOCX désanonymisé avec succès")
             return {"text": doc_text, "mapping": mapping}
             
         elif file_extension == ".odt":
+            print(f"📄 Traitement ODT...")
             odt_text = extract_and_deanonymize_odt(content, mapping)
+            print(f"✅ ODT désanonymisé avec succès")
             return {"text": odt_text, "mapping": mapping}
             
         else:
             raise HTTPException(status_code=400, detail="Format de fichier non supporté. Utilisez PDF, DOCX ou ODT.")
             
     except Exception as e:
+        print(f"❌ Erreur dans deanonymize_file endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/anonymize/file/download")
@@ -430,47 +450,104 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
     Retourne le fichier modifié.
     """
     try:
+        print(f"🔍 DEANONYMIZE_DOCX_FILE - Début du processus")
+        print(f"🗂️ Mapping reçu: {mapping}")
+        print(f"📊 Nombre de balises dans le mapping: {len(mapping)}")
+        
         # Ouvrir le document Word depuis les bytes
         doc = Document(io.BytesIO(content))
         
-        # Inverser le mapping pour la dé-anonymisation
-        reverse_mapping = {v: k for k, v in mapping.items()}
-        
-        # Appliquer les dé-anonymisations dans les paragraphes
+        # Extraire tout le texte du document pour analyse
+        full_text = ""
         for para in doc.paragraphs:
-            if para.text.strip():  # Seulement pour les paragraphes non vides
-                original_text = para.text
-                # Appliquer chaque remplacement du mapping inversé
-                for anonymous, original in reverse_mapping.items():
-                    original_text = original_text.replace(anonymous, original)
-                
-                # Remplacer le texte du paragraphe
-                para.clear()
-                para.add_run(original_text)
-        
-        # Traiter également les tableaux
+            full_text += para.text + "\n"
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
                     for para in cell.paragraphs:
+                        full_text += para.text + "\n"
+        
+        print(f"📝 Texte extrait du document (premiers 300 chars): {full_text[:300]}...")
+        
+        # Analyser quelles balises sont présentes dans le texte
+        found_tags = []
+        for tag in mapping.keys():
+            if tag in full_text:
+                found_tags.append(tag)
+                print(f"✅ Balise '{tag}' trouvée dans le document")
+            else:
+                print(f"❌ Balise '{tag}' NON trouvée dans le document")
+        
+        print(f"📋 Résumé: {len(found_tags)}/{len(mapping)} balises trouvées: {found_tags}")
+        
+        # Inverser le mapping pour la dé-anonymisation
+        reverse_mapping = {v: k for k, v in mapping.items()}
+        print(f"🔄 Mapping inversé créé: {reverse_mapping}")
+        
+        paragraphs_modified = 0
+        cells_modified = 0
+        
+        # Appliquer les dé-anonymisations dans les paragraphes
+        for i, para in enumerate(doc.paragraphs):
+            if para.text.strip():  # Seulement pour les paragraphes non vides
+                original_text = para.text
+                modified_text = original_text
+                
+                # Appliquer chaque remplacement du mapping inversé
+                for anonymous, original in reverse_mapping.items():
+                    if anonymous in modified_text:
+                        count_before = modified_text.count(anonymous)
+                        modified_text = modified_text.replace(anonymous, original)
+                        count_after = modified_text.count(anonymous)
+                        replacements = count_before - count_after
+                        if replacements > 0:
+                            print(f"✅ Paragraphe {i}: {replacements} occurrence(s) de '{anonymous}' remplacée(s) par '{original}'")
+                
+                # Remplacer le texte du paragraphe seulement si modifié
+                if modified_text != original_text:
+                    print(f"📝 Paragraphe {i} modifié: '{original_text}' -> '{modified_text}'")
+                    para.clear()
+                    para.add_run(modified_text)
+                    paragraphs_modified += 1
+        
+        # Traiter également les tableaux
+        for table_idx, table in enumerate(doc.tables):
+            for row_idx, row in enumerate(table.rows):
+                for cell_idx, cell in enumerate(row.cells):
+                    for para_idx, para in enumerate(cell.paragraphs):
                         if para.text.strip():
                             original_text = para.text
+                            modified_text = original_text
+                            
                             # Appliquer chaque remplacement du mapping inversé
                             for anonymous, original in reverse_mapping.items():
-                                original_text = original_text.replace(anonymous, original)
+                                if anonymous in modified_text:
+                                    count_before = modified_text.count(anonymous)
+                                    modified_text = modified_text.replace(anonymous, original)
+                                    count_after = modified_text.count(anonymous)
+                                    replacements = count_before - count_after
+                                    if replacements > 0:
+                                        print(f"✅ Tableau {table_idx}, Ligne {row_idx}, Cellule {cell_idx}: {replacements} occurrence(s) de '{anonymous}' remplacée(s) par '{original}'")
                             
-                            # Remplacer le texte du paragraphe
-                            para.clear()
-                            para.add_run(original_text)
+                            # Remplacer le texte du paragraphe seulement si modifié
+                            if modified_text != original_text:
+                                print(f"📝 Cellule [{table_idx},{row_idx},{cell_idx}] modifiée: '{original_text}' -> '{modified_text}'")
+                                para.clear()
+                                para.add_run(modified_text)
+                                cells_modified += 1
+        
+        print(f"📈 Résultats: {paragraphs_modified} paragraphes et {cells_modified} cellules modifiés")
         
         # Sauvegarder le document modifié en bytes
         output = io.BytesIO()
         doc.save(output)
         output.seek(0)
         
+        print(f"🏁 DEANONYMIZE_DOCX_FILE - Fichier modifié généré avec succès")
         return output.getvalue()
         
     except Exception as e:
+        print(f"❌ Erreur dans deanonymize_docx_file: {str(e)}")
         raise Exception(f"Erreur lors de la dé-anonymisation du fichier Word: {str(e)}") 
 
 def extract_and_deanonymize_pdf(content: bytes, mapping: Dict[str, str]):
@@ -497,19 +574,43 @@ def extract_and_deanonymize_docx(content: bytes, mapping: Dict[str, str]):
     Extrait le texte d'un document Word et le dé-anonymise.
     """
     try:
+        print(f"🔍 EXTRACT_AND_DEANONYMIZE_DOCX - Début du processus")
+        print(f"🗂️ Mapping reçu: {mapping}")
+        
         # Ouvrir le document Word depuis les bytes
         doc = Document(io.BytesIO(content))
         text = ""
         
         # Extraire le texte de chaque paragraphe
+        paragraph_count = 0
         for para in doc.paragraphs:
-            text += para.text + "\n"
+            if para.text.strip():
+                text += para.text + "\n"
+                paragraph_count += 1
+        
+        # Extraire le texte des tableaux aussi
+        table_count = 0
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        if para.text.strip():
+                            text += para.text + "\n"
+                            table_count += 1
+        
+        print(f"📝 Texte extrait: {paragraph_count} paragraphes, {table_count} cellules de tableau")
+        print(f"📝 Texte complet (premiers 300 chars): {text[:300]}...")
+        print(f"📊 Longueur totale du texte: {len(text)} caractères")
             
         # Dé-anonymiser le texte extrait
+        print(f"🔄 Appel de deanonymize_text...")
         deanonymized = deanonymize_text(text, mapping)
+        print(f"✅ Désanonymisation terminée")
+        
         return deanonymized
         
     except Exception as e:
+        print(f"❌ Erreur dans extract_and_deanonymize_docx: {str(e)}")
         raise Exception(f"Erreur lors du traitement du document Word: {str(e)}")
 
 def extract_and_deanonymize_odt(content: bytes, mapping: Dict[str, str]):
