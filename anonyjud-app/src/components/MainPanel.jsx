@@ -15,16 +15,39 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadedFileName, setUploadedFileName] = useState('');
+  const [processedFile, setProcessedFile] = useState(null);
+  const [fileProgress, setFileProgress] = useState(0);
+  const [isFileReady, setIsFileReady] = useState(false);
+  
+  // États pour la dé-anonymisation
+  const [dragActiveDeanon, setDragActiveDeanon] = useState(false);
+  const [uploadedFileDeanon, setUploadedFileDeanon] = useState(null);
+  const [uploadedFileNameDeanon, setUploadedFileNameDeanon] = useState('');
+  const [processedFileDeanon, setProcessedFileDeanon] = useState(null);
+  const [fileProgressDeanon, setFileProgressDeanon] = useState(0);
+  const [isFileReadyDeanon, setIsFileReadyDeanon] = useState(false);
+  const [deanonymizedText, setDeanonymizedText] = useState('');
+  
   const fileInputRef = useRef(null);
+  const fileInputDenonRef = useRef(null);
 
   // Réinitialiser les champs lorsque le projet sélectionné change
   useEffect(() => {
     setInputText('');
     setAnonymizedText('');
+    setDeanonymizedText('');
     setMapping({});
     setError('');
     setUploadedFile(null);
     setUploadedFileName('');
+    setProcessedFile(null);
+    setFileProgress(0);
+    setIsFileReady(false);
+    setUploadedFileDeanon(null);
+    setUploadedFileNameDeanon('');
+    setProcessedFileDeanon(null);
+    setFileProgressDeanon(0);
+    setIsFileReadyDeanon(false);
   }, [selectedProject]);
 
   // Fonction pour anonymiser le texte
@@ -76,7 +99,7 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
     }
   };
 
-  // Fonction pour gérer le glisser-déposer
+  // Fonction pour gérer le glisser-déposer (anonymisation)
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -88,7 +111,7 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
     }
   };
 
-  // Fonction pour gérer le dépôt de fichier
+  // Fonction pour gérer le dépôt de fichier (anonymisation)
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -99,14 +122,14 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
     }
   };
 
-  // Fonction pour gérer la sélection de fichier via le bouton
+  // Fonction pour gérer la sélection de fichier via le bouton (anonymisation)
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       handleFile(e.target.files[0]);
     }
   };
 
-  // Fonction pour traiter le fichier
+  // Fonction pour traiter le fichier (anonymisation)
   const handleFile = async (file) => {
     if (!selectedProject) {
       setError('Veuillez sélectionner un projet.');
@@ -122,11 +145,24 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
 
     setError('');
     setIsProcessing(true);
+    setFileProgress(0);
+    setIsFileReady(false);
 
     try {
-      // Sauvegarder le fichier uploadé pour les téléchargements futurs
+      // Sauvegarder le fichier uploadé
       setUploadedFile(file);
       setUploadedFileName(file.name);
+      
+      // Simuler une progression
+      const progressInterval = setInterval(() => {
+        setFileProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return prev + 10;
+        });
+      }, 200);
       
       // Debugging pour vérifier l'état du fichier
       console.log("Fichier uploadé:", file.name, "Type:", file.type);
@@ -151,11 +187,114 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
       const data = await response.json();
       setAnonymizedText(data.text);
       setMapping(data.mapping);
+      setProcessedFile(file);
+      
+      // Finaliser la progression
+      clearInterval(progressInterval);
+      setFileProgress(100);
+      setIsFileReady(true);
       
       // Afficher le mapping pour le débogage
       console.log("Mapping reçu après anonymisation de fichier:", data.mapping);
     } catch (err) {
       setError(`Erreur lors du traitement du fichier: ${err.message}`);
+      setFileProgress(0);
+      setIsFileReady(false);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Fonctions pour la dé-anonymisation
+  const handleDragDeanon = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActiveDeanon(true);
+    } else if (e.type === "dragleave") {
+      setDragActiveDeanon(false);
+    }
+  };
+
+  const handleDropDeanon = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActiveDeanon(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileDeanon(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileChangeDeanon = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileDeanon(e.target.files[0]);
+    }
+  };
+
+  const handleFileDeanon = async (file) => {
+    if (!mapping || Object.keys(mapping).length === 0) {
+      setError('Vous devez d\'abord anonymiser un fichier pour pouvoir le dé-anonymiser.');
+      return;
+    }
+
+    const fileType = file.name.split('.').pop().toLowerCase();
+    if (fileType !== 'pdf' && fileType !== 'doc' && fileType !== 'docx' && fileType !== 'odt') {
+      setError('Format de fichier non supporté. Utilisez PDF, DOCX ou ODT.');
+      return;
+    }
+
+    setError('');
+    setIsProcessing(true);
+    setFileProgressDeanon(0);
+    setIsFileReadyDeanon(false);
+
+    try {
+      setUploadedFileDeanon(file);
+      setUploadedFileNameDeanon(file.name);
+      
+      // Simuler une progression
+      const progressInterval = setInterval(() => {
+        setFileProgressDeanon(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return prev + 10;
+        });
+      }, 200);
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('mapping_json', JSON.stringify(mapping));
+
+      const response = await fetch(`${config.API_BASE_URL}/deanonymize/text`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          anonymized_text: anonymizedText,
+          mapping: mapping
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setDeanonymizedText(data.deanonymized_text);
+      setProcessedFileDeanon(file);
+      
+      clearInterval(progressInterval);
+      setFileProgressDeanon(100);
+      setIsFileReadyDeanon(true);
+    } catch (err) {
+      setError(`Erreur lors du traitement du fichier: ${err.message}`);
+      setFileProgressDeanon(0);
+      setIsFileReadyDeanon(false);
     } finally {
       setIsProcessing(false);
     }
@@ -166,35 +305,25 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
     fileInputRef.current.click();
   };
 
+  const onButtonClickDeanon = () => {
+    fileInputDenonRef.current.click();
+  };
+
   // Fonction pour télécharger le fichier anonymisé
   const downloadAnonymizedFile = async () => {
-    console.log('downloadAnonymizedFile appelée');
-    console.log('uploadedFile:', uploadedFile);
-    console.log('selectedProject:', selectedProject);
-    
     if (!uploadedFile || !selectedProject) {
-      const errorMsg = 'Aucun fichier à télécharger.';
-      console.error(errorMsg);
-      setError(errorMsg);
+      setError('Aucun fichier à télécharger.');
       return;
     }
 
-    // Vérifier que c'est un fichier Word
     const fileType = uploadedFile.name.split('.').pop().toLowerCase();
-    console.log('Type de fichier détecté:', fileType);
-    console.log('Nom du fichier:', uploadedFile.name);
-    console.log('Test endsWith:', uploadedFile.name.toLowerCase().endsWith('.docx'));
-    
     if (fileType !== 'docx') {
-      const errorMsg = 'Le téléchargement de fichiers anonymisés n\'est disponible que pour les fichiers Word (.docx).';
-      console.error(errorMsg);
-      setError(errorMsg);
+      setError('Le téléchargement de fichiers anonymisés n\'est disponible que pour les fichiers Word (.docx).');
       return;
     }
 
     setError('');
     setIsProcessing(true);
-    console.log('Début du téléchargement du fichier anonymisé...');
 
     try {
       const formData = new FormData();
@@ -210,12 +339,10 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
 
-      // Télécharger le fichier
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      // Extraire le nom du fichier depuis les headers de réponse
       const contentDisposition = response.headers.get('Content-Disposition');
       let filename = uploadedFileName.replace('.docx', '_ANONYM.docx');
       if (contentDisposition) {
@@ -243,11 +370,7 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
       return;
     }
 
-    // Vérifier que c'est un fichier Word
     const fileType = uploadedFile.name.split('.').pop().toLowerCase();
-    console.log('downloadDeanonymizedFile - Type de fichier détecté:', fileType);
-    console.log('downloadDeanonymizedFile - Nom du fichier:', uploadedFile.name);
-    
     if (fileType !== 'docx') {
       setError('Le téléchargement de fichiers dé-anonymisés n\'est disponible que pour les fichiers Word (.docx).');
       return;
@@ -270,12 +393,10 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
 
-      // Télécharger le fichier
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      // Extraire le nom du fichier depuis les headers de réponse
       const contentDisposition = response.headers.get('Content-Disposition');
       let filename = uploadedFileName.replace('.docx', '_DESANONYM.docx');
       if (contentDisposition) {
@@ -303,7 +424,6 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
       return;
     }
 
-    // Afficher le mapping pour débogage
     console.log("Mapping utilisé pour la dé-anonymisation:", mapping);
 
     setError('');
@@ -327,7 +447,7 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
 
       const data = await response.json();
       console.log("Réponse de dé-anonymisation:", data);
-      setInputText(data.deanonymized_text);
+      setDeanonymizedText(data.deanonymized_text);
     } catch (err) {
       setError(`Erreur lors de la dé-anonymisation: ${err.message}`);
     } finally {
@@ -356,181 +476,207 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
               />
             </div>
             
-            {/* Partie anonymisation - Maintenant 50% de la largeur */}
+            {/* Partie anonymisation - Maintenant 50% de la largeur avec deux colonnes */}
             <div className="w-full lg:w-1/2 flex flex-col h-full">
-              {/* Texte original */}
-              <div className="flex flex-col h-1/2 mb-4">
-                <div className="flex justify-between items-center mb-3 bg-gray-50 p-3 rounded-t-lg">
-                  <h3 className="font-semibold text-gray-700">Texte original</h3>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={anonymizeText}
-                      disabled={isProcessing}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 disabled:opacity-50 flex items-center"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Traitement...
-                        </>
-                      ) : (
-                        'Anonymiser'
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setInputText('')}
-                      className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150"
-                    >
-                      Effacer
-                    </button>
-                  </div>
-                </div>
-                <textarea
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Entrez ici le texte à anonymiser..."
-                  className="flex-1 p-4 border border-gray-200 rounded-b-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              
-              {/* Zone de glisser-déposer */}
-              <div 
-                className={`border-2 border-dashed rounded-lg p-6 mb-4 text-center cursor-pointer transition-colors duration-200 ${
-                  dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
-                }`}
-                onDragEnter={handleDrag}
-                onDragOver={handleDrag}
-                onDragLeave={handleDrag}
-                onDrop={handleDrop}
-                onClick={onButtonClick}
-              >
-                <input 
-                  ref={fileInputRef}
-                  type="file" 
-                  accept=".pdf,.doc,.docx,.odt"
-                  onChange={handleFileChange}
-                  className="hidden" 
-                />
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-                <p className="text-gray-500">
-                  Glissez-déposez un fichier PDF, Word ou ODT ici, ou cliquez pour sélectionner un fichier
-                </p>
-                {uploadedFileName && (
-                  <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-blue-800 font-medium">
-                      📄 {uploadedFileName}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Section téléchargement de fichiers */}
-              <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200 shadow-sm">
-                <h4 className="text-sm font-semibold text-green-800 mb-3 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Téléchargement de fichiers Word
-                </h4>
+              <div className="flex flex-col lg:flex-row h-full gap-4">
                 
-                {uploadedFile && uploadedFile.name.toLowerCase().endsWith('.docx') ? (
-                  <>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <button
-                        onClick={downloadAnonymizedFile}
-                        disabled={isProcessing}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm hover:shadow-md transform hover:scale-105"
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Télécharger fichier anonymisé
-                      </button>
-                      <button
-                        onClick={downloadDeanonymizedFile}
-                        disabled={isProcessing}
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm hover:shadow-md transform hover:scale-105"
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Télécharger fichier dé-anonymisé
-                      </button>
-                    </div>
-                    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-xs text-blue-700 font-medium flex items-center">
-                        <svg className="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Ces boutons téléchargent le fichier Word original avec les modifications appliquées directement dans le document.
-                      </p>
-                    </div>
-                    <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-xs text-blue-700 font-medium">
-                        ℹ️ <strong>Téléchargement anonymisé :</strong> Disponible même sans tiers (anonymisation basique)
-                      </p>
-                      <p className="text-xs text-blue-700 font-medium mt-1">
-                        ℹ️ <strong>Téléchargement dé-anonymisé :</strong> Nécessite une anonymisation préalable
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-600 flex items-center">
-                      <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Uploadez un fichier Word (.docx) pour voir les boutons de téléchargement.
-                    </p>
-                    {uploadedFile && !uploadedFile.name.toLowerCase().endsWith('.docx') && (
-                      <p className="text-xs text-orange-600 mt-1">
-                        ⚠️ Fichier actuel : {uploadedFile.name} - Seuls les fichiers .docx sont supportés pour le téléchargement.
-                      </p>
-                    )}
-                    {/* Debug info */}
-                    <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-500">
-                      <div>Debug: {uploadedFile ? `Fichier: ${uploadedFile.name}, Extension: ${uploadedFile.name.split('.').pop()}` : 'Aucun fichier uploadé'}</div>
-                      <div>Tiers: {selectedProject?.tiers?.length || 0} | Mapping: {mapping ? Object.keys(mapping).length : 0} | Processing: {isProcessing ? 'Oui' : 'Non'}</div>
-                    </div>
+                {/* Colonne ANONYMISER */}
+                <div className="w-full lg:w-1/2 flex flex-col bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
+                  <div className="text-center mb-4">
+                    <h3 className="text-lg font-bold text-blue-800 bg-blue-100 rounded-full px-4 py-2 inline-block">
+                      ANONYMISER
+                    </h3>
                   </div>
-                )}
-              </div>
-              
-              {/* Texte anonymisé */}
-              <div className="flex flex-col h-1/2">
-                <div className="flex justify-between items-center mb-3 bg-gray-50 p-3 rounded-t-lg">
-                  <h3 className="font-semibold text-gray-700">Texte anonymisé</h3>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={deanonymizeText}
-                      disabled={isProcessing || !anonymizedText}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 disabled:opacity-50"
-                    >
-                      Dé-anonymiser
-                    </button>
-                    <button
-                      onClick={() => {
-                        setAnonymizedText('');
-                        setMapping({});
-                      }}
-                      className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150"
-                    >
-                      Effacer
-                    </button>
+                  
+                  {/* Zone de glisser-déposer pour anonymisation */}
+                  <div 
+                    className={`border-2 border-dashed rounded-lg p-6 mb-4 text-center cursor-pointer transition-colors duration-200 ${
+                      dragActive ? 'border-blue-500 bg-blue-100' : 'border-blue-300 hover:border-blue-400 hover:bg-blue-100'
+                    }`}
+                    onDragEnter={handleDrag}
+                    onDragOver={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDrop={handleDrop}
+                    onClick={onButtonClick}
+                  >
+                    <input 
+                      ref={fileInputRef}
+                      type="file" 
+                      accept=".pdf,.doc,.docx,.odt"
+                      onChange={handleFileChange}
+                      className="hidden" 
+                    />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p className="text-blue-700 text-sm font-medium">
+                      Glisser fichier
+                    </p>
+                    <p className="text-blue-600 text-xs">
+                      ou cliquer pour sélectionner
+                    </p>
+                    {uploadedFileName && (
+                      <div className="mt-2 p-2 bg-blue-200 rounded">
+                        <p className="text-xs text-blue-800 font-medium">
+                          📄 {uploadedFileName}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Barre de progression */}
+                  {isProcessing && (
+                    <div className="mb-4">
+                      <div className="bg-blue-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${fileProgress}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-blue-700 mt-1 text-center">
+                        Traitement en cours... {fileProgress}%
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Bouton télécharger */}
+                  <button
+                    onClick={downloadAnonymizedFile}
+                    disabled={!isFileReady || isProcessing}
+                    className={`w-full mb-4 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      isFileReady && !isProcessing
+                        ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {isFileReady ? '📥 TÉLÉCHARGER' : 'Télécharger (en attente)'}
+                  </button>
+                  
+                  {/* Zone de texte pour anonymisation */}
+                  <div className="flex-1 flex flex-col">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="text-sm font-semibold text-blue-800">Texte à anonymiser</h4>
+                      <button
+                        onClick={anonymizeText}
+                        disabled={isProcessing}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-150 disabled:opacity-50"
+                      >
+                        {isProcessing ? 'Traitement...' : 'Anonymiser'}
+                      </button>
+                    </div>
+                    <textarea
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      placeholder="Entrez le texte à anonymiser..."
+                      className="flex-1 p-3 border border-blue-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
+                    />
                   </div>
                 </div>
-                <textarea
-                  value={anonymizedText}
-                  onChange={(e) => setAnonymizedText(e.target.value)}
-                  placeholder="Le texte anonymisé apparaîtra ici..."
-                  className="flex-1 p-4 border border-gray-200 rounded-b-lg resize-none bg-gray-50 focus:outline-none"
-                  readOnly
-                />
+                
+                {/* Flèches bidirectionnelles */}
+                <div className="flex lg:flex-col items-center justify-center py-4 lg:py-0 lg:px-2">
+                  <div className="flex lg:flex-col items-center space-x-2 lg:space-x-0 lg:space-y-2">
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                    </svg>
+                  </div>
+                </div>
+                
+                {/* Colonne DÉ-ANONYMISER */}
+                <div className="w-full lg:w-1/2 flex flex-col bg-green-50 rounded-lg p-4 border-2 border-green-200">
+                  <div className="text-center mb-4">
+                    <h3 className="text-lg font-bold text-green-800 bg-green-100 rounded-full px-4 py-2 inline-block">
+                      DÉ-ANONYMISER
+                    </h3>
+                  </div>
+                  
+                  {/* Zone de glisser-déposer pour dé-anonymisation */}
+                  <div 
+                    className={`border-2 border-dashed rounded-lg p-6 mb-4 text-center cursor-pointer transition-colors duration-200 ${
+                      dragActiveDeanon ? 'border-green-500 bg-green-100' : 'border-green-300 hover:border-green-400 hover:bg-green-100'
+                    }`}
+                    onDragEnter={handleDragDeanon}
+                    onDragOver={handleDragDeanon}
+                    onDragLeave={handleDragDeanon}
+                    onDrop={handleDropDeanon}
+                    onClick={onButtonClickDeanon}
+                  >
+                    <input 
+                      ref={fileInputDenonRef}
+                      type="file" 
+                      accept=".pdf,.doc,.docx,.odt"
+                      onChange={handleFileChangeDeanon}
+                      className="hidden" 
+                    />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto text-green-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p className="text-green-700 text-sm font-medium">
+                      Glisser fichier
+                    </p>
+                    <p className="text-green-600 text-xs">
+                      ou cliquer pour sélectionner
+                    </p>
+                    {uploadedFileNameDeanon && (
+                      <div className="mt-2 p-2 bg-green-200 rounded">
+                        <p className="text-xs text-green-800 font-medium">
+                          📄 {uploadedFileNameDeanon}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Barre de progression */}
+                  {isProcessing && fileProgressDeanon > 0 && (
+                    <div className="mb-4">
+                      <div className="bg-green-200 rounded-full h-2">
+                        <div 
+                          className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${fileProgressDeanon}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-green-700 mt-1 text-center">
+                        Traitement en cours... {fileProgressDeanon}%
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Bouton télécharger */}
+                  <button
+                    onClick={downloadDeanonymizedFile}
+                    disabled={!isFileReadyDeanon || isProcessing}
+                    className={`w-full mb-4 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      isFileReadyDeanon && !isProcessing
+                        ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {isFileReadyDeanon ? '📥 TÉLÉCHARGER' : 'Télécharger (en attente)'}
+                  </button>
+                  
+                  {/* Zone de texte pour dé-anonymisation */}
+                  <div className="flex-1 flex flex-col">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="text-sm font-semibold text-green-800">Texte dé-anonymisé</h4>
+                      <button
+                        onClick={deanonymizeText}
+                        disabled={isProcessing || !anonymizedText}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-150 disabled:opacity-50"
+                      >
+                        Dé-anonymiser
+                      </button>
+                    </div>
+                    <textarea
+                      value={deanonymizedText}
+                      onChange={(e) => setDeanonymizedText(e.target.value)}
+                      placeholder="Le texte dé-anonymisé apparaîtra ici..."
+                      className="flex-1 p-3 border border-green-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white text-sm"
+                    />
+                  </div>
+                </div>
               </div>
               
               {error && (

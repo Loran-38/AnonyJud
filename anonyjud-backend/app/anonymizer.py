@@ -87,7 +87,7 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                         anonymized = anonymized.replace(prenom.upper(), tag)
                     if prenom.lower() != prenom:
                         anonymized = anonymized.replace(prenom.lower(), tag)
-            
+                        
             # Traiter les composants de l'adresse
             # Numéro de voie
             if tier.get("adresse_numero"):
@@ -206,7 +206,7 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                         anonymized = anonymized.replace(societe.upper(), tag)
                     if societe.lower() != societe:
                         anonymized = anonymized.replace(societe.lower(), tag)
-            
+                        
             # Traiter les champs personnalisés (nouveau format)
             if tier.get("customFields") and isinstance(tier["customFields"], list):
                 for custom_field in tier["customFields"]:

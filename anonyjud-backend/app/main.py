@@ -242,7 +242,7 @@ def extract_and_anonymize_odt(content: bytes, tiers: List[Dict[str, Any]]):
                 os.unlink(temp_path)
         
     except Exception as e:
-        raise Exception(f"Erreur lors du traitement du document ODT: {str(e)}")
+        raise Exception(f"Erreur lors du traitement du document ODT: {str(e)}") 
 
 def anonymize_docx_file(content: bytes, tiers: List[Dict[str, Any]]):
     """
