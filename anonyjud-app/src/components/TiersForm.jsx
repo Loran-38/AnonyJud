@@ -363,15 +363,6 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                             />
                           </div>
                           <div className="md:col-span-2 lg:col-span-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                            <input 
-                              value={t.email || ""} 
-                              onChange={e => handleEditField(idx, "email", e.target.value)} 
-                              placeholder="adresse@email.com"
-                              className="w-full border-2 border-green-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white shadow-sm font-medium" 
-                            />
-                          </div>
-                          <div className="md:col-span-2 lg:col-span-1">
                             <label className="block text-sm font-medium text-gray-700 mb-2">Société</label>
                             <input 
                               value={t.societe || ""} 
@@ -440,7 +431,7 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                           </svg>
                           Contact
                         </h5>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
                             <input 
@@ -456,6 +447,15 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                               value={t.portable || ""} 
                               onChange={e => handleEditField(idx, "portable", e.target.value)} 
                               placeholder="06 12 34 56 78"
+                              className="w-full border-2 border-orange-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white shadow-sm font-medium" 
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input 
+                              value={t.email || ""} 
+                              onChange={e => handleEditField(idx, "email", e.target.value)} 
+                              placeholder="adresse@email.com"
                               className="w-full border-2 border-orange-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white shadow-sm font-medium" 
                             />
                           </div>
@@ -608,17 +608,6 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                    <input 
-                      name="email" 
-                      type="email"
-                      value={form.email} 
-                      onChange={handleChange} 
-                      placeholder="exemple@email.com" 
-                      className="w-full border-2 border-green-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white shadow-sm font-medium" 
-                    />
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Société</label>
                     <input 
                       name="societe" 
@@ -692,7 +681,7 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                   </svg>
                   Contact
                 </h5>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
                     <input 
@@ -710,6 +699,17 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
                       value={form.portable} 
                       onChange={handleChange} 
                       placeholder="06 12 34 56 78" 
+                      className="w-full border-2 border-orange-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white shadow-sm font-medium" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input 
+                      name="email" 
+                      type="email"
+                      value={form.email} 
+                      onChange={handleChange} 
+                      placeholder="exemple@email.com" 
                       className="w-full border-2 border-orange-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white shadow-sm font-medium" 
                     />
                   </div>
