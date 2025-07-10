@@ -278,6 +278,8 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
     
     const files = e.dataTransfer.files;
     if (files && files[0]) {
+      // Effacer les erreurs précédentes avant de traiter le nouveau fichier
+      setError('');
       handleFileDeanon(files[0]);
     }
   };
@@ -285,6 +287,8 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const handleFileInputDeanon = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Effacer les erreurs précédentes avant de traiter le nouveau fichier
+      setError('');
       handleFileDeanon(file);
     }
   };
@@ -310,39 +314,27 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       setUploadedFileDeanon(file);
       setUploadedFileNameDeanon(file.name);
       
+      // Progression plus fluide qui va jusqu'à 100%
       const progressInterval = setInterval(() => {
         setFileProgressDeanon(prev => {
-          if (prev >= 90) {
+          if (prev >= 95) {
             clearInterval(progressInterval);
             return prev;
           }
-          return prev + 10;
+          return prev + 8;
         });
-      }, 200);
+      }, 150);
       
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('mapping_json', JSON.stringify(mapping));
-
-      const response = await fetch(`${config.API_BASE_URL}/deanonymize/file`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setDeanonymizedText(data.text);
+      // Sauvegarder le fichier pour le téléchargement (pas besoin d'appeler l'API pour le moment)
       setProcessedFileDeanon(file);
       
+      // Finaliser la progression
       clearInterval(progressInterval);
       setFileProgressDeanon(100);
       setIsFileReadyDeanon(true);
       
     } catch (err) {
-      setError(`Erreur lors de la dé-anonymisation: ${err.message}`);
+      setError(`Erreur lors de la préparation du fichier: ${err.message}`);
     } finally {
       setIsProcessing(false);
     }
@@ -476,7 +468,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
             <div className="p-4 space-y-4 h-full overflow-y-auto">
               {/* Zone de glisser-déposer */}
               <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 min-h-[180px] flex flex-col justify-center ${
                   dragActive
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-blue-300 hover:border-blue-400 hover:bg-blue-50'
@@ -607,7 +599,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
             <div className="p-4 space-y-4 h-full overflow-y-auto">
               {/* Zone de glisser-déposer */}
               <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 min-h-[180px] flex flex-col justify-center ${
                   dragActiveDeanon
                     ? 'border-green-500 bg-green-50'
                     : mapping && Object.keys(mapping).length > 0
@@ -620,7 +612,10 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                 onDrop={handleDropDeanon}
                 onClick={() => {
                   if (mapping && Object.keys(mapping).length > 0) {
+                    setError(''); // Effacer les erreurs avant d'ouvrir le sélecteur
                     fileInputDenonRef.current?.click();
+                  } else {
+                    setError('⚠️ Veuillez d\'abord anonymiser un fichier ou du texte pour créer les correspondances nécessaires à la dé-anonymisation.');
                   }
                 }}
               >
@@ -730,14 +725,19 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
               {/* Zone de texte */}
               <div className="border-t border-green-200 pt-4">
                 <label className="block text-sm font-medium text-green-700 mb-2">
-                  Ou utilisez le texte anonymisé :
+                  Ou saisissez votre texte anonymisé directement :
                 </label>
                 <textarea
                   value={anonymizedText}
-                  onChange={(e) => setAnonymizedText(e.target.value)}
-                  placeholder="Le texte anonymisé apparaîtra ici automatiquement..."
-                  className="w-full h-32 px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none bg-gray-50"
-                  readOnly
+                  onChange={(e) => {
+                    setAnonymizedText(e.target.value);
+                    // Effacer les erreurs quand l'utilisateur tape
+                    if (error && error.includes('mapping')) {
+                      setError('');
+                    }
+                  }}
+                  placeholder="Tapez ou collez votre texte ici..."
+                  className="w-full h-32 px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
                 />
                 <div className="flex justify-between items-center mt-2">
                   <span className="text-xs text-green-600">
