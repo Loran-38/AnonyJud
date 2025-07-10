@@ -97,43 +97,212 @@ async def anonymize_file(
 def detect_anonymized_patterns(text: str) -> Dict[str, str]:
     """
     Détecte automatiquement les patterns d'anonymisation dans un texte.
+    Utilise les mêmes patterns que l'anonymisation (NOM1, PRENOM1, etc.)
     Retourne un mapping des patterns détectés.
     """
     import re
     
+    print(f"🔍 DETECT_ANONYMIZED_PATTERNS - Début de la détection")
+    print(f"📝 Texte à analyser (premiers 500 chars): {text[:500]}...")
+    
     mapping = {}
     
-    # Patterns pour détecter les champs anonymisés
+    # Patterns pour détecter les champs anonymisés (même format que l'anonymisation)
     patterns = [
-        (r'<nom(\d+)>', 'nom'),
-        (r'<prenom(\d+)>', 'prenom'),
-        (r'<adresse(\d+)>', 'adresse'),
-        (r'<telephone(\d+)>', 'telephone'),
-        (r'<email(\d+)>', 'email'),
-        (r'<entreprise(\d+)>', 'entreprise'),
-        (r'<siret(\d+)>', 'siret'),
-        (r'<dateNaissance(\d+)>', 'dateNaissance'),
-        (r'<lieuNaissance(\d+)>', 'lieuNaissance'),
-        (r'<profession(\d+)>', 'profession'),
-        (r'<nationalite(\d+)>', 'nationalite'),
-        (r'<numeroIdentite(\d+)>', 'numeroIdentite'),
-        (r'<autreInfo(\d+)>', 'autreInfo'),
+        (r'\bNOM(\d+)\b', 'NOM'),
+        (r'\bPRENOM(\d+)\b', 'PRENOM'),
+        (r'\bADRESSE(\d+)\b', 'ADRESSE'),
+        (r'\bNUMERO(\d+)\b', 'NUMERO'),
+        (r'\bVOIE(\d+)\b', 'VOIE'),
+        (r'\bCODEPOSTAL(\d+)\b', 'CODEPOSTAL'),
+        (r'\bVILLE(\d+)\b', 'VILLE'),
+        (r'\bTEL(\d+)\b', 'TEL'),
+        (r'\bPORTABLE(\d+)\b', 'PORTABLE'),
+        (r'\bEMAIL(\d+)\b', 'EMAIL'),
+        (r'\bSOCIETE(\d+)\b', 'SOCIETE'),
+        (r'\bPERSO(\d+)\b', 'PERSO'),
+        # Patterns génériques pour les champs personnalisés
+        (r'\b([A-Z]+)(\d+)\b', 'CUSTOM'),
     ]
     
     # Chercher tous les patterns dans le texte
     for pattern, field_type in patterns:
-        matches = re.findall(pattern, text)
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        print(f"🔍 Pattern '{pattern}' -> {len(matches)} correspondances trouvées")
+        
         for match in matches:
-            tag = f"<{field_type}{match}>"
+            if field_type == 'CUSTOM':
+                # Pour les patterns personnalisés, match est un tuple (prefix, number)
+                prefix, number = match
+                tag = f"{prefix.upper()}{number}"
+            else:
+                # Pour les patterns standards, match est juste le numéro
+                number = match if isinstance(match, str) else match
+                tag = f"{field_type}{number}"
+            
             # Créer un mapping de base (tag -> tag pour l'instant)
+            # En réalité, nous n'avons pas les valeurs originales, donc on garde les tags
             mapping[tag] = tag
+            print(f"✅ Pattern détecté: '{tag}'")
     
+    print(f"📊 Total des patterns détectés: {len(mapping)}")
+    print(f"🗂️ Mapping généré: {mapping}")
+    print(f"🏁 DETECT_ANONYMIZED_PATTERNS - Fin de la détection")
+    
+    return mapping
+
+def generate_mapping_from_tiers(tiers: List[Dict[str, Any]]) -> Dict[str, str]:
+    """
+    Génère le mapping d'anonymisation à partir des tiers.
+    Utilise la même logique que l'anonymisation pour créer les balises.
+    """
+    import re
+    
+    print(f"🔧 GENERATE_MAPPING_FROM_TIERS - Début de la génération")
+    print(f"📊 Nombre de tiers reçus: {len(tiers)}")
+    
+    mapping = {}
+    
+    for tier_index, tier in enumerate(tiers):
+        # Utiliser le numéro fixe du tiers ou fallback sur l'index + 1
+        tier_number = tier.get("numero", tier_index + 1)
+        print(f"🔍 Traitement du tiers {tier_number}: {tier}")
+        
+        # Traiter le nom
+        if tier.get("nom"):
+            nom = tier["nom"].strip()
+            if nom and len(nom) > 1:
+                tag = f"NOM{tier_number}"
+                mapping[tag] = nom
+                print(f"✅ Ajouté: {tag} -> {nom}")
+        
+        # Traiter le prénom
+        if tier.get("prenom"):
+            prenom = tier["prenom"].strip()
+            if prenom and len(prenom) > 1:
+                tag = f"PRENOM{tier_number}"
+                mapping[tag] = prenom
+                print(f"✅ Ajouté: {tag} -> {prenom}")
+        
+        # Traiter les composants de l'adresse
+        if tier.get("adresse_numero"):
+            numero = tier["adresse_numero"].strip()
+            if numero and len(numero) > 0:
+                tag = f"NUMERO{tier_number}"
+                mapping[tag] = numero
+                print(f"✅ Ajouté: {tag} -> {numero}")
+        
+        if tier.get("adresse_voie"):
+            voie = tier["adresse_voie"].strip()
+            if voie and len(voie) > 2:
+                tag = f"VOIE{tier_number}"
+                mapping[tag] = voie
+                print(f"✅ Ajouté: {tag} -> {voie}")
+        
+        if tier.get("adresse_code_postal"):
+            code_postal = tier["adresse_code_postal"].strip()
+            if code_postal and len(code_postal) > 0:
+                tag = f"CODEPOSTAL{tier_number}"
+                mapping[tag] = code_postal
+                print(f"✅ Ajouté: {tag} -> {code_postal}")
+        
+        if tier.get("adresse_ville"):
+            ville = tier["adresse_ville"].strip()
+            if ville and len(ville) > 1:
+                tag = f"VILLE{tier_number}"
+                mapping[tag] = ville
+                print(f"✅ Ajouté: {tag} -> {ville}")
+        
+        # Traiter l'adresse complète (compatibilité)
+        if tier.get("adresse"):
+            adresse = tier["adresse"].strip()
+            if adresse and len(adresse) > 5:
+                tag = f"ADRESSE{tier_number}"
+                mapping[tag] = adresse
+                print(f"✅ Ajouté: {tag} -> {adresse}")
+        
+        # Traiter le téléphone
+        if tier.get("telephone"):
+            tel = tier["telephone"].strip()
+            if tel and len(tel) > 5:
+                tag = f"TEL{tier_number}"
+                mapping[tag] = tel
+                print(f"✅ Ajouté: {tag} -> {tel}")
+        
+        # Traiter le portable
+        if tier.get("portable"):
+            portable = tier["portable"].strip()
+            if portable and len(portable) > 5:
+                tag = f"PORTABLE{tier_number}"
+                mapping[tag] = portable
+                print(f"✅ Ajouté: {tag} -> {portable}")
+        
+        # Traiter l'email
+        if tier.get("email"):
+            email = tier["email"].strip()
+            if email and '@' in email:
+                tag = f"EMAIL{tier_number}"
+                mapping[tag] = email
+                print(f"✅ Ajouté: {tag} -> {email}")
+        
+        # Traiter la société
+        if tier.get("societe"):
+            societe = tier["societe"].strip()
+            if societe and len(societe) > 1:
+                tag = f"SOCIETE{tier_number}"
+                mapping[tag] = societe
+                print(f"✅ Ajouté: {tag} -> {societe}")
+        
+        # Traiter les champs personnalisés
+        if tier.get("customFields") and isinstance(tier["customFields"], list):
+            for custom_field in tier["customFields"]:
+                if isinstance(custom_field, dict):
+                    champ_value = custom_field.get("value")
+                    champ_label = custom_field.get("label")
+                    
+                    if champ_value and isinstance(champ_value, str):
+                        champ_value = champ_value.strip()
+                        if champ_value and len(champ_value) > 1:
+                            label_base = "PERSO"
+                            if champ_label and isinstance(champ_label, str):
+                                label_perso = champ_label.strip()
+                                if label_perso:
+                                    label_base = re.sub(r'[^A-Za-z]', '', label_perso.upper())
+                                    if not label_base:
+                                        label_base = "PERSO"
+                            
+                            tag = f"{label_base}{tier_number}"
+                            mapping[tag] = champ_value
+                            print(f"✅ Ajouté: {tag} -> {champ_value}")
+        
+        # Traiter le champ personnalisé (ancien format)
+        if tier.get("champPerso"):
+            champ_perso = tier["champPerso"]
+            if champ_perso and isinstance(champ_perso, str):
+                champ_perso = champ_perso.strip()
+                if champ_perso and len(champ_perso) > 1:
+                    label_base = "PERSO"
+                    if tier.get("labelChampPerso") and isinstance(tier["labelChampPerso"], str):
+                        label_perso = tier["labelChampPerso"].strip()
+                        if label_perso:
+                            label_base = re.sub(r'[^A-Za-z]', '', label_perso.upper())
+                            if not label_base:
+                                label_base = "PERSO"
+                    
+                    tag = f"{label_base}{tier_number}"
+                    mapping[tag] = champ_perso
+                    print(f"✅ Ajouté: {tag} -> {champ_perso}")
+    
+    print(f"🏁 GENERATE_MAPPING_FROM_TIERS - Mapping généré avec {len(mapping)} éléments")
+    print(f"🗂️ Mapping final: {mapping}")
     return mapping
 
 @app.post("/deanonymize/file")
 async def deanonymize_file(
     file: UploadFile = File(...),
-    mapping_json: str = Form(...)
+    mapping_json: str = Form(...),
+    tiers_json: str = Form("[]"),
+    has_mapping: str = Form("true")
 ):
     """
     Dé-anonymise un fichier Word, PDF ou ODT en utilisant le mapping fourni.
@@ -143,11 +312,15 @@ async def deanonymize_file(
         print(f"🚀 DEANONYMIZE_FILE ENDPOINT - Début du traitement")
         print(f"📁 Fichier reçu: {file.filename}")
         print(f"🗂️ Mapping JSON brut: {mapping_json}")
+        print(f"🗂️ Tiers JSON brut: {tiers_json}")
+        print(f"🔄 A mapping: {has_mapping}")
         
         # Convertir la chaîne JSON en mapping
         mapping = json.loads(mapping_json)
+        tiers = json.loads(tiers_json)
         print(f"🗂️ Mapping parsé: {mapping}")
         print(f"📊 Nombre de balises dans le mapping: {len(mapping)}")
+        print(f"👥 Nombre de tiers: {len(tiers)}")
         
         # Vérifier le type de fichier
         filename = file.filename or ""
@@ -158,42 +331,49 @@ async def deanonymize_file(
         content = await file.read()
         print(f"📦 Taille du fichier: {len(content)} bytes")
         
-        # Si le mapping est vide, essayer de détecter automatiquement
-        if not mapping or len(mapping) == 0:
-            print(f"⚠️ Mapping vide détecté, tentative de détection automatique...")
-            # Extraire d'abord le texte pour détecter les patterns
-            if file_extension == ".pdf":
-                with fitz.open(stream=content, filetype="pdf") as pdf:
-                    text = ""
-                    for page in pdf:
-                        text += page.get_text()
-            elif file_extension in [".doc", ".docx"]:
-                doc = Document(io.BytesIO(content))
-                text = ""
-                for para in doc.paragraphs:
-                    text += para.text + "\n"
-            elif file_extension == ".odt":
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".odt") as temp_file:
-                    temp_file.write(content)
-                    temp_path = temp_file.name
-                try:
-                    doc = load(temp_path)
-                    text = ""
-                    for paragraph in doc.getElementsByType(odf_text.P):
-                        text += teletype.extractText(paragraph) + "\n"
-                finally:
-                    if os.path.exists(temp_path):
-                        os.unlink(temp_path)
+        # Si le mapping est vide, générer le mapping à partir des tiers
+        if has_mapping.lower() == "false" or not mapping or len(mapping) == 0:
+            print(f"⚠️ Mapping vide détecté, génération à partir des tiers...")
+            if tiers and len(tiers) > 0:
+                mapping = generate_mapping_from_tiers(tiers)
+                print(f"🔧 Mapping généré à partir des tiers: {mapping}")
             else:
-                raise HTTPException(status_code=400, detail="Format de fichier non supporté. Utilisez PDF, DOCX ou ODT.")
-            
-            # Détecter les patterns anonymisés automatiquement
-            mapping = detect_anonymized_patterns(text)
-            print(f"🔍 Patterns détectés automatiquement: {mapping}")
-            
-            if not mapping:
-                print(f"❌ Aucun pattern d'anonymisation détecté")
-                return {"text": text, "mapping": {}, "message": "Aucun pattern d'anonymisation détecté dans le fichier"}
+                print(f"❌ Aucun tiers disponible pour générer le mapping")
+                # Fallback: essayer de détecter automatiquement
+                print(f"🔍 Tentative de détection automatique...")
+                # Extraire d'abord le texte pour détecter les patterns
+                if file_extension == ".pdf":
+                    with fitz.open(stream=content, filetype="pdf") as pdf:
+                        text = ""
+                        for page in pdf:
+                            text += page.get_text()
+                elif file_extension in [".doc", ".docx"]:
+                    doc = Document(io.BytesIO(content))
+                    text = ""
+                    for para in doc.paragraphs:
+                        text += para.text + "\n"
+                elif file_extension == ".odt":
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".odt") as temp_file:
+                        temp_file.write(content)
+                        temp_path = temp_file.name
+                    try:
+                        doc = load(temp_path)
+                        text = ""
+                        for paragraph in doc.getElementsByType(odf_text.P):
+                            text += teletype.extractText(paragraph) + "\n"
+                    finally:
+                        if os.path.exists(temp_path):
+                            os.unlink(temp_path)
+                else:
+                    raise HTTPException(status_code=400, detail="Format de fichier non supporté. Utilisez PDF, DOCX ou ODT.")
+                
+                # Détecter les patterns anonymisés automatiquement
+                mapping = detect_anonymized_patterns(text)
+                print(f"🔍 Patterns détectés automatiquement: {mapping}")
+                
+                if not mapping:
+                    print(f"❌ Aucun pattern d'anonymisation détecté")
+                    return {"text": text, "mapping": {}, "message": "Aucun pattern d'anonymisation détecté dans le fichier"}
         
         print(f"🔄 Début de la désanonymisation avec mapping: {mapping}")
         

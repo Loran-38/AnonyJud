@@ -319,10 +319,16 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       const formData = new FormData();
       formData.append('file', file);
       
-      // Utiliser le mapping existant s'il y en a un, sinon utiliser un mapping vide
-      // Le backend peut gérer les fichiers avec mapping intégré
-      const mappingToUse = mapping && Object.keys(mapping).length > 0 ? mapping : {};
-      formData.append('mapping_json', JSON.stringify(mappingToUse));
+      // Utiliser le mapping existant s'il y en a un, sinon envoyer les tiers du projet
+      // pour que le backend puisse générer le mapping correct
+      if (mapping && Object.keys(mapping).length > 0) {
+        formData.append('mapping_json', JSON.stringify(mapping));
+        formData.append('has_mapping', 'true');
+      } else {
+        formData.append('mapping_json', JSON.stringify({}));
+        formData.append('tiers_json', JSON.stringify(selectedProject.tiers || []));
+        formData.append('has_mapping', 'false');
+      }
 
       const response = await fetch(`${config.API_BASE_URL}/deanonymize/file`, {
         method: 'POST',
