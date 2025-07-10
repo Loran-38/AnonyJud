@@ -309,18 +309,18 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       setUploadedFileDeanon(file);
       setUploadedFileNameDeanon(file.name);
       
-      // Progression plus fluide qui va jusqu'à 100%
+      // Progression simulée pour la préparation du fichier
       const progressInterval = setInterval(() => {
         setFileProgressDeanon(prev => {
           if (prev >= 95) {
             clearInterval(progressInterval);
             return prev;
           }
-          return prev + 8;
+          return prev + 15;
         });
-      }, 150);
+      }, 100);
       
-      // Sauvegarder le fichier pour le téléchargement
+      // Juste préparer le fichier pour le téléchargement (pas d'appel API ici)
       setProcessedFileDeanon(file);
       
       // Finaliser la progression
