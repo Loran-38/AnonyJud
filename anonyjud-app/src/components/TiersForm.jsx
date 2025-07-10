@@ -1,10 +1,24 @@
 import React, { useState } from "react";
+import { useAuth } from '../contexts/AuthContext';
 
 /**
  * Formulaire pour ajouter et gérer les tiers d'un projet avec champs personnalisés illimités.
  * UX moderne avec animations et interface intuitive.
  */
 function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects }) {
+  const { userProfile } = useAuth();
+  
+  // Catégories par défaut
+  const defaultCategories = [
+    "Demandeur", "Défendeur", "Avocat", "Conseil", "Sapiteur", "Tribunal", "Autres"
+  ];
+  
+  // Combiner les catégories par défaut avec les catégories personnalisées
+  const categories = [
+    ...defaultCategories,
+    ...(userProfile?.customCategories || [])
+  ];
+
   const [form, setForm] = useState({
     nom: "",
     prenom: "",
@@ -28,10 +42,6 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
   
   // État pour gérer quels tiers sont développés dans l'accordéon
   const [expandedTiers, setExpandedTiers] = useState(new Set());
-
-  const categories = [
-    "Demandeur", "Défendeur", "Avocat", "Conseil", "Sapiteur", "Tribunal", "Autres"
-  ];
 
   // Fonction pour obtenir les couleurs des catégories avec plus de contraste
   const getCategoryColor = (categorie) => {

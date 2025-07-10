@@ -42,7 +42,8 @@ export function AuthProvider({ children }) {
         displayName: displayName,
         plan: 'FREE',
         createdAt: new Date().toISOString(),
-        projectsCount: 0
+        projectsCount: 0,
+        customCategories: [] // Catégories personnalisées pour les tiers
       });
       
       return userCredential;
@@ -161,6 +162,7 @@ export function AuthProvider({ children }) {
   const value = {
     currentUser,
     userProfile,
+    setUserProfile,
     signup,
     login,
     logout,
