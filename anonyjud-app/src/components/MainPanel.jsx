@@ -5,6 +5,7 @@ import config from '../config';
 /**
  * Zone principale de l'application : affichage du projet sélectionné, gestion des tiers,
  * anonymisation et désanonymisation.
+ * Interface refaite avec deux colonnes verticales selon le design demandé.
  */
 const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) => {
   const [inputText, setInputText] = useState('');
