@@ -291,11 +291,6 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   };
 
   const handleFileDeanon = async (file) => {
-    if (!mapping || Object.keys(mapping).length === 0) {
-      setError('Aucun mapping disponible. Veuillez d\'abord anonymiser un fichier.');
-      return;
-    }
-
     const fileType = file.name.split('.').pop().toLowerCase();
     if (fileType !== 'pdf' && fileType !== 'doc' && fileType !== 'docx' && fileType !== 'odt') {
       setError('Format de fichier non supporté. Utilisez PDF, DOCX ou ODT.');
@@ -323,7 +318,11 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('mapping_json', JSON.stringify(mapping));
+      
+      // Utiliser le mapping existant s'il y en a un, sinon utiliser un mapping vide
+      // Le backend peut gérer les fichiers avec mapping intégré
+      const mappingToUse = mapping && Object.keys(mapping).length > 0 ? mapping : {};
+      formData.append('mapping_json', JSON.stringify(mappingToUse));
 
       const response = await fetch(`${config.API_BASE_URL}/deanonymize/file`, {
         method: 'POST',
@@ -337,6 +336,11 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       const data = await response.json();
       setDeanonymizedText(data.text);
       setProcessedFileDeanon(file);
+      
+      // Si on obtient un nouveau mapping du backend, l'utiliser
+      if (data.mapping) {
+        setMapping(data.mapping);
+      }
       
       clearInterval(progressInterval);
       setFileProgressDeanon(100);
@@ -357,7 +361,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
     }
 
     if (!mapping || Object.keys(mapping).length === 0) {
-      setError('Aucun mapping disponible.');
+      setError('Aucun mapping disponible pour la dé-anonymisation du texte.');
       return;
     }
 

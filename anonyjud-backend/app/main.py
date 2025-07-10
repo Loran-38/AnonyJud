@@ -94,6 +94,42 @@ async def anonymize_file(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def detect_anonymized_patterns(text: str) -> Dict[str, str]:
+    """
+    Détecte automatiquement les patterns d'anonymisation dans un texte.
+    Retourne un mapping des patterns détectés.
+    """
+    import re
+    
+    mapping = {}
+    
+    # Patterns pour détecter les champs anonymisés
+    patterns = [
+        (r'<nom(\d+)>', 'nom'),
+        (r'<prenom(\d+)>', 'prenom'),
+        (r'<adresse(\d+)>', 'adresse'),
+        (r'<telephone(\d+)>', 'telephone'),
+        (r'<email(\d+)>', 'email'),
+        (r'<entreprise(\d+)>', 'entreprise'),
+        (r'<siret(\d+)>', 'siret'),
+        (r'<dateNaissance(\d+)>', 'dateNaissance'),
+        (r'<lieuNaissance(\d+)>', 'lieuNaissance'),
+        (r'<profession(\d+)>', 'profession'),
+        (r'<nationalite(\d+)>', 'nationalite'),
+        (r'<numeroIdentite(\d+)>', 'numeroIdentite'),
+        (r'<autreInfo(\d+)>', 'autreInfo'),
+    ]
+    
+    # Chercher tous les patterns dans le texte
+    for pattern, field_type in patterns:
+        matches = re.findall(pattern, text)
+        for match in matches:
+            tag = f"<{field_type}{match}>"
+            # Créer un mapping de base (tag -> tag pour l'instant)
+            mapping[tag] = tag
+    
+    return mapping
+
 @app.post("/deanonymize/file")
 async def deanonymize_file(
     file: UploadFile = File(...),
@@ -101,6 +137,7 @@ async def deanonymize_file(
 ):
     """
     Dé-anonymise un fichier Word, PDF ou ODT en utilisant le mapping fourni.
+    Si le mapping est vide, essaie de détecter automatiquement les patterns.
     """
     try:
         # Convertir la chaîne JSON en mapping
@@ -110,23 +147,55 @@ async def deanonymize_file(
         filename = file.filename or ""
         file_extension = os.path.splitext(filename)[1].lower()
         
+        # Lire le contenu du fichier
+        content = await file.read()
+        
+        # Si le mapping est vide, essayer de détecter automatiquement
+        if not mapping or len(mapping) == 0:
+            # Extraire d'abord le texte pour détecter les patterns
+            if file_extension == ".pdf":
+                with fitz.open(stream=content, filetype="pdf") as pdf:
+                    text = ""
+                    for page in pdf:
+                        text += page.get_text()
+            elif file_extension in [".doc", ".docx"]:
+                doc = Document(io.BytesIO(content))
+                text = ""
+                for para in doc.paragraphs:
+                    text += para.text + "\n"
+            elif file_extension == ".odt":
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".odt") as temp_file:
+                    temp_file.write(content)
+                    temp_path = temp_file.name
+                try:
+                    doc = load(temp_path)
+                    text = ""
+                    for paragraph in doc.getElementsByType(odf_text.P):
+                        text += teletype.extractText(paragraph) + "\n"
+                finally:
+                    if os.path.exists(temp_path):
+                        os.unlink(temp_path)
+            else:
+                raise HTTPException(status_code=400, detail="Format de fichier non supporté. Utilisez PDF, DOCX ou ODT.")
+            
+            # Détecter les patterns anonymisés automatiquement
+            mapping = detect_anonymized_patterns(text)
+            
+            if not mapping:
+                return {"text": text, "mapping": {}, "message": "Aucun pattern d'anonymisation détecté dans le fichier"}
+        
+        # Procéder à la dé-anonymisation
         if file_extension == ".pdf":
-            # Traitement des fichiers PDF
-            content = await file.read()
             pdf_text = extract_and_deanonymize_pdf(content, mapping)
-            return {"text": pdf_text}
+            return {"text": pdf_text, "mapping": mapping}
             
         elif file_extension in [".doc", ".docx"]:
-            # Traitement des fichiers Word
-            content = await file.read()
             doc_text = extract_and_deanonymize_docx(content, mapping)
-            return {"text": doc_text}
+            return {"text": doc_text, "mapping": mapping}
             
         elif file_extension == ".odt":
-            # Traitement des fichiers ODT (OpenDocument Text)
-            content = await file.read()
             odt_text = extract_and_deanonymize_odt(content, mapping)
-            return {"text": odt_text}
+            return {"text": odt_text, "mapping": mapping}
             
         else:
             raise HTTPException(status_code=400, detail="Format de fichier non supporté. Utilisez PDF, DOCX ou ODT.")
