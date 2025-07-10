@@ -3,6 +3,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
+// Catégories par défaut (constante globale)
+const DEFAULT_CATEGORIES = [
+  "Demandeur", "Défendeur", "Avocat", "Conseil", "Sapiteur", "Tribunal", "Autres"
+];
+
 const CategoriesManagement = () => {
   const { currentUser, userProfile, setUserProfile } = useAuth();
   const [categories, setCategories] = useState([]);
@@ -12,20 +17,15 @@ const CategoriesManagement = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Catégories par défaut
-  const defaultCategories = [
-    "Demandeur", "Défendeur", "Avocat", "Conseil", "Sapiteur", "Tribunal", "Autres"
-  ];
-
   // Charger les catégories depuis le profil utilisateur
   useEffect(() => {
     if (userProfile) {
       const userCategories = userProfile.customCategories || [];
       // Combiner les catégories par défaut avec les catégories personnalisées
-      const allCategories = [...defaultCategories, ...userCategories];
+      const allCategories = [...DEFAULT_CATEGORIES, ...userCategories];
       setCategories(allCategories);
     } else {
-      setCategories(defaultCategories);
+      setCategories(DEFAULT_CATEGORIES);
     }
   }, [userProfile]);
 
@@ -116,7 +116,7 @@ const CategoriesManagement = () => {
 
   // Supprimer une catégorie personnalisée
   const deleteCategory = async (categoryToDelete) => {
-    if (defaultCategories.includes(categoryToDelete)) {
+    if (DEFAULT_CATEGORIES.includes(categoryToDelete)) {
       setError('Impossible de supprimer une catégorie par défaut.');
       return;
     }
@@ -131,7 +131,7 @@ const CategoriesManagement = () => {
 
   // Démarrer l'édition d'une catégorie
   const startEditing = (category) => {
-    if (defaultCategories.includes(category)) {
+    if (DEFAULT_CATEGORIES.includes(category)) {
       setError('Impossible de modifier une catégorie par défaut.');
       return;
     }
@@ -203,7 +203,7 @@ const CategoriesManagement = () => {
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {categories.map((category, index) => {
-                const isDefault = defaultCategories.includes(category);
+                const isDefault = DEFAULT_CATEGORIES.includes(category);
                 const isCustom = !isDefault;
 
                 return (
@@ -284,7 +284,7 @@ const CategoriesManagement = () => {
               })}
             </div>
 
-            {categories.length === defaultCategories.length && (
+            {categories.length === DEFAULT_CATEGORIES.length && (
               <div className="text-center py-8 text-gray-500">
                 <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
