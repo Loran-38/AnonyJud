@@ -660,9 +660,20 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
         
         print(f"📋 Résumé: {len(found_tags)}/{len(mapping)} balises trouvées: {found_tags}")
         
-        # Inverser le mapping pour la dé-anonymisation
-        reverse_mapping = {v: k for k, v in mapping.items()}
-        print(f"🔄 Mapping inversé créé: {reverse_mapping}")
+        # Le mapping est déjà dans le bon sens (balise -> valeur_originale)
+        # Pas besoin d'inverser car generate_mapping_from_tiers() crée déjà le mapping correct
+        print(f"🔄 Mapping reçu (balise -> valeur): {mapping}")
+        
+        # Vérifier si le mapping est dans le bon sens
+        sample_key = list(mapping.keys())[0] if mapping else ""
+        if sample_key and not sample_key.isupper():
+            # Le mapping semble être dans le mauvais sens (valeur -> balise), l'inverser
+            reverse_mapping = {v: k for k, v in mapping.items()}
+            print(f"🔄 Mapping inversé car dans le mauvais sens: {reverse_mapping}")
+        else:
+            # Le mapping est dans le bon sens (balise -> valeur)
+            reverse_mapping = mapping
+            print(f"🔄 Mapping utilisé tel quel: {reverse_mapping}")
         
         paragraphs_modified = 0
         cells_modified = 0
@@ -673,15 +684,15 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
                 original_text = para.text
                 modified_text = original_text
                 
-                # Appliquer chaque remplacement du mapping inversé
-                for anonymous, original in reverse_mapping.items():
-                    if anonymous in modified_text:
-                        count_before = modified_text.count(anonymous)
-                        modified_text = modified_text.replace(anonymous, original)
-                        count_after = modified_text.count(anonymous)
+                # Appliquer chaque remplacement du mapping (balise -> valeur originale)
+                for balise, valeur_originale in reverse_mapping.items():
+                    if balise in modified_text:
+                        count_before = modified_text.count(balise)
+                        modified_text = modified_text.replace(balise, valeur_originale)
+                        count_after = modified_text.count(balise)
                         replacements = count_before - count_after
                         if replacements > 0:
-                            print(f"✅ Paragraphe {i}: {replacements} occurrence(s) de '{anonymous}' remplacée(s) par '{original}'")
+                            print(f"✅ Paragraphe {i}: {replacements} occurrence(s) de '{balise}' remplacée(s) par '{valeur_originale}'")
                 
                 # Remplacer le texte du paragraphe seulement si modifié
                 if modified_text != original_text:
@@ -699,15 +710,15 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
                             original_text = para.text
                             modified_text = original_text
                             
-                            # Appliquer chaque remplacement du mapping inversé
-                            for anonymous, original in reverse_mapping.items():
-                                if anonymous in modified_text:
-                                    count_before = modified_text.count(anonymous)
-                                    modified_text = modified_text.replace(anonymous, original)
-                                    count_after = modified_text.count(anonymous)
+                            # Appliquer chaque remplacement du mapping (balise -> valeur originale)
+                            for balise, valeur_originale in reverse_mapping.items():
+                                if balise in modified_text:
+                                    count_before = modified_text.count(balise)
+                                    modified_text = modified_text.replace(balise, valeur_originale)
+                                    count_after = modified_text.count(balise)
                                     replacements = count_before - count_after
                                     if replacements > 0:
-                                        print(f"✅ Tableau {table_idx}, Ligne {row_idx}, Cellule {cell_idx}: {replacements} occurrence(s) de '{anonymous}' remplacée(s) par '{original}'")
+                                        print(f"✅ Tableau {table_idx}, Ligne {row_idx}, Cellule {cell_idx}: {replacements} occurrence(s) de '{balise}' remplacée(s) par '{valeur_originale}'")
                             
                             # Remplacer le texte du paragraphe seulement si modifié
                             if modified_text != original_text:
