@@ -10,7 +10,6 @@ from pathlib import Path
 import fitz  # PyMuPDF pour les PDF
 from docx import Document  # python-docx pour les fichiers Word
 import io
-import re
 from odf import text as odf_text, teletype
 from odf.opendocument import load
 
@@ -322,42 +321,23 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
     Retourne le fichier modifié.
     """
     try:
-        print(f"DEBUG: Début deanonymize_docx_file avec mapping: {mapping}")
-        
         # Ouvrir le document Word depuis les bytes
         doc = Document(io.BytesIO(content))
         
-        # Le mapping contient tag -> valeur_originale
-        # Pour la désanonymisation, on remplace les tags par les valeurs originales
-        
-        # Trier les balises par longueur décroissante pour éviter les remplacements partiels
-        sorted_tags = sorted(mapping.keys(), key=len, reverse=True)
-        print(f"DEBUG: Balises triées: {sorted_tags}")
+        # Inverser le mapping pour la dé-anonymisation
+        reverse_mapping = {v: k for k, v in mapping.items()}
         
         # Appliquer les dé-anonymisations dans les paragraphes
         for para in doc.paragraphs:
             if para.text.strip():  # Seulement pour les paragraphes non vides
                 original_text = para.text
-                modified_text = original_text
+                # Appliquer chaque remplacement du mapping inversé
+                for anonymous, original in reverse_mapping.items():
+                    original_text = original_text.replace(anonymous, original)
                 
-                print(f"DEBUG: Traitement paragraphe: '{original_text}'")
-                
-                # Appliquer chaque remplacement du mapping : tag -> valeur originale
-                # Utiliser la même logique que deanonymize_text
-                for tag in sorted_tags:
-                    original_value = mapping[tag]
-                    # Utiliser une expression régulière pour remplacer la balise exacte
-                    pattern = re.compile(r'\b' + re.escape(tag) + r'\b')
-                    before_replace = modified_text
-                    modified_text = pattern.sub(original_value, modified_text)
-                    if before_replace != modified_text:
-                        print(f"DEBUG: Remplacement effectué: '{tag}' -> '{original_value}' dans '{before_replace}' -> '{modified_text}'")
-                
-                # Remplacer le texte du paragraphe seulement si modifié
-                if modified_text != original_text:
-                    print(f"DEBUG: Paragraphe dé-anonymisé: '{original_text}' -> '{modified_text}'")
-                    para.clear()
-                    para.add_run(modified_text)
+                # Remplacer le texte du paragraphe
+                para.clear()
+                para.add_run(original_text)
         
         # Traiter également les tableaux
         for table in doc.tables:
@@ -366,35 +346,20 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
                     for para in cell.paragraphs:
                         if para.text.strip():
                             original_text = para.text
-                            modified_text = original_text
+                            # Appliquer chaque remplacement du mapping inversé
+                            for anonymous, original in reverse_mapping.items():
+                                original_text = original_text.replace(anonymous, original)
                             
-                            print(f"DEBUG: Traitement cellule: '{original_text}'")
-                            
-                            # Appliquer chaque remplacement du mapping : tag -> valeur originale
-                            # Utiliser la même logique que deanonymize_text
-                            for tag in sorted_tags:
-                                original_value = mapping[tag]
-                                # Utiliser une expression régulière pour remplacer la balise exacte
-                                pattern = re.compile(r'\b' + re.escape(tag) + r'\b')
-                                before_replace = modified_text
-                                modified_text = pattern.sub(original_value, modified_text)
-                                if before_replace != modified_text:
-                                    print(f"DEBUG: Remplacement effectué dans cellule: '{tag}' -> '{original_value}' dans '{before_replace}' -> '{modified_text}'")
-                            
-                            # Remplacer le texte du paragraphe seulement si modifié
-                            if modified_text != original_text:
-                                print(f"DEBUG: Cellule dé-anonymisée: '{original_text}' -> '{modified_text}'")
-                                para.clear()
-                                para.add_run(modified_text)
+                            # Remplacer le texte du paragraphe
+                            para.clear()
+                            para.add_run(original_text)
         
         # Sauvegarder le document modifié en bytes
         output = io.BytesIO()
         doc.save(output)
         output.seek(0)
         
-        print(f"DEBUG: Fichier dé-anonymisé généré avec succès")
         return output.getvalue()
         
     except Exception as e:
-        print(f"DEBUG: Erreur dans deanonymize_docx_file: {str(e)}")
         raise Exception(f"Erreur lors de la dé-anonymisation du fichier Word: {str(e)}") 
