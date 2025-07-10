@@ -294,11 +294,6 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   };
 
   const handleFileDeanon = async (file) => {
-    if (!mapping || Object.keys(mapping).length === 0) {
-      setError('⚠️ Aucun mapping disponible. Veuillez d\'abord anonymiser un fichier ou du texte pour créer les correspondances nécessaires à la dé-anonymisation.');
-      return;
-    }
-
     const fileType = file.name.split('.').pop().toLowerCase();
     if (fileType !== 'pdf' && fileType !== 'doc' && fileType !== 'docx' && fileType !== 'odt') {
       setError('Format de fichier non supporté. Utilisez PDF, DOCX ou ODT.');
@@ -325,7 +320,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
         });
       }, 150);
       
-      // Sauvegarder le fichier pour le téléchargement (pas besoin d'appeler l'API pour le moment)
+      // Sauvegarder le fichier pour le téléchargement
       setProcessedFileDeanon(file);
       
       // Finaliser la progression
@@ -343,12 +338,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   // Fonction pour dé-anonymiser le texte
   const deanonymizeText = async () => {
     if (!anonymizedText.trim()) {
-      setError('⚠️ Aucun texte anonymisé disponible. Veuillez d\'abord anonymiser du texte dans la colonne de gauche.');
-      return;
-    }
-
-    if (!mapping || Object.keys(mapping).length === 0) {
-      setError('⚠️ Aucun mapping disponible. Les correspondances d\'anonymisation sont nécessaires pour la dé-anonymisation.');
+      setError('⚠️ Veuillez saisir du texte à dé-anonymiser.');
       return;
     }
 
@@ -363,7 +353,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
         },
         body: JSON.stringify({
           anonymized_text: anonymizedText,
-          mapping: mapping
+          mapping: mapping || {}
         }),
       });
 
@@ -403,7 +393,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
       const formData = new FormData();
       formData.append('file', processedFileDeanon);
-      formData.append('mapping_json', JSON.stringify(mapping));
+      formData.append('mapping_json', JSON.stringify(mapping || {}));
 
       const response = await fetch(`${config.API_BASE_URL}/deanonymize/file/download`, {
         method: 'POST',
@@ -599,55 +589,33 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
             <div className="p-4 space-y-4 h-full overflow-y-auto">
               {/* Zone de glisser-déposer */}
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 min-h-[180px] flex flex-col justify-center ${
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 min-h-[180px] flex flex-col justify-center cursor-pointer ${
                   dragActiveDeanon
                     ? 'border-green-500 bg-green-50'
-                    : mapping && Object.keys(mapping).length > 0
-                    ? 'border-green-300 hover:border-green-400 hover:bg-green-50'
-                    : 'border-gray-300 bg-gray-50'
+                    : 'border-green-300 hover:border-green-400 hover:bg-green-50'
                 }`}
                 onDragEnter={handleDragEnterDeanon}
                 onDragLeave={handleDragLeaveDeanon}
                 onDragOver={handleDragOverDeanon}
                 onDrop={handleDropDeanon}
                 onClick={() => {
-                  if (mapping && Object.keys(mapping).length > 0) {
-                    setError(''); // Effacer les erreurs avant d'ouvrir le sélecteur
-                    fileInputDenonRef.current?.click();
-                  } else {
-                    setError('⚠️ Veuillez d\'abord anonymiser un fichier ou du texte pour créer les correspondances nécessaires à la dé-anonymisation.');
-                  }
+                  setError(''); // Effacer les erreurs avant d'ouvrir le sélecteur
+                  fileInputDenonRef.current?.click();
                 }}
               >
-                {mapping && Object.keys(mapping).length > 0 ? (
-                  <>
-                    <svg className="mx-auto h-12 w-12 text-green-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                <svg className="mx-auto h-12 w-12 text-green-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                  <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <p className="text-green-600 font-medium">Glissez-déposez votre fichier ici</p>
+                <p className="text-green-500 text-sm mt-1">ou cliquez pour sélectionner</p>
+                <p className="text-green-400 text-xs mt-2">PDF, DOCX, ODT acceptés</p>
+                {mapping && Object.keys(mapping).length > 0 && (
+                  <div className="flex items-center justify-center mt-3">
+                    <svg className="w-4 h-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <p className="text-green-600 font-medium">Glissez-déposez votre fichier ici</p>
-                    <p className="text-green-500 text-sm mt-1">ou cliquez pour sélectionner</p>
-                    <p className="text-green-400 text-xs mt-2">PDF, DOCX, ODT acceptés</p>
-                    <div className="flex items-center justify-center mt-3">
-                      <svg className="w-4 h-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="text-xs text-green-600">Mapping disponible ({Object.keys(mapping).length} correspondances)</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <p className="text-gray-500 font-medium">Zone désactivée</p>
-                    <p className="text-gray-400 text-sm mt-1">Anonymisez d'abord un fichier pour créer le mapping</p>
-                    <div className="flex items-center justify-center mt-3">
-                      <svg className="w-4 h-4 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.996-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                      <span className="text-xs text-gray-500">Aucun mapping disponible</span>
-                    </div>
-                  </>
+                    <span className="text-xs text-green-600">Mapping disponible ({Object.keys(mapping).length} correspondances)</span>
+                  </div>
                 )}
                 <input
                   ref={fileInputDenonRef}
