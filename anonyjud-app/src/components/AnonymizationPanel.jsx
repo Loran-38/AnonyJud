@@ -14,8 +14,6 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const [processedFile, setProcessedFile] = useState(null);
   const [fileProgress, setFileProgress] = useState(0);
   const [isFileReady, setIsFileReady] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [isDownloading, setIsDownloading] = useState(false);
   
   // États pour la dé-anonymisation
   const [dragActiveDeanon, setDragActiveDeanon] = useState(false);
@@ -24,9 +22,13 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const [processedFileDeanon, setProcessedFileDeanon] = useState(null);
   const [fileProgressDeanon, setFileProgressDeanon] = useState(0);
   const [isFileReadyDeanon, setIsFileReadyDeanon] = useState(false);
+  const [deanonymizedText, setDeanonymizedText] = useState('');
+  
+  // États pour les barres de progression de téléchargement
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgressDeanon, setDownloadProgressDeanon] = useState(0);
   const [isDownloadingDeanon, setIsDownloadingDeanon] = useState(false);
-  const [deanonymizedText, setDeanonymizedText] = useState('');
   
   const fileInputRef = useRef(null);
   const fileInputDenonRef = useRef(null);
@@ -230,21 +232,20 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       clearInterval(progressInterval);
       setDownloadProgress(100);
       
-      // Petite pause pour montrer la progression complète
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `anonymise_${processedFile.name}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      // Réinitialiser après un délai
       setTimeout(() => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `anonymise_${processedFile.name}`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        
-        // Réinitialiser l'état
-        setIsDownloading(false);
         setDownloadProgress(0);
-      }, 500);
+        setIsDownloading(false);
+      }, 1000);
       
     } catch (err) {
       setError(`Erreur lors du téléchargement: ${err.message}`);
@@ -278,8 +279,6 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
     
     const files = e.dataTransfer.files;
     if (files && files[0]) {
-      // Effacer les erreurs précédentes avant de traiter le nouveau fichier
-      setError('');
       handleFileDeanon(files[0]);
     }
   };
@@ -287,13 +286,16 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const handleFileInputDeanon = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Effacer les erreurs précédentes avant de traiter le nouveau fichier
-      setError('');
       handleFileDeanon(file);
     }
   };
 
   const handleFileDeanon = async (file) => {
+    if (!mapping || Object.keys(mapping).length === 0) {
+      setError('Aucun mapping disponible. Veuillez d\'abord anonymiser un fichier.');
+      return;
+    }
+
     const fileType = file.name.split('.').pop().toLowerCase();
     if (fileType !== 'pdf' && fileType !== 'doc' && fileType !== 'docx' && fileType !== 'odt') {
       setError('Format de fichier non supporté. Utilisez PDF, DOCX ou ODT.');
@@ -309,27 +311,39 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       setUploadedFileDeanon(file);
       setUploadedFileNameDeanon(file.name);
       
-      // Progression simulée pour la préparation du fichier
       const progressInterval = setInterval(() => {
         setFileProgressDeanon(prev => {
-          if (prev >= 95) {
+          if (prev >= 90) {
             clearInterval(progressInterval);
             return prev;
           }
-          return prev + 15;
+          return prev + 10;
         });
-      }, 100);
+      }, 200);
       
-      // Juste préparer le fichier pour le téléchargement (pas d'appel API ici)
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('mapping_json', JSON.stringify(mapping));
+
+      const response = await fetch(`${config.API_BASE_URL}/deanonymize/file`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setDeanonymizedText(data.text);
       setProcessedFileDeanon(file);
       
-      // Finaliser la progression
       clearInterval(progressInterval);
       setFileProgressDeanon(100);
       setIsFileReadyDeanon(true);
       
     } catch (err) {
-      setError(`Erreur lors de la préparation du fichier: ${err.message}`);
+      setError(`Erreur lors de la dé-anonymisation: ${err.message}`);
     } finally {
       setIsProcessing(false);
     }
@@ -338,7 +352,12 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   // Fonction pour dé-anonymiser le texte
   const deanonymizeText = async () => {
     if (!anonymizedText.trim()) {
-      setError('⚠️ Veuillez saisir du texte à dé-anonymiser.');
+      setError('Veuillez d\'abord anonymiser un texte.');
+      return;
+    }
+
+    if (!mapping || Object.keys(mapping).length === 0) {
+      setError('Aucun mapping disponible.');
       return;
     }
 
@@ -353,7 +372,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
         },
         body: JSON.stringify({
           anonymized_text: anonymizedText,
-          mapping: mapping || {}
+          mapping: mapping
         }),
       });
 
@@ -393,7 +412,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
       const formData = new FormData();
       formData.append('file', processedFileDeanon);
-      formData.append('mapping_json', JSON.stringify(mapping || {}));
+      formData.append('mapping_json', JSON.stringify(mapping));
 
       const response = await fetch(`${config.API_BASE_URL}/deanonymize/file/download`, {
         method: 'POST',
@@ -410,21 +429,20 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       clearInterval(progressInterval);
       setDownloadProgressDeanon(100);
       
-      // Petite pause pour montrer la progression complète
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `deanonymise_${processedFileDeanon.name}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      // Réinitialiser après un délai
       setTimeout(() => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `deanonymise_${processedFileDeanon.name}`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        
-        // Réinitialiser l'état
-        setIsDownloadingDeanon(false);
         setDownloadProgressDeanon(0);
-      }, 500);
+        setIsDownloadingDeanon(false);
+      }, 1000);
       
     } catch (err) {
       setError(`Erreur lors du téléchargement: ${err.message}`);
@@ -458,7 +476,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
             <div className="p-4 space-y-4 h-full overflow-y-auto">
               {/* Zone de glisser-déposer */}
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 min-h-[180px] flex flex-col justify-center ${
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
                   dragActive
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-blue-300 hover:border-blue-400 hover:bg-blue-50'
@@ -484,7 +502,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                 />
               </div>
 
-              {/* Barre de progression */}
+              {/* Barre de progression upload */}
               {isProcessing && uploadedFile && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
@@ -503,16 +521,16 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                 </div>
               )}
 
-              {/* Barre de progression du téléchargement */}
+              {/* Barre de progression téléchargement */}
               {isDownloading && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-blue-700">Téléchargement en cours...</span>
-                    <span className="text-sm text-blue-600">{downloadProgress}%</span>
+                    <span className="text-sm font-medium text-green-700">Téléchargement en cours...</span>
+                    <span className="text-sm text-green-600">{downloadProgress}%</span>
                   </div>
-                  <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div className="w-full bg-green-200 rounded-full h-2">
                     <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-green-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${downloadProgress}%` }}
                     ></div>
                   </div>
@@ -589,7 +607,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
             <div className="p-4 space-y-4 h-full overflow-y-auto">
               {/* Zone de glisser-déposer */}
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 min-h-[180px] flex flex-col justify-center cursor-pointer ${
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
                   dragActiveDeanon
                     ? 'border-green-500 bg-green-50'
                     : 'border-green-300 hover:border-green-400 hover:bg-green-50'
@@ -598,10 +616,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                 onDragLeave={handleDragLeaveDeanon}
                 onDragOver={handleDragOverDeanon}
                 onDrop={handleDropDeanon}
-                onClick={() => {
-                  setError(''); // Effacer les erreurs avant d'ouvrir le sélecteur
-                  fileInputDenonRef.current?.click();
-                }}
+                onClick={() => fileInputDenonRef.current?.click()}
               >
                 <svg className="mx-auto h-12 w-12 text-green-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                   <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -609,14 +624,6 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                 <p className="text-green-600 font-medium">Glissez-déposez votre fichier ici</p>
                 <p className="text-green-500 text-sm mt-1">ou cliquez pour sélectionner</p>
                 <p className="text-green-400 text-xs mt-2">PDF, DOCX, ODT acceptés</p>
-                {mapping && Object.keys(mapping).length > 0 && (
-                  <div className="flex items-center justify-center mt-3">
-                    <svg className="w-4 h-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="text-xs text-green-600">Mapping disponible ({Object.keys(mapping).length} correspondances)</span>
-                  </div>
-                )}
                 <input
                   ref={fileInputDenonRef}
                   type="file"
@@ -626,7 +633,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                 />
               </div>
 
-              {/* Barre de progression */}
+              {/* Barre de progression upload */}
               {isProcessing && uploadedFileDeanon && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
@@ -645,16 +652,16 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                 </div>
               )}
 
-              {/* Barre de progression du téléchargement */}
+              {/* Barre de progression téléchargement */}
               {isDownloadingDeanon && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-green-700">Téléchargement en cours...</span>
-                    <span className="text-sm text-green-600">{downloadProgressDeanon}%</span>
+                    <span className="text-sm font-medium text-blue-700">Téléchargement en cours...</span>
+                    <span className="text-sm text-blue-600">{downloadProgressDeanon}%</span>
                   </div>
-                  <div className="w-full bg-green-200 rounded-full h-2">
+                  <div className="w-full bg-blue-200 rounded-full h-2">
                     <div 
-                      className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${downloadProgressDeanon}%` }}
                     ></div>
                   </div>
@@ -693,19 +700,14 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
               {/* Zone de texte */}
               <div className="border-t border-green-200 pt-4">
                 <label className="block text-sm font-medium text-green-700 mb-2">
-                  Ou saisissez votre texte anonymisé directement :
+                  Ou utilisez le texte anonymisé :
                 </label>
                 <textarea
                   value={anonymizedText}
-                  onChange={(e) => {
-                    setAnonymizedText(e.target.value);
-                    // Effacer les erreurs quand l'utilisateur tape
-                    if (error && error.includes('mapping')) {
-                      setError('');
-                    }
-                  }}
-                  placeholder="Tapez ou collez votre texte ici..."
-                  className="w-full h-32 px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
+                  onChange={(e) => setAnonymizedText(e.target.value)}
+                  placeholder="Le texte anonymisé apparaîtra ici automatiquement..."
+                  className="w-full h-32 px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none bg-gray-50"
+                  readOnly
                 />
                 <div className="flex justify-between items-center mt-2">
                   <span className="text-xs text-green-600">
