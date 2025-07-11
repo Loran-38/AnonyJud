@@ -54,48 +54,6 @@ def deanonymize_text_endpoint(request: TextDeanonymizationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/deanonymize/text/with-tiers")
-def deanonymize_text_with_tiers_endpoint(request: Dict[str, Any]):
-    """
-    Dé-anonymise un texte en utilisant les tiers fournis pour générer le mapping.
-    """
-    try:
-        print(f"🚀 DEANONYMIZE_TEXT_WITH_TIERS - Début du traitement")
-        
-        text = request.get("text", "")
-        tiers = request.get("tiers_json", [])
-        has_mapping = request.get("has_mapping", False)
-        
-        print(f"📝 Texte reçu (premiers 300 chars): {text[:300]}...")
-        print(f"👥 Nombre de tiers: {len(tiers)}")
-        print(f"🔄 A mapping: {has_mapping}")
-        
-        # Générer le mapping à partir des tiers
-        if not has_mapping and tiers and len(tiers) > 0:
-            mapping = generate_mapping_from_tiers(tiers)
-            print(f"🔧 Mapping généré à partir des tiers: {mapping}")
-        else:
-            # Fallback: essayer de détecter automatiquement
-            print(f"🔍 Tentative de détection automatique...")
-            mapping = detect_anonymized_patterns(text)
-            print(f"🔍 Patterns détectés automatiquement: {mapping}")
-            
-            if not mapping:
-                print(f"❌ Aucun pattern d'anonymisation détecté")
-                return {"text": text, "mapping": {}, "message": "Aucun pattern d'anonymisation détecté dans le texte"}
-        
-        print(f"🔄 Début de la désanonymisation avec mapping: {mapping}")
-        
-        # Dé-anonymiser le texte
-        deanonymized = deanonymize_text(text, mapping)
-        
-        print(f"✅ Texte désanonymisé avec succès")
-        return {"deanonymized_text": deanonymized, "mapping": mapping}
-        
-    except Exception as e:
-        print(f"❌ Erreur dans deanonymize_text_with_tiers endpoint: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.post("/anonymize/file")
 async def anonymize_file(
     file: UploadFile = File(...),

@@ -38,14 +38,14 @@ def deanonymize_text(anonymized_text: str, mapping: Dict[str, str]) -> str:
     replacements_made = 0
     for tag in sorted_tags:
         if tag in deanonymized:
-            original = mapping[tag]
+        original = mapping[tag]
             print(f"🔄 Tentative de remplacement: '{tag}' -> '{original}'")
             
             # Compter les occurrences avant remplacement
             count_before = deanonymized.count(tag)
             
-            # Utiliser une expression régulière pour remplacer la balise exacte (pas de remplacement partiel)
-            pattern = re.compile(r'\b' + re.escape(tag) + r'\b')
+        # Utiliser une expression régulière pour remplacer la balise exacte (pas de remplacement partiel)
+        pattern = re.compile(r'\b' + re.escape(tag) + r'\b')
             deanonymized_new = pattern.sub(original, deanonymized)
             
             # Compter les occurrences après remplacement
