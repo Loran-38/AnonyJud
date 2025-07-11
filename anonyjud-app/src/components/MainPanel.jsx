@@ -10,6 +10,8 @@ import config from '../config';
 const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) => {
   const [inputText, setInputText] = useState('');
   const [anonymizedText, setAnonymizedText] = useState('');
+  const [deanonymizedInputText, setDeanonymizedInputText] = useState('');
+  const [deanonymizedText, setDeanonymizedText] = useState('');
   const [mapping, setMapping] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
@@ -27,7 +29,6 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
   const [processedFileDeanon, setProcessedFileDeanon] = useState(null);
   const [fileProgressDeanon, setFileProgressDeanon] = useState(0);
   const [isFileReadyDeanon, setIsFileReadyDeanon] = useState(false);
-  const [deanonymizedText, setDeanonymizedText] = useState('');
   
   const fileInputRef = useRef(null);
   const fileInputDenonRef = useRef(null);
@@ -36,6 +37,7 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
   useEffect(() => {
     setInputText('');
     setAnonymizedText('');
+    setDeanonymizedInputText('');
     setDeanonymizedText('');
     setMapping({});
     setError('');
@@ -67,7 +69,8 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
     setIsProcessing(true);
 
     try {
-      // Afficher les tiers pour le débogage
+      console.log("=== DÉBUT ANONYMISATION TEXTE ===");
+      console.log("Texte à anonymiser:", inputText);
       console.log("Tiers envoyés pour anonymisation:", selectedProject.tiers);
       console.log("URL utilisée pour l'API:", `${config.API_BASE_URL}/anonymize/text`);
       console.log("Configuration complète:", config);
@@ -84,10 +87,14 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
       });
 
       if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
+        const errorText = await response.text();
+        console.error("Erreur de réponse:", response.status, errorText);
+        throw new Error(`Erreur HTTP: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
+      console.log("Réponse d'anonymisation:", data);
+      console.log("Texte anonymisé reçu:", data.anonymized_text);
       setAnonymizedText(data.anonymized_text);
       setMapping(data.mapping);
       
@@ -235,8 +242,8 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
   };
 
   const handleFileDeanon = async (file) => {
-    if (!mapping || Object.keys(mapping).length === 0) {
-      setError('Vous devez d\'abord anonymiser un fichier pour pouvoir le dé-anonymiser.');
+    if (!selectedProject) {
+      setError('Veuillez sélectionner un projet.');
       return;
     }
 
@@ -268,17 +275,12 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
       
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('mapping_json', JSON.stringify(mapping));
+      formData.append('tiers_json', JSON.stringify(selectedProject.tiers || []));
+      formData.append('has_mapping', 'false');
 
-      const response = await fetch(`${config.API_BASE_URL}/deanonymize/text`, {
+      const response = await fetch(`${config.API_BASE_URL}/deanonymize/file`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          anonymized_text: anonymizedText,
-          mapping: mapping
-        }),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -366,12 +368,12 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
 
   // Fonction pour télécharger le fichier dé-anonymisé
   const downloadDeanonymizedFile = async () => {
-    if (!uploadedFile || !mapping || Object.keys(mapping).length === 0) {
-      setError('Aucun fichier anonymisé à dé-anonymiser.');
+    if (!uploadedFileDeanon || !selectedProject) {
+      setError('Aucun fichier à dé-anonymiser.');
       return;
     }
 
-    const fileType = uploadedFile.name.split('.').pop().toLowerCase();
+    const fileType = uploadedFileDeanon.name.split('.').pop().toLowerCase();
     if (fileType !== 'docx') {
       setError('Le téléchargement de fichiers dé-anonymisés n\'est disponible que pour les fichiers Word (.docx).');
       return;
@@ -382,8 +384,9 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
 
     try {
       const formData = new FormData();
-      formData.append('file', uploadedFile);
-      formData.append('mapping_json', JSON.stringify(mapping));
+      formData.append('file', uploadedFileDeanon);
+      formData.append('tiers_json', JSON.stringify(selectedProject.tiers || []));
+      formData.append('has_mapping', 'false');
 
       const response = await fetch(`${config.API_BASE_URL}/deanonymize/file/download`, {
         method: 'POST',
@@ -399,7 +402,7 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
       const a = document.createElement('a');
       a.href = url;
       const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = uploadedFileName.replace('.docx', '_DESANONYM.docx');
+      let filename = uploadedFileNameDeanon.replace('.docx', '_DESANONYM.docx');
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename=(.+)/);
         if (filenameMatch) {
@@ -420,34 +423,47 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
 
   // Fonction pour dé-anonymiser le texte
   const deanonymizeText = async () => {
-    if (!anonymizedText.trim()) {
-      setError('Pas de texte anonymisé à dé-anonymiser.');
+    if (!deanonymizedInputText.trim()) {
+      setError('Veuillez entrer du texte à dé-anonymiser.');
       return;
     }
 
-    console.log("Mapping utilisé pour la dé-anonymisation:", mapping);
+    if (!selectedProject) {
+      setError('Veuillez sélectionner un projet.');
+      return;
+    }
 
     setError('');
     setIsProcessing(true);
 
     try {
-      const response = await fetch(`${config.API_BASE_URL}/deanonymize/text`, {
+      console.log("=== DÉBUT DÉ-ANONYMISATION TEXTE ===");
+      console.log("Texte à dé-anonymiser:", deanonymizedInputText);
+      console.log("Tiers du projet:", selectedProject.tiers);
+      console.log("Mapping disponible:", mapping);
+      console.log("URL utilisée:", `${config.API_BASE_URL}/deanonymize/text/with-tiers`);
+      
+      const response = await fetch(`${config.API_BASE_URL}/deanonymize/text/with-tiers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          anonymized_text: anonymizedText,
-          mapping: mapping
+          text: deanonymizedInputText,
+          tiers_json: selectedProject.tiers || [],
+          has_mapping: false
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
+        const errorText = await response.text();
+        console.error("Erreur de réponse:", response.status, errorText);
+        throw new Error(`Erreur HTTP: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
       console.log("Réponse de dé-anonymisation:", data);
+      console.log("Texte dé-anonymisé reçu:", data.deanonymized_text);
       setDeanonymizedText(data.deanonymized_text);
     } catch (err) {
       setError(`Erreur lors de la dé-anonymisation: ${err.message}`);
@@ -461,12 +477,15 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
       {selectedProject ? (
         <>
           <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">
-            Projet: {selectedProject.nom}
+            Anonymisation et Dé-anonymisation
           </h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Projet: {selectedProject.nom} • {selectedProject.tiers?.length || 0} tiers configurés
+          </p>
           
           <div className="flex flex-col lg:flex-row h-full gap-6">
-            {/* Partie des tiers - Maintenant 50% de la largeur */}
-            <div className="w-full lg:w-1/2 overflow-auto bg-gray-50 rounded-lg shadow-sm p-4">
+            {/* Partie des tiers - Maintenant plus petite */}
+            <div className="w-full lg:w-1/3 overflow-auto bg-gray-50 rounded-lg shadow-sm p-4">
               <h3 className="text-lg font-semibold mb-4 text-gray-700">Gestion des tiers</h3>
               <TiersForm 
                 projectId={selectedProject.id} 
@@ -477,21 +496,24 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
               />
             </div>
             
-            {/* Partie anonymisation - Maintenant 50% de la largeur avec deux colonnes */}
-            <div className="w-full lg:w-1/2 flex flex-col h-full">
+            {/* Partie anonymisation - Maintenant plus large avec deux colonnes */}
+            <div className="w-full lg:w-2/3 flex flex-col h-full">
               <div className="flex flex-col lg:flex-row h-full gap-4">
                 
                 {/* Colonne ANONYMISER */}
                 <div className="w-full lg:w-1/2 flex flex-col bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
                   <div className="text-center mb-4">
-                    <h3 className="text-lg font-bold text-blue-800 bg-blue-100 rounded-full px-4 py-2 inline-block">
+                    <div className="bg-blue-500 text-white rounded-full px-4 py-2 inline-flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
                       ANONYMISER
-                    </h3>
+                    </div>
                   </div>
                   
                   {/* Zone de glisser-déposer pour anonymisation */}
                   <div 
-                    className={`border-2 border-dashed rounded-lg p-6 mb-4 text-center cursor-pointer transition-colors duration-200 ${
+                    className={`border-2 border-dashed rounded-lg p-4 mb-4 text-center cursor-pointer transition-colors duration-200 ${
                       dragActive ? 'border-blue-500 bg-blue-100' : 'border-blue-300 hover:border-blue-400 hover:bg-blue-100'
                     }`}
                     onDragEnter={handleDrag}
@@ -507,14 +529,17 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                       onChange={handleFileChange}
                       className="hidden" 
                     />
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <p className="text-blue-700 text-sm font-medium">
-                      Glisser fichier
+                      Glissez-déposez votre fichier ici
                     </p>
                     <p className="text-blue-600 text-xs">
-                      ou cliquer pour sélectionner
+                      ou cliquez pour sélectionner
+                    </p>
+                    <p className="text-blue-500 text-xs mt-1">
+                      PDF, DOCX, ODT acceptés
                     </p>
                     {uploadedFileName && (
                       <div className="mt-2 p-2 bg-blue-200 rounded">
@@ -526,7 +551,7 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                   </div>
                   
                   {/* Barre de progression */}
-                  {isProcessing && (
+                  {isProcessing && fileProgress > 0 && (
                     <div className="mb-4">
                       <div className="bg-blue-200 rounded-full h-2">
                         <div 
@@ -544,7 +569,7 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                   <button
                     onClick={downloadAnonymizedFile}
                     disabled={!isFileReady || isProcessing}
-                    className={`w-full mb-4 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    className={`w-full mb-4 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       isFileReady && !isProcessing
                         ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -553,24 +578,63 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                     {isFileReady ? '📥 TÉLÉCHARGER' : 'Télécharger (en attente)'}
                   </button>
                   
-                  {/* Zone de texte pour anonymisation */}
-                  <div className="flex-1 flex flex-col">
+                  {/* Titre section texte */}
+                  <h4 className="text-sm font-bold text-blue-800 mb-3 text-center uppercase">
+                    Anonymiser les documents
+                  </h4>
+                  
+                  {/* Zone de saisie du texte */}
+                  <div className="mb-4">
                     <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-sm font-semibold text-blue-800">Texte à anonymiser</h4>
-                      <button
-                        onClick={anonymizeText}
-                        disabled={isProcessing}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-150 disabled:opacity-50"
-                      >
-                        {isProcessing ? 'Traitement...' : 'Anonymiser'}
-                      </button>
+                      <label className="text-sm font-medium text-blue-700">
+                        Ou saisissez votre texte directement :
+                      </label>
+                      <span className="text-xs text-blue-600">
+                        {inputText.length} caractères
+                      </span>
                     </div>
                     <textarea
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
-                      placeholder="Entrez le texte à anonymiser..."
-                      className="flex-1 p-3 border border-blue-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
+                      placeholder="HUISSOUD"
+                      className="w-full h-24 p-3 border border-blue-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
                     />
+                  </div>
+                  
+                  {/* Bouton anonymiser */}
+                  <button
+                    onClick={anonymizeText}
+                    disabled={isProcessing || !inputText.trim()}
+                    className={`w-full mb-4 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      !isProcessing && inputText.trim()
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {isProcessing ? 'Anonymisation...' : 'ANONYMISER'}
+                  </button>
+                  
+                  {/* Zone de réponse */}
+                  <div className="flex-1 flex flex-col">
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-sm font-medium text-blue-700">
+                        Texte anonymisé :
+                      </label>
+                      <span className="text-xs text-blue-600">
+                        {anonymizedText.length} caractères
+                      </span>
+                    </div>
+                    <div className="flex-1 border-2 border-blue-300 rounded-lg p-3 bg-white min-h-[120px]">
+                      <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                        {anonymizedText || (
+                          <div className="text-center text-gray-400 mt-8">
+                            <p>Nom1</p>
+                            <p className="text-xs mt-2">Dans cette fenêtre se trouve</p>
+                            <p className="text-xs">le texte anonymisé</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
                 
@@ -589,14 +653,17 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                 {/* Colonne DÉ-ANONYMISER */}
                 <div className="w-full lg:w-1/2 flex flex-col bg-green-50 rounded-lg p-4 border-2 border-green-200">
                   <div className="text-center mb-4">
-                    <h3 className="text-lg font-bold text-green-800 bg-green-100 rounded-full px-4 py-2 inline-block">
+                    <div className="bg-green-500 text-white rounded-full px-4 py-2 inline-flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                      </svg>
                       DÉ-ANONYMISER
-                    </h3>
+                    </div>
                   </div>
                   
                   {/* Zone de glisser-déposer pour dé-anonymisation */}
                   <div 
-                    className={`border-2 border-dashed rounded-lg p-6 mb-4 text-center cursor-pointer transition-colors duration-200 ${
+                    className={`border-2 border-dashed rounded-lg p-4 mb-4 text-center cursor-pointer transition-colors duration-200 ${
                       dragActiveDeanon ? 'border-green-500 bg-green-100' : 'border-green-300 hover:border-green-400 hover:bg-green-100'
                     }`}
                     onDragEnter={handleDragDeanon}
@@ -612,14 +679,17 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                       onChange={handleFileChangeDeanon}
                       className="hidden" 
                     />
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto text-green-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mx-auto text-green-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <p className="text-green-700 text-sm font-medium">
-                      Glisser fichier
+                      Glissez-déposez votre fichier ici
                     </p>
                     <p className="text-green-600 text-xs">
-                      ou cliquer pour sélectionner
+                      ou cliquez pour sélectionner
+                    </p>
+                    <p className="text-green-500 text-xs mt-1">
+                      PDF, DOCX, ODT acceptés
                     </p>
                     {uploadedFileNameDeanon && (
                       <div className="mt-2 p-2 bg-green-200 rounded">
@@ -649,7 +719,7 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                   <button
                     onClick={downloadDeanonymizedFile}
                     disabled={!isFileReadyDeanon || isProcessing}
-                    className={`w-full mb-4 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    className={`w-full mb-4 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       isFileReadyDeanon && !isProcessing
                         ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -658,24 +728,68 @@ const MainPanel = ({ selectedProject, updateProject, projects, setProjects }) =>
                     {isFileReadyDeanon ? '📥 TÉLÉCHARGER' : 'Télécharger (en attente)'}
                   </button>
                   
-                  {/* Zone de texte pour dé-anonymisation */}
-                  <div className="flex-1 flex flex-col">
+                  {/* Titre section texte */}
+                  <h4 className="text-sm font-bold text-green-800 mb-3 text-center uppercase">
+                    Dé-anonymiser les documents
+                  </h4>
+                  
+                  {/* Zone de saisie du texte */}
+                  <div className="mb-4">
                     <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-sm font-semibold text-green-800">Texte dé-anonymisé</h4>
-                      <button
-                        onClick={deanonymizeText}
-                        disabled={isProcessing || !anonymizedText}
-                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-150 disabled:opacity-50"
-                      >
-                        Dé-anonymiser
-                      </button>
+                      <label className="text-sm font-medium text-green-700">
+                        Insérez le texte anonymisé :
+                      </label>
+                      <span className="text-xs text-green-600">
+                        {deanonymizedInputText.length} caractères
+                      </span>
                     </div>
                     <textarea
-                      value={deanonymizedText}
-                      onChange={(e) => setDeanonymizedText(e.target.value)}
-                      placeholder="Le texte dé-anonymisé apparaîtra ici..."
-                      className="flex-1 p-3 border border-green-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white text-sm"
+                      value={deanonymizedInputText}
+                      onChange={(e) => setDeanonymizedInputText(e.target.value)}
+                      placeholder="NOM1"
+                      className="w-full h-24 p-3 border border-green-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white text-sm"
                     />
+                  </div>
+                  
+                  {/* Bouton avec flèche */}
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="flex-1 border-t border-green-300"></div>
+                    <button
+                      onClick={deanonymizeText}
+                      disabled={isProcessing || !deanonymizedInputText.trim()}
+                      className={`mx-4 px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                        !isProcessing && deanonymizedInputText.trim()
+                          ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                                         >
+                       {isProcessing ? 'Traitement...' : 'DÉ-ANONYMISER'}
+                     </button>
+                    <div className="flex-1 border-t border-green-300"></div>
+                  </div>
+                  
+                  {/* Zone de réponse */}
+                  <div className="flex-1 flex flex-col">
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-sm font-medium text-green-700">
+                        Texte dé-anonymisé :
+                      </label>
+                      <span className="text-xs text-green-600">
+                        {deanonymizedText.length} caractères
+                      </span>
+                    </div>
+                    <div className="flex-1 border-2 border-green-300 rounded-lg p-3 bg-white min-h-[120px]">
+                      <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                        {deanonymizedText || (
+                          <div className="text-center text-gray-400 mt-8">
+                            <p>HUISSOUD</p>
+                            <p className="text-xs mt-2">Dans cette fenêtre</p>
+                            <p className="text-xs">se trouve le texte</p>
+                            <p className="text-xs">dé-anonymisé</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
