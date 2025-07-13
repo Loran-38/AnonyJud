@@ -25,4 +25,6 @@ class TextDeanonymizationRequest(BaseModel):
     Modèle pour la requête de dé-anonymisation de texte.
     """
     anonymized_text: str
-    mapping: Dict[str, str] 
+    mapping: Dict[str, str] = {}
+    tiers: List[Dict[str, Any]] = []
+    has_mapping: bool = True 

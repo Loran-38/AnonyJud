@@ -536,8 +536,8 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       return;
     }
 
-    if (!mapping || Object.keys(mapping).length === 0) {
-      setError('Aucun mapping disponible pour la dé-anonymisation du texte.');
+    if (!selectedProject) {
+      setError('Veuillez sélectionner un projet.');
       return;
     }
 
@@ -545,15 +545,34 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
     setIsProcessing(true);
 
     try {
+      // Préparer les données à envoyer
+      let requestBody;
+      
+      // Si on a un mapping existant, l'utiliser
+      if (mapping && Object.keys(mapping).length > 0) {
+        console.log('🔍 Utilisation du mapping existant:', mapping);
+        requestBody = {
+          anonymized_text: deanonymizationInputText,
+          mapping: mapping,
+          has_mapping: true
+        };
+      } else {
+        // Sinon, utiliser les tiers du projet pour générer le mapping automatiquement
+        console.log('🔧 Génération automatique du mapping à partir des tiers:', selectedProject.tiers);
+        requestBody = {
+          anonymized_text: deanonymizationInputText,
+          mapping: {},
+          tiers: selectedProject.tiers || [],
+          has_mapping: false
+        };
+      }
+
       const response = await fetch(`${config.API_BASE_URL}/deanonymize/text`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          anonymized_text: deanonymizationInputText,
-          mapping: mapping
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -562,6 +581,12 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
       const data = await response.json();
       setDeanonymizedText(data.deanonymized_text);
+      
+      // Si on a obtenu un nouveau mapping du backend, l'utiliser
+      if (data.mapping && Object.keys(data.mapping).length > 0) {
+        console.log('✅ Nouveau mapping reçu du backend:', data.mapping);
+        setMapping(data.mapping);
+      }
       
     } catch (err) {
       setError(`Erreur lors de la dé-anonymisation: ${err.message}`);
