@@ -10,7 +10,6 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const [error, setError] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
-  const [uploadedFileName, setUploadedFileName] = useState('');
   const [processedFile, setProcessedFile] = useState(null);
   const [fileProgress, setFileProgress] = useState(0);
   const [isFileReady, setIsFileReady] = useState(false);
@@ -18,11 +17,11 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   // États pour la dé-anonymisation
   const [dragActiveDeanon, setDragActiveDeanon] = useState(false);
   const [uploadedFileDeanon, setUploadedFileDeanon] = useState(null);
-  const [uploadedFileNameDeanon, setUploadedFileNameDeanon] = useState('');
   const [processedFileDeanon, setProcessedFileDeanon] = useState(null);
   const [fileProgressDeanon, setFileProgressDeanon] = useState(0);
   const [isFileReadyDeanon, setIsFileReadyDeanon] = useState(false);
   const [deanonymizedText, setDeanonymizedText] = useState('');
+  const [deanonymizationInputText, setDeanonymizationInputText] = useState('');
   
   // États pour les barres de progression de téléchargement
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -87,22 +86,28 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const FileDisplayCard = ({ file, onRemove, color = 'blue', isProcessing = false, progress = 0 }) => {
     if (!file) return null;
 
-    const colorClasses = {
-      blue: {
+    const getColorClasses = (colorName) => {
+      if (colorName === 'green') {
+        return {
+          bg: 'bg-green-50',
+          border: 'border-green-200',
+          text: 'text-green-700',
+          badge: 'bg-green-100 text-green-800',
+          progressBg: 'bg-green-200',
+          progressBar: 'bg-green-600'
+        };
+      }
+      return {
         bg: 'bg-blue-50',
         border: 'border-blue-200',
         text: 'text-blue-700',
-        badge: 'bg-blue-100 text-blue-800'
-      },
-      green: {
-        bg: 'bg-green-50',
-        border: 'border-green-200',
-        text: 'text-green-700',
-        badge: 'bg-green-100 text-green-800'
-      }
+        badge: 'bg-blue-100 text-blue-800',
+        progressBg: 'bg-blue-200',
+        progressBar: 'bg-blue-600'
+      };
     };
 
-    const classes = colorClasses[color] || colorClasses.blue;
+    const classes = getColorClasses(color);
 
     return (
       <div className={`${classes.bg} ${classes.border} border rounded-lg p-4 transition-all duration-200`}>
@@ -143,9 +148,9 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
               <span className={`text-sm font-medium ${classes.text}`}>Traitement en cours...</span>
               <span className={`text-sm ${classes.text}`}>{progress}%</span>
             </div>
-            <div className={`w-full bg-${color}-200 rounded-full h-2`}>
+            <div className={`w-full ${classes.progressBg} rounded-full h-2`}>
               <div 
-                className={`bg-${color}-600 h-2 rounded-full transition-all duration-300`}
+                className={`${classes.progressBar} h-2 rounded-full transition-all duration-300`}
                 style={{ width: `${progress}%` }}
               ></div>
             </div>
@@ -158,7 +163,6 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   // Fonction pour supprimer le fichier d'anonymisation
   const removeAnonymizationFile = () => {
     setUploadedFile(null);
-    setUploadedFileName('');
     setProcessedFile(null);
     setFileProgress(0);
     setIsFileReady(false);
@@ -175,7 +179,6 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   // Fonction pour supprimer le fichier de dé-anonymisation
   const removeDeanonymizationFile = () => {
     setUploadedFileDeanon(null);
-    setUploadedFileNameDeanon('');
     setProcessedFileDeanon(null);
     setFileProgressDeanon(0);
     setIsFileReadyDeanon(false);
@@ -186,6 +189,19 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
     if (fileInputDenonRef.current) {
       fileInputDenonRef.current.value = '';
     }
+  };
+
+  // Fonction pour vider le texte d'anonymisation
+  const clearAnonymizationText = () => {
+    setInputText('');
+    setAnonymizedText('');
+    setMapping({});
+  };
+
+  // Fonction pour vider le texte de dé-anonymisation
+  const clearDeanonymizationText = () => {
+    setDeanonymizationInputText('');
+    setDeanonymizedText('');
   };
 
   if (!selectedProject) {
@@ -263,7 +279,6 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
     try {
       // Sauvegarder le fichier uploadé
       setUploadedFile(file);
-      setUploadedFileName(file.name);
       
       // Simuler une progression
       const progressInterval = setInterval(() => {
@@ -460,7 +475,6 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
     try {
       setUploadedFileDeanon(file);
-      setUploadedFileNameDeanon(file.name);
       
       const progressInterval = setInterval(() => {
         setFileProgressDeanon(prev => {
@@ -517,8 +531,8 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
   // Fonction pour dé-anonymiser le texte
   const deanonymizeText = async () => {
-    if (!anonymizedText.trim()) {
-      setError('Veuillez d\'abord anonymiser un texte.');
+    if (!deanonymizationInputText.trim()) {
+      setError('Veuillez entrer du texte anonymisé à dé-anonymiser.');
       return;
     }
 
@@ -537,7 +551,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          anonymized_text: anonymizedText,
+          anonymized_text: deanonymizationInputText,
           mapping: mapping
         }),
       });
@@ -725,9 +739,22 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
               {/* Zone de texte */}
               <div className="border-t border-blue-200 pt-4">
-                <label className="block text-sm font-medium text-blue-700 mb-2">
-                  Ou saisissez votre texte directement :
-                </label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-blue-700">
+                    Ou saisissez votre texte directement :
+                  </label>
+                  {inputText && (
+                    <button
+                      onClick={clearAnonymizationText}
+                      className="p-1 text-red-500 hover:text-red-700 rounded-full transition-colors"
+                      title="Supprimer le texte"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
                 <textarea
                   id="Text-AREA-Anonimisation"
                   value={inputText}
@@ -752,9 +779,20 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
               {/* Résultat de l'anonymisation de texte */}
               {anonymizedText && (
                 <div className="border-t border-blue-200 pt-4">
-                  <label className="block text-sm font-medium text-blue-700 mb-2">
-                    Texte anonymisé :
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-blue-700">
+                      Texte anonymisé :
+                    </label>
+                    <button
+                      onClick={() => setAnonymizedText('')}
+                      className="p-1 text-red-500 hover:text-red-700 rounded-full transition-colors"
+                      title="Supprimer le texte anonymisé"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                   <textarea
                     id="Text-AREA-Anonimisation-result"
                     value={anonymizedText}
@@ -863,23 +901,36 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
               {/* Zone de texte pour la désanonymisation */}
               <div className="border-t border-green-200 pt-4">
-                <label className="block text-sm font-medium text-green-700 mb-2">
-                  Ou utilisez le texte anonymisé :
-                </label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-green-700">
+                    Ou utilisez le texte anonymisé :
+                  </label>
+                  {deanonymizationInputText && (
+                    <button
+                      onClick={clearDeanonymizationText}
+                      className="p-1 text-red-500 hover:text-red-700 rounded-full transition-colors"
+                      title="Supprimer le texte"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
                 <textarea
                   id="Text-AREA-Deanonimisation"
-                  value={anonymizedText}
-                  onChange={(e) => setAnonymizedText(e.target.value)}
+                  value={deanonymizationInputText}
+                  onChange={(e) => setDeanonymizationInputText(e.target.value)}
                   placeholder="Collez ici le texte anonymisé à dé-anonymiser..."
                   className="w-full h-32 px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
                 />
                 <div className="flex justify-between items-center mt-2">
                   <span className="text-xs text-green-600">
-                    {anonymizedText.length} caractères
+                    {deanonymizationInputText.length} caractères
                   </span>
                   <button
                     onClick={deanonymizeText}
-                    disabled={!anonymizedText.trim() || isProcessing}
+                    disabled={!deanonymizationInputText.trim() || isProcessing}
                     className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md transition-colors text-sm"
                   >
                     {isProcessing ? 'Traitement...' : 'Dé-anonymiser'}
@@ -890,9 +941,20 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
               {/* Résultat de dé-anonymisation */}
               {deanonymizedText && (
                 <div className="border-t border-green-200 pt-4">
-                  <label className="block text-sm font-medium text-green-700 mb-2">
-                    Texte dé-anonymisé :
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-green-700">
+                      Texte dé-anonymisé :
+                    </label>
+                    <button
+                      onClick={() => setDeanonymizedText('')}
+                      className="p-1 text-red-500 hover:text-red-700 rounded-full transition-colors"
+                      title="Supprimer le texte dé-anonymisé"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                   <textarea
                     id="Text-AREA-Deanonimisation-result"
                     value={deanonymizedText}
