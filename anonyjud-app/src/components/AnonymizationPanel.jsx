@@ -583,6 +583,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                   Ou saisissez votre texte directement :
                 </label>
                 <textarea
+                  id="Text-AREA-Anonimisation"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   placeholder="Tapez ou collez votre texte ici..."
@@ -609,6 +610,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                     Texte anonymisé :
                   </label>
                   <textarea
+                    id="Text-AREA-Anonimisation-result"
                     value={anonymizedText}
                     onChange={(e) => setAnonymizedText(e.target.value)}
                     className="w-full h-32 px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none bg-blue-50"
@@ -728,6 +730,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                   Ou utilisez le texte anonymisé :
                 </label>
                 <textarea
+                  id="Text-AREA-Deanonimisation"
                   value={anonymizedText}
                   onChange={(e) => setAnonymizedText(e.target.value)}
                   placeholder="Collez ici le texte anonymisé à dé-anonymiser..."
@@ -754,6 +757,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                     Texte dé-anonymisé :
                   </label>
                   <textarea
+                    id="Text-AREA-Deanonimisation-result"
                     value={deanonymizedText}
                     onChange={(e) => setDeanonymizedText(e.target.value)}
                     className="w-full h-32 px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none bg-green-50"
