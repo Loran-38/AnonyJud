@@ -15,6 +15,11 @@ from odf.opendocument import load
 import re # Added for regex in deanonymize_docx_file
 
 from .anonymizer import anonymize_text, anonymize_pdf_file, deanonymize_pdf_file
+try:
+    from .pdf_redactor_simple import anonymize_pdf_with_simple_redactor, deanonymize_pdf_with_simple_redactor
+    ADVANCED_PDF_SUPPORT = True
+except ImportError:
+    ADVANCED_PDF_SUPPORT = False
 from .deanonymizer import deanonymize_text
 from .models import TextAnonymizationRequest, TextDeanonymizationRequest
 
@@ -506,7 +511,14 @@ async def anonymize_file_download(
             print(f"📄 Traitement fichier PDF...")
             # Traitement des fichiers PDF
             content = await file.read()
-            anonymized_file, mapping = anonymize_pdf_file(content, tiers)
+            
+            # Utiliser la méthode avancée si disponible, sinon la méthode standard
+            if ADVANCED_PDF_SUPPORT:
+                print(f"🚀 Utilisation de pdf-redactor pour préserver la mise en page")
+                anonymized_file, mapping = anonymize_pdf_with_simple_redactor(content, tiers)
+            else:
+                print(f"📝 Utilisation de la méthode standard")
+                anonymized_file, mapping = anonymize_pdf_file(content, tiers)
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
@@ -597,7 +609,14 @@ async def deanonymize_file_download(
             print(f"📄 Traitement fichier PDF...")
             # Traitement des fichiers PDF
             content = await file.read()
-            deanonymized_file = deanonymize_pdf_file(content, mapping)
+            
+            # Utiliser la méthode avancée si disponible, sinon la méthode standard
+            if ADVANCED_PDF_SUPPORT:
+                print(f"🚀 Utilisation de pdf-redactor pour préserver la mise en page")
+                deanonymized_file = deanonymize_pdf_with_simple_redactor(content, mapping)
+            else:
+                print(f"📝 Utilisation de la méthode standard")
+                deanonymized_file = deanonymize_pdf_file(content, mapping)
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
