@@ -12,6 +12,7 @@ from docx import Document  # python-docx pour les fichiers Word
 import io
 from odf import text as odf_text, teletype
 from odf.opendocument import load
+import re # Added for regex in deanonymize_docx_file
 
 from .anonymizer import anonymize_text
 from .deanonymizer import deanonymize_text
@@ -675,6 +676,10 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
             reverse_mapping = mapping
             print(f"🔄 Mapping utilisé tel quel: {reverse_mapping}")
         
+        # Trier les balises par longueur décroissante pour éviter les remplacements partiels
+        sorted_tags = sorted(reverse_mapping.keys(), key=len, reverse=True)
+        print(f"🔢 Balises triées par longueur: {sorted_tags}")
+        
         paragraphs_modified = 0
         cells_modified = 0
         
@@ -685,14 +690,28 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
                 modified_text = original_text
                 
                 # Appliquer chaque remplacement du mapping (balise -> valeur originale)
-                for balise, valeur_originale in reverse_mapping.items():
+                # Utiliser la même logique que deanonymize_text avec des mots entiers
+                for balise in sorted_tags:
+                    valeur_originale = reverse_mapping[balise]
                     if balise in modified_text:
                         count_before = modified_text.count(balise)
-                        modified_text = modified_text.replace(balise, valeur_originale)
-                        count_after = modified_text.count(balise)
-                        replacements = count_before - count_after
-                        if replacements > 0:
-                            print(f"✅ Paragraphe {i}: {replacements} occurrence(s) de '{balise}' remplacée(s) par '{valeur_originale}'")
+                        
+                        # Utiliser une expression régulière pour remplacer la balise exacte (pas de remplacement partiel)
+                        pattern = re.compile(r'\b' + re.escape(balise) + r'\b')
+                        modified_text_new = pattern.sub(valeur_originale, modified_text)
+                        
+                        count_after = modified_text_new.count(balise)
+                        actual_replacements = count_before - count_after
+                        
+                        if actual_replacements > 0:
+                            print(f"✅ Paragraphe {i}: {actual_replacements} occurrence(s) de '{balise}' remplacée(s) par '{valeur_originale}'")
+                            modified_text = modified_text_new
+                        else:
+                            print(f"⚠️ Paragraphe {i}: Aucun remplacement de mot entier pour '{balise}', tentative de remplacement simple")
+                            # Fallback: remplacement simple si le pattern de mot entier ne fonctionne pas
+                            if balise in modified_text:
+                                modified_text = modified_text.replace(balise, valeur_originale)
+                                print(f"🔄 Paragraphe {i}: Remplacement simple effectué pour '{balise}'")
                 
                 # Remplacer le texte du paragraphe seulement si modifié
                 if modified_text != original_text:
@@ -711,14 +730,28 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
                             modified_text = original_text
                             
                             # Appliquer chaque remplacement du mapping (balise -> valeur originale)
-                            for balise, valeur_originale in reverse_mapping.items():
+                            # Utiliser la même logique que deanonymize_text avec des mots entiers
+                            for balise in sorted_tags:
+                                valeur_originale = reverse_mapping[balise]
                                 if balise in modified_text:
                                     count_before = modified_text.count(balise)
-                                    modified_text = modified_text.replace(balise, valeur_originale)
-                                    count_after = modified_text.count(balise)
-                                    replacements = count_before - count_after
-                                    if replacements > 0:
-                                        print(f"✅ Tableau {table_idx}, Ligne {row_idx}, Cellule {cell_idx}: {replacements} occurrence(s) de '{balise}' remplacée(s) par '{valeur_originale}'")
+                                    
+                                    # Utiliser une expression régulière pour remplacer la balise exacte (pas de remplacement partiel)
+                                    pattern = re.compile(r'\b' + re.escape(balise) + r'\b')
+                                    modified_text_new = pattern.sub(valeur_originale, modified_text)
+                                    
+                                    count_after = modified_text_new.count(balise)
+                                    actual_replacements = count_before - count_after
+                                    
+                                    if actual_replacements > 0:
+                                        print(f"✅ Tableau {table_idx}, Ligne {row_idx}, Cellule {cell_idx}: {actual_replacements} occurrence(s) de '{balise}' remplacée(s) par '{valeur_originale}'")
+                                        modified_text = modified_text_new
+                                    else:
+                                        print(f"⚠️ Tableau {table_idx}, Ligne {row_idx}, Cellule {cell_idx}: Aucun remplacement de mot entier pour '{balise}', tentative de remplacement simple")
+                                        # Fallback: remplacement simple si le pattern de mot entier ne fonctionne pas
+                                        if balise in modified_text:
+                                            modified_text = modified_text.replace(balise, valeur_originale)
+                                            print(f"🔄 Tableau {table_idx}, Ligne {row_idx}, Cellule {cell_idx}: Remplacement simple effectué pour '{balise}'")
                             
                             # Remplacer le texte du paragraphe seulement si modifié
                             if modified_text != original_text:

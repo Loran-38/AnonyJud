@@ -5,7 +5,6 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   // États pour l'anonymisation
   const [inputText, setInputText] = useState('');
   const [anonymizedText, setAnonymizedText] = useState('');
-  const [anonymizedTextFromFile, setAnonymizedTextFromFile] = useState(''); // Nouveau: pour les fichiers
   const [mapping, setMapping] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
@@ -137,7 +136,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
       const data = await response.json();
       // NE PAS afficher le texte automatiquement - juste stocker pour le téléchargement
-      setAnonymizedTextFromFile(data.text);
+      setAnonymizedText(data.text);
       setMapping(data.mapping);
       setProcessedFile(file);
       
