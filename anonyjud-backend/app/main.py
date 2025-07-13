@@ -451,17 +451,23 @@ async def anonymize_file_download(
     tiers_json: str = Form(...)
 ):
     """
-    Anonymise un fichier Word et retourne le fichier modifié pour téléchargement.
+    Anonymise un fichier Word ou ODT et retourne le fichier modifié pour téléchargement.
     """
     try:
+        print(f"🚀 ANONYMIZE_FILE_DOWNLOAD - Début du traitement")
+        print(f"📁 Fichier reçu: {file.filename}")
+        
         # Convertir la chaîne JSON en liste de tiers
         tiers = json.loads(tiers_json)
+        print(f"👥 Nombre de tiers: {len(tiers)}")
         
         # Vérifier le type de fichier
         filename = file.filename or ""
         file_extension = os.path.splitext(filename)[1].lower()
+        print(f"📄 Extension du fichier: {file_extension}")
         
         if file_extension in [".doc", ".docx"]:
+            print(f"📄 Traitement fichier Word...")
             # Traitement des fichiers Word
             content = await file.read()
             anonymized_file, mapping = anonymize_docx_file(content, tiers)
@@ -470,16 +476,38 @@ async def anonymize_file_download(
             base_name = os.path.splitext(filename)[0]
             anonymized_filename = f"{base_name}_ANONYM.docx"
             
+            print(f"✅ Fichier Word anonymisé: {anonymized_filename}")
+            
             # Retourner le fichier modifié
             return StreamingResponse(
                 io.BytesIO(anonymized_file),
                 media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 headers={"Content-Disposition": f"attachment; filename={anonymized_filename}"}
             )
+        elif file_extension == ".odt":
+            print(f"📄 Traitement fichier ODT...")
+            # Traitement des fichiers ODT
+            content = await file.read()
+            anonymized_file, mapping = anonymize_odt_file(content, tiers)
+            
+            # Créer un nom de fichier pour le téléchargement
+            base_name = os.path.splitext(filename)[0]
+            anonymized_filename = f"{base_name}_ANONYM.odt"
+            
+            print(f"✅ Fichier ODT anonymisé: {anonymized_filename}")
+            
+            # Retourner le fichier modifié
+            return StreamingResponse(
+                io.BytesIO(anonymized_file),
+                media_type="application/vnd.oasis.opendocument.text",
+                headers={"Content-Disposition": f"attachment; filename={anonymized_filename}"}
+            )
         else:
-            raise HTTPException(status_code=400, detail="Seuls les fichiers Word (.docx) sont supportés pour le téléchargement.")
+            print(f"❌ Format de fichier non supporté: {file_extension}")
+            raise HTTPException(status_code=400, detail="Seuls les fichiers Word (.docx) et ODT (.odt) sont supportés pour le téléchargement.")
             
     except Exception as e:
+        print(f"❌ Erreur dans anonymize_file_download: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/deanonymize/file/download")
@@ -488,17 +516,24 @@ async def deanonymize_file_download(
     mapping_json: str = Form(...)
 ):
     """
-    Dé-anonymise un fichier Word et retourne le fichier modifié pour téléchargement.
+    Dé-anonymise un fichier Word ou ODT et retourne le fichier modifié pour téléchargement.
     """
     try:
+        print(f"🚀 DEANONYMIZE_FILE_DOWNLOAD - Début du traitement")
+        print(f"📁 Fichier reçu: {file.filename}")
+        
         # Convertir la chaîne JSON en mapping
         mapping = json.loads(mapping_json)
+        print(f"🗂️ Mapping reçu: {mapping}")
+        print(f"📊 Nombre de balises dans le mapping: {len(mapping)}")
         
         # Vérifier le type de fichier
         filename = file.filename or ""
         file_extension = os.path.splitext(filename)[1].lower()
+        print(f"📄 Extension du fichier: {file_extension}")
         
         if file_extension in [".doc", ".docx"]:
+            print(f"📄 Traitement fichier Word...")
             # Traitement des fichiers Word
             content = await file.read()
             deanonymized_file = deanonymize_docx_file(content, mapping)
@@ -510,16 +545,41 @@ async def deanonymize_file_download(
                 base_name = base_name[:-7]
             deanonymized_filename = f"{base_name}_DESANONYM.docx"
             
+            print(f"✅ Fichier Word dé-anonymisé: {deanonymized_filename}")
+            
             # Retourner le fichier modifié
             return StreamingResponse(
                 io.BytesIO(deanonymized_file),
                 media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 headers={"Content-Disposition": f"attachment; filename={deanonymized_filename}"}
             )
+        elif file_extension == ".odt":
+            print(f"📄 Traitement fichier ODT...")
+            # Traitement des fichiers ODT
+            content = await file.read()
+            deanonymized_file = deanonymize_odt_file(content, mapping)
+            
+            # Créer un nom de fichier pour le téléchargement
+            base_name = os.path.splitext(filename)[0]
+            # Retirer "_ANONYM" du nom si présent
+            if base_name.endswith("_ANONYM"):
+                base_name = base_name[:-7]
+            deanonymized_filename = f"{base_name}_DESANONYM.odt"
+            
+            print(f"✅ Fichier ODT dé-anonymisé: {deanonymized_filename}")
+            
+            # Retourner le fichier modifié
+            return StreamingResponse(
+                io.BytesIO(deanonymized_file),
+                media_type="application/vnd.oasis.opendocument.text",
+                headers={"Content-Disposition": f"attachment; filename={deanonymized_filename}"}
+            )
         else:
-            raise HTTPException(status_code=400, detail="Seuls les fichiers Word (.docx) sont supportés pour le téléchargement.")
+            print(f"❌ Format de fichier non supporté: {file_extension}")
+            raise HTTPException(status_code=400, detail="Seuls les fichiers Word (.docx) et ODT (.odt) sont supportés pour le téléchargement.")
             
     except Exception as e:
+        print(f"❌ Erreur dans deanonymize_file_download: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 def extract_and_anonymize_pdf(content: bytes, tiers: List[Dict[str, Any]]):
@@ -935,3 +995,157 @@ def extract_and_deanonymize_odt(content: bytes, mapping: Dict[str, str]):
         
     except Exception as e:
         raise Exception(f"Erreur lors du traitement du document ODT: {str(e)}") 
+
+def anonymize_odt_file(content: bytes, tiers: List[Dict[str, Any]]):
+    """
+    Anonymise directement un fichier ODT en modifiant son contenu.
+    Préserve le formatage et retourne le fichier modifié et le mapping d'anonymisation.
+    """
+    try:
+        print(f"🚀 DEBUG: Début anonymize_odt_file avec {len(tiers)} tiers")
+        
+        # Créer un fichier temporaire pour stocker le contenu ODT
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".odt") as temp_file:
+            temp_file.write(content)
+            temp_path = temp_file.name
+        
+        try:
+            # Charger le document ODT
+            doc = load(temp_path)
+            
+            # Collecter tout le texte du document
+            full_text = ""
+            for paragraph in doc.getElementsByType(odf_text.P):
+                full_text += teletype.extractText(paragraph) + "\n"
+            
+            print(f"📝 DEBUG: Texte extrait (premiers 200 chars): {full_text[:200]}...")
+            
+            # Anonymiser le texte complet pour obtenir le mapping
+            anonymized_text, mapping = anonymize_text(full_text, tiers)
+            
+            print(f"🗂️ DEBUG: Mapping généré: {mapping}")
+            print(f"📝 DEBUG: Texte anonymisé (premiers 200 chars): {anonymized_text[:200]}...")
+            
+            # Appliquer l'anonymisation au document ODT
+            paragraphs_processed = 0
+            for paragraph in doc.getElementsByType(odf_text.P):
+                paragraph_text = teletype.extractText(paragraph)
+                if paragraph_text.strip():
+                    # Anonymiser le texte du paragraphe
+                    anonymized_paragraph = anonymize_text(paragraph_text, tiers)[0]
+                    
+                    # Remplacer le contenu du paragraphe
+                    # Supprimer tout le contenu existant
+                    for child in paragraph.childNodes[:]:
+                        paragraph.removeChild(child)
+                    
+                    # Ajouter le texte anonymisé
+                    paragraph.addText(anonymized_paragraph)
+                    paragraphs_processed += 1
+            
+            print(f"📊 DEBUG: Traitement terminé - {paragraphs_processed} paragraphes")
+            
+            # Sauvegarder le document modifié
+            output_path = temp_path + "_anonym"
+            doc.save(output_path)
+            
+            # Lire le fichier anonymisé
+            with open(output_path, 'rb') as f:
+                anonymized_file_content = f.read()
+            
+            # Nettoyer les fichiers temporaires
+            if os.path.exists(output_path):
+                os.unlink(output_path)
+            
+            print(f"✅ DEBUG: Fichier ODT anonymisé généré avec succès")
+            return anonymized_file_content, mapping
+            
+        finally:
+            # Supprimer le fichier temporaire
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+        
+    except Exception as e:
+        print(f"❌ DEBUG: Erreur dans anonymize_odt_file: {str(e)}")
+        raise Exception(f"Erreur lors de l'anonymisation du fichier ODT: {str(e)}")
+
+def deanonymize_odt_file(content: bytes, mapping: Dict[str, str]):
+    """
+    Dé-anonymise directement un fichier ODT en utilisant le mapping fourni.
+    Préserve le formatage et retourne le fichier modifié.
+    """
+    try:
+        print(f"🚀 DEBUG: Début deanonymize_odt_file")
+        print(f"🗂️ DEBUG: Mapping reçu: {mapping}")
+        print(f"📊 DEBUG: Nombre de balises dans le mapping: {len(mapping)}")
+        
+        # Créer un fichier temporaire pour stocker le contenu ODT
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".odt") as temp_file:
+            temp_file.write(content)
+            temp_path = temp_file.name
+        
+        try:
+            # Charger le document ODT
+            doc = load(temp_path)
+            
+            # Extraire tout le texte du document pour analyse
+            full_text = ""
+            for paragraph in doc.getElementsByType(odf_text.P):
+                full_text += teletype.extractText(paragraph) + "\n"
+            
+            print(f"📝 DEBUG: Texte extrait (premiers 300 chars): {full_text[:300]}...")
+            
+            # Analyser quelles balises sont présentes dans le texte
+            found_tags = []
+            for tag in mapping.keys():
+                if tag in full_text:
+                    found_tags.append(tag)
+                    print(f"✅ DEBUG: Balise '{tag}' trouvée dans le document")
+                else:
+                    print(f"❌ DEBUG: Balise '{tag}' NON trouvée dans le document")
+            
+            print(f"📋 DEBUG: Résumé: {len(found_tags)}/{len(mapping)} balises trouvées: {found_tags}")
+            
+            # Appliquer la dé-anonymisation au document ODT
+            paragraphs_processed = 0
+            for paragraph in doc.getElementsByType(odf_text.P):
+                paragraph_text = teletype.extractText(paragraph)
+                if paragraph_text.strip():
+                    # Dé-anonymiser le texte du paragraphe
+                    deanonymized_paragraph = deanonymize_text(paragraph_text, mapping)
+                    
+                    # Si le texte a changé, le remplacer
+                    if deanonymized_paragraph != paragraph_text:
+                        # Supprimer tout le contenu existant
+                        for child in paragraph.childNodes[:]:
+                            paragraph.removeChild(child)
+                        
+                        # Ajouter le texte dé-anonymisé
+                        paragraph.addText(deanonymized_paragraph)
+                        paragraphs_processed += 1
+            
+            print(f"📊 DEBUG: Traitement terminé - {paragraphs_processed} paragraphes modifiés")
+            
+            # Sauvegarder le document modifié
+            output_path = temp_path + "_deanonym"
+            doc.save(output_path)
+            
+            # Lire le fichier dé-anonymisé
+            with open(output_path, 'rb') as f:
+                deanonymized_file_content = f.read()
+            
+            # Nettoyer les fichiers temporaires
+            if os.path.exists(output_path):
+                os.unlink(output_path)
+            
+            print(f"✅ DEBUG: Fichier ODT dé-anonymisé généré avec succès")
+            return deanonymized_file_content
+            
+        finally:
+            # Supprimer le fichier temporaire
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+        
+    except Exception as e:
+        print(f"❌ DEBUG: Erreur dans deanonymize_odt_file: {str(e)}")
+        raise Exception(f"Erreur lors de la dé-anonymisation du fichier ODT: {str(e)}") 
