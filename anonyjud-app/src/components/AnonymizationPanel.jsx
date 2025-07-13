@@ -5,6 +5,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   // États pour l'anonymisation
   const [inputText, setInputText] = useState('');
   const [anonymizedText, setAnonymizedText] = useState('');
+  const [anonymizedTextFromFile, setAnonymizedTextFromFile] = useState(''); // Nouveau: pour les fichiers
   const [mapping, setMapping] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
@@ -135,7 +136,8 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       }
 
       const data = await response.json();
-      setAnonymizedText(data.text);
+      // NE PAS afficher le texte automatiquement - juste stocker pour le téléchargement
+      setAnonymizedTextFromFile(data.text);
       setMapping(data.mapping);
       setProcessedFile(file);
       
@@ -600,6 +602,20 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                   </button>
                 </div>
               </div>
+
+              {/* Résultat de l'anonymisation de texte */}
+              {anonymizedText && (
+                <div className="border-t border-blue-200 pt-4">
+                  <label className="block text-sm font-medium text-blue-700 mb-2">
+                    Texte anonymisé :
+                  </label>
+                  <textarea
+                    value={anonymizedText}
+                    onChange={(e) => setAnonymizedText(e.target.value)}
+                    className="w-full h-32 px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none bg-blue-50"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -664,14 +680,14 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
 
               {/* Barre de progression téléchargement */}
               {isDownloadingDeanon && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-blue-700">Téléchargement en cours...</span>
-                    <span className="text-sm text-blue-600">{downloadProgressDeanon}%</span>
+                    <span className="text-sm font-medium text-green-700">Téléchargement en cours...</span>
+                    <span className="text-sm text-green-600">{downloadProgressDeanon}%</span>
                   </div>
-                  <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div className="w-full bg-green-200 rounded-full h-2">
                     <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-green-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${downloadProgressDeanon}%` }}
                     ></div>
                   </div>
@@ -707,7 +723,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                 )}
               </button>
 
-              {/* Zone de texte */}
+              {/* Zone de texte pour la désanonymisation */}
               <div className="border-t border-green-200 pt-4">
                 <label className="block text-sm font-medium text-green-700 mb-2">
                   Ou utilisez le texte anonymisé :
@@ -715,9 +731,8 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                 <textarea
                   value={anonymizedText}
                   onChange={(e) => setAnonymizedText(e.target.value)}
-                  placeholder="Le texte anonymisé apparaîtra ici automatiquement..."
-                  className="w-full h-32 px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none bg-gray-50"
-                  readOnly
+                  placeholder="Collez ici le texte anonymisé à dé-anonymiser..."
+                  className="w-full h-32 px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
                 />
                 <div className="flex justify-between items-center mt-2">
                   <span className="text-xs text-green-600">
@@ -742,7 +757,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
                   <textarea
                     value={deanonymizedText}
                     onChange={(e) => setDeanonymizedText(e.target.value)}
-                    className="w-full h-32 px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
+                    className="w-full h-32 px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none bg-green-50"
                   />
                 </div>
               )}
@@ -761,20 +776,17 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
         )}
 
         {/* Mapping des correspondances */}
-        {Object.keys(mapping).length > 0 && (
-          <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-lg">
-              <h3 className="text-lg font-medium text-gray-900">Correspondances d'anonymisation</h3>
-            </div>
-            <div className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                {Object.entries(mapping).map(([tag, value]) => (
-                  <div key={tag} className="flex items-center justify-between p-2 bg-gray-50 rounded border">
-                    <span className="font-mono text-sm text-blue-600 font-medium">{tag}</span>
-                    <span className="text-sm text-gray-700">{value}</span>
-                  </div>
-                ))}
-              </div>
+        {mapping && Object.keys(mapping).length > 0 && (
+          <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Correspondances détectées :</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              {Object.entries(mapping).map(([key, value]) => (
+                <div key={key} className="flex justify-between p-2 bg-white rounded border">
+                  <span className="font-mono text-blue-600">{key}</span>
+                  <span className="text-gray-600">→</span>
+                  <span className="text-gray-800">{value}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
