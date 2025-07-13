@@ -15,11 +15,6 @@ from odf.opendocument import load
 import re # Added for regex in deanonymize_docx_file
 
 from .anonymizer import anonymize_text, anonymize_pdf_file, deanonymize_pdf_file
-try:
-    from .pdf_redactor_simple import anonymize_pdf_with_simple_redactor, deanonymize_pdf_with_simple_redactor
-    ADVANCED_PDF_SUPPORT = True
-except ImportError:
-    ADVANCED_PDF_SUPPORT = False
 from .deanonymizer import deanonymize_text
 from .models import TextAnonymizationRequest, TextDeanonymizationRequest
 
@@ -393,7 +388,11 @@ async def deanonymize_file(
                     with fitz.open(stream=content, filetype="pdf") as pdf:
                         text = ""
                         for page in pdf:
-                            text += page.get_text()
+                            try:
+                                text += page.get_text()
+                            except AttributeError:
+                                # Fallback pour différentes versions de PyMuPDF
+                                text += page.getText()
                 elif file_extension in [".doc", ".docx"]:
                     doc = Document(io.BytesIO(content))
                     text = ""
@@ -512,13 +511,9 @@ async def anonymize_file_download(
             # Traitement des fichiers PDF
             content = await file.read()
             
-            # Utiliser la méthode avancée si disponible, sinon la méthode standard
-            if ADVANCED_PDF_SUPPORT:
-                print(f"🚀 Utilisation de pdf-redactor pour préserver la mise en page")
-                anonymized_file, mapping = anonymize_pdf_with_simple_redactor(content, tiers)
-            else:
-                print(f"📝 Utilisation de la méthode standard")
-                anonymized_file, mapping = anonymize_pdf_file(content, tiers)
+            # Utiliser la méthode standard corrigée
+            print(f"📝 Utilisation de la méthode standard corrigée")
+            anonymized_file, mapping = anonymize_pdf_file(content, tiers)
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
@@ -610,13 +605,9 @@ async def deanonymize_file_download(
             # Traitement des fichiers PDF
             content = await file.read()
             
-            # Utiliser la méthode avancée si disponible, sinon la méthode standard
-            if ADVANCED_PDF_SUPPORT:
-                print(f"🚀 Utilisation de pdf-redactor pour préserver la mise en page")
-                deanonymized_file = deanonymize_pdf_with_simple_redactor(content, mapping)
-            else:
-                print(f"📝 Utilisation de la méthode standard")
-                deanonymized_file = deanonymize_pdf_file(content, mapping)
+            # Utiliser la méthode standard corrigée
+            print(f"📝 Utilisation de la méthode standard corrigée")
+            deanonymized_file = deanonymize_pdf_file(content, mapping)
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
