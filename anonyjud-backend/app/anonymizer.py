@@ -368,14 +368,11 @@ def anonymize_pdf_file(file_content: bytes, tiers: List[Dict[str, Any]] = []) ->
     logging.info("Début anonymisation PDF")
     
     try:
-        # Pour cette implémentation, nous extrayons le texte du PDF (fonction existante)
-        # puis créons un nouveau PDF avec le texte anonymisé
+        # Importer la fonction d'extraction de texte PDF
+        from .utils import extract_text_from_pdf
         
-        # Note: L'extraction de texte PDF doit être implémentée dans utils.py
-        # Pour l'instant, nous simulons avec une extraction basique
-        
-        # Simuler l'extraction de texte (à remplacer par une vraie extraction)
-        extracted_text = "Texte extrait du PDF original"
+        # Extraire le texte du PDF original
+        extracted_text = extract_text_from_pdf(file_content)
         
         logging.info(f"Texte extrait du PDF - Taille: {len(extracted_text)} caractères")
         
@@ -411,11 +408,11 @@ def deanonymize_pdf_file(file_content: bytes, mapping: Dict[str, str]) -> bytes:
     logging.info("Début dé-anonymisation PDF")
     
     try:
-        # Extraire le texte du PDF anonymisé
-        # Note: L'extraction de texte PDF doit être implémentée dans utils.py
-        # Pour l'instant, nous simulons avec une extraction basique
+        # Importer la fonction d'extraction de texte PDF
+        from .utils import extract_text_from_pdf
         
-        extracted_text = "Texte extrait du PDF anonymisé"
+        # Extraire le texte du PDF anonymisé
+        extracted_text = extract_text_from_pdf(file_content)
         
         logging.info(f"Texte extrait du PDF anonymisé - Taille: {len(extracted_text)} caractères")
         
