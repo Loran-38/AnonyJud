@@ -33,6 +33,161 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const fileInputRef = useRef(null);
   const fileInputDenonRef = useRef(null);
 
+  // Fonction pour obtenir l'icône selon le type de fichier
+  const getFileIcon = (fileName) => {
+    const extension = fileName.split('.').pop().toLowerCase();
+    
+    switch (extension) {
+      case 'pdf':
+        return (
+          <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+          </svg>
+        );
+      case 'doc':
+      case 'docx':
+        return (
+          <svg className="w-8 h-8 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+          </svg>
+        );
+      case 'odt':
+        return (
+          <svg className="w-8 h-8 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+          </svg>
+        );
+      default:
+        return (
+          <svg className="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+          </svg>
+        );
+    }
+  };
+
+  // Fonction pour obtenir le type de fichier formaté
+  const getFileTypeLabel = (fileName) => {
+    const extension = fileName.split('.').pop().toLowerCase();
+    
+    switch (extension) {
+      case 'pdf':
+        return 'PDF';
+      case 'doc':
+      case 'docx':
+        return 'Word';
+      case 'odt':
+        return 'ODT';
+      default:
+        return extension.toUpperCase();
+    }
+  };
+
+  // Composant pour afficher le fichier uploadé
+  const FileDisplayCard = ({ file, onRemove, color = 'blue', isProcessing = false, progress = 0 }) => {
+    if (!file) return null;
+
+    const colorClasses = {
+      blue: {
+        bg: 'bg-blue-50',
+        border: 'border-blue-200',
+        text: 'text-blue-700',
+        badge: 'bg-blue-100 text-blue-800'
+      },
+      green: {
+        bg: 'bg-green-50',
+        border: 'border-green-200',
+        text: 'text-green-700',
+        badge: 'bg-green-100 text-green-800'
+      }
+    };
+
+    const classes = colorClasses[color] || colorClasses.blue;
+
+    return (
+      <div className={`${classes.bg} ${classes.border} border rounded-lg p-4 transition-all duration-200`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3 flex-1 min-w-0">
+            {getFileIcon(file.name)}
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-medium ${classes.text} truncate`}>
+                {file.name}
+              </p>
+              <div className="flex items-center space-x-2 mt-1">
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${classes.badge}`}>
+                  {getFileTypeLabel(file.name)}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {(file.size / 1024).toFixed(1)} KB
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          {!isProcessing && (
+            <button
+              onClick={onRemove}
+              className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors group"
+              title="Supprimer le fichier"
+            >
+              <svg className="w-5 h-5 text-gray-400 group-hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+        
+        {isProcessing && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-sm font-medium ${classes.text}`}>Traitement en cours...</span>
+              <span className={`text-sm ${classes.text}`}>{progress}%</span>
+            </div>
+            <div className={`w-full bg-${color}-200 rounded-full h-2`}>
+              <div 
+                className={`bg-${color}-600 h-2 rounded-full transition-all duration-300`}
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Fonction pour supprimer le fichier d'anonymisation
+  const removeAnonymizationFile = () => {
+    setUploadedFile(null);
+    setUploadedFileName('');
+    setProcessedFile(null);
+    setFileProgress(0);
+    setIsFileReady(false);
+    setAnonymizedText('');
+    setMapping({});
+    setError('');
+    
+    // Réinitialiser l'input file
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Fonction pour supprimer le fichier de dé-anonymisation
+  const removeDeanonymizationFile = () => {
+    setUploadedFileDeanon(null);
+    setUploadedFileNameDeanon('');
+    setProcessedFileDeanon(null);
+    setFileProgressDeanon(0);
+    setIsFileReadyDeanon(false);
+    setDeanonymizedText('');
+    setError('');
+    
+    // Réinitialiser l'input file
+    if (fileInputDenonRef.current) {
+      fileInputDenonRef.current.value = '';
+    }
+  };
+
   if (!selectedProject) {
     return (
       <div className="h-full flex items-center justify-center text-center">
@@ -485,50 +640,41 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
             </div>
             
             <div className="p-4 space-y-4 h-full overflow-y-auto">
-              {/* Zone de glisser-déposer */}
-              <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
-                  dragActive
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-blue-300 hover:border-blue-400 hover:bg-blue-50'
-                }`}
-                onDragEnter={handleDragEnter}
-                onDragLeave={handleDragLeave}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <svg className="mx-auto h-12 w-12 text-blue-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                  <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <p className="text-blue-600 font-medium">Glissez-déposez votre fichier ici</p>
-                <p className="text-blue-500 text-sm mt-1">ou cliquez pour sélectionner</p>
-                <p className="text-blue-400 text-xs mt-2">PDF, DOCX, ODT acceptés</p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.doc,.docx,.odt"
-                  onChange={handleFileInput}
-                  className="hidden"
+              {/* Zone de glisser-déposer ou affichage du fichier */}
+              {uploadedFile ? (
+                <FileDisplayCard
+                  file={uploadedFile}
+                  onRemove={removeAnonymizationFile}
+                  color="blue"
+                  isProcessing={isProcessing}
+                  progress={fileProgress}
                 />
-              </div>
-
-              {/* Barre de progression upload */}
-              {isProcessing && uploadedFile && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-blue-700">Traitement en cours...</span>
-                    <span className="text-sm text-blue-600">{fileProgress}%</span>
-                  </div>
-                  <div className="w-full bg-blue-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${fileProgress}%` }}
-                    ></div>
-                  </div>
-                  {uploadedFileName && (
-                    <p className="text-xs text-blue-600 mt-2">Fichier: {uploadedFileName}</p>
-                  )}
+              ) : (
+                <div
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
+                    dragActive
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-blue-300 hover:border-blue-400 hover:bg-blue-50'
+                  }`}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <svg className="mx-auto h-12 w-12 text-blue-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <p className="text-blue-600 font-medium">Glissez-déposez votre fichier ici</p>
+                  <p className="text-blue-500 text-sm mt-1">ou cliquez pour sélectionner</p>
+                  <p className="text-blue-400 text-xs mt-2">PDF, DOCX, ODT acceptés</p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.odt"
+                    onChange={handleFileInput}
+                    className="hidden"
+                  />
                 </div>
               )}
 
@@ -632,50 +778,41 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
             </div>
             
             <div className="p-4 space-y-4 h-full overflow-y-auto">
-              {/* Zone de glisser-déposer */}
-              <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
-                  dragActiveDeanon
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-green-300 hover:border-green-400 hover:bg-green-50'
-                }`}
-                onDragEnter={handleDragEnterDeanon}
-                onDragLeave={handleDragLeaveDeanon}
-                onDragOver={handleDragOverDeanon}
-                onDrop={handleDropDeanon}
-                onClick={() => fileInputDenonRef.current?.click()}
-              >
-                <svg className="mx-auto h-12 w-12 text-green-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                  <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <p className="text-green-600 font-medium">Glissez-déposez votre fichier ici</p>
-                <p className="text-green-500 text-sm mt-1">ou cliquez pour sélectionner</p>
-                <p className="text-green-400 text-xs mt-2">PDF, DOCX, ODT acceptés</p>
-                <input
-                  ref={fileInputDenonRef}
-                  type="file"
-                  accept=".pdf,.doc,.docx,.odt"
-                  onChange={handleFileInputDeanon}
-                  className="hidden"
+              {/* Zone de glisser-déposer ou affichage du fichier */}
+              {uploadedFileDeanon ? (
+                <FileDisplayCard
+                  file={uploadedFileDeanon}
+                  onRemove={removeDeanonymizationFile}
+                  color="green"
+                  isProcessing={isProcessing}
+                  progress={fileProgressDeanon}
                 />
-              </div>
-
-              {/* Barre de progression upload */}
-              {isProcessing && uploadedFileDeanon && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-green-700">Traitement en cours...</span>
-                    <span className="text-sm text-green-600">{fileProgressDeanon}%</span>
-                  </div>
-                  <div className="w-full bg-green-200 rounded-full h-2">
-                    <div 
-                      className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${fileProgressDeanon}%` }}
-                    ></div>
-                  </div>
-                  {uploadedFileNameDeanon && (
-                    <p className="text-xs text-green-600 mt-2">Fichier: {uploadedFileNameDeanon}</p>
-                  )}
+              ) : (
+                <div
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
+                    dragActiveDeanon
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-green-300 hover:border-green-400 hover:bg-green-50'
+                  }`}
+                  onDragEnter={handleDragEnterDeanon}
+                  onDragLeave={handleDragLeaveDeanon}
+                  onDragOver={handleDragOverDeanon}
+                  onDrop={handleDropDeanon}
+                  onClick={() => fileInputDenonRef.current?.click()}
+                >
+                  <svg className="mx-auto h-12 w-12 text-green-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <p className="text-green-600 font-medium">Glissez-déposez votre fichier ici</p>
+                  <p className="text-green-500 text-sm mt-1">ou cliquez pour sélectionner</p>
+                  <p className="text-green-400 text-xs mt-2">PDF, DOCX, ODT acceptés</p>
+                  <input
+                    ref={fileInputDenonRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.odt"
+                    onChange={handleFileInputDeanon}
+                    className="hidden"
+                  />
                 </div>
               )}
 
