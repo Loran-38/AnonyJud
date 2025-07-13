@@ -557,6 +557,7 @@ def extract_and_anonymize_odt(content: bytes, tiers: List[Dict[str, Any]]):
 def anonymize_docx_file(content: bytes, tiers: List[Dict[str, Any]]):
     """
     Anonymise directement un fichier Word en modifiant son contenu.
+    Préserve le formatage (police, style, majuscules/minuscules, mise en page).
     Retourne le fichier modifié et le mapping d'anonymisation.
     """
     try:
@@ -578,40 +579,55 @@ def anonymize_docx_file(content: bytes, tiers: List[Dict[str, Any]]):
         print(f"DEBUG: Mapping généré: {mapping}")
         print(f"DEBUG: Texte anonymisé (premiers 200 chars): {anonymized_text[:200]}...")
         
-        # Appliquer les anonymisations directement dans le document
+        # Fonction pour anonymiser un run en préservant son formatage
+        def anonymize_run_preserving_format(run, mapping):
+            """Anonymise le texte d'un run en préservant son formatage"""
+            if not run.text:
+                return
+                
+            original_text = run.text
+            modified_text = original_text
+            
+            # Appliquer chaque remplacement du mapping (inverser pour que les tags remplacent les originaux)
+            for tag, original_value in mapping.items():
+                if original_value in modified_text:
+                    # Préserver la casse du texte original
+                    if original_value.isupper():
+                        modified_text = modified_text.replace(original_value, tag.upper())
+                    elif original_value.islower():
+                        modified_text = modified_text.replace(original_value, tag.lower())
+                    elif original_value.istitle():
+                        modified_text = modified_text.replace(original_value, tag.title())
+                    else:
+                        modified_text = modified_text.replace(original_value, tag)
+            
+            # Remplacer le texte du run seulement si modifié (le formatage est automatiquement préservé)
+            if modified_text != original_text:
+                print(f"DEBUG: Run modifié: '{original_text}' -> '{modified_text}'")
+                run.text = modified_text
+        
+        # Appliquer les anonymisations directement dans le document en préservant le formatage
+        paragraphs_processed = 0
         for para in doc.paragraphs:
             if para.text.strip():  # Seulement pour les paragraphes non vides
-                original_text = para.text
-                modified_text = original_text
-                
-                # Appliquer chaque remplacement du mapping (inverser pour que les tags remplacent les originaux)
-                for tag, original_value in mapping.items():
-                    modified_text = modified_text.replace(original_value, tag)
-                
-                # Remplacer le texte du paragraphe seulement si modifié
-                if modified_text != original_text:
-                    print(f"DEBUG: Paragraphe modifié: '{original_text}' -> '{modified_text}'")
-                    para.clear()
-                    para.add_run(modified_text)
+                # Traiter chaque run individuellement pour préserver le formatage
+                for run in para.runs:
+                    anonymize_run_preserving_format(run, mapping)
+                paragraphs_processed += 1
         
         # Traiter également les tableaux
+        cells_processed = 0
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
                     for para in cell.paragraphs:
                         if para.text.strip():
-                            original_text = para.text
-                            modified_text = original_text
-                            
-                            # Appliquer chaque remplacement du mapping
-                            for tag, original_value in mapping.items():
-                                modified_text = modified_text.replace(original_value, tag)
-                            
-                            # Remplacer le texte du paragraphe seulement si modifié
-                            if modified_text != original_text:
-                                print(f"DEBUG: Cellule modifiée: '{original_text}' -> '{modified_text}'")
-                                para.clear()
-                                para.add_run(modified_text)
+                            # Traiter chaque run individuellement pour préserver le formatage
+                            for run in para.runs:
+                                anonymize_run_preserving_format(run, mapping)
+                            cells_processed += 1
+        
+        print(f"DEBUG: Traitement terminé - {paragraphs_processed} paragraphes, {cells_processed} cellules")
         
         # Sauvegarder le document modifié en bytes
         output = io.BytesIO()
@@ -628,6 +644,7 @@ def anonymize_docx_file(content: bytes, tiers: List[Dict[str, Any]]):
 def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
     """
     Dé-anonymise directement un fichier Word en utilisant le mapping fourni.
+    Préserve le formatage (police, style, majuscules/minuscules, mise en page).
     Retourne le fichier modifié.
     """
     try:
@@ -680,87 +697,94 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
         sorted_tags = sorted(reverse_mapping.keys(), key=len, reverse=True)
         print(f"🔢 Balises triées par longueur: {sorted_tags}")
         
+        # Fonction pour dé-anonymiser un run en préservant son formatage
+        def deanonymize_run_preserving_format(run, mapping, sorted_tags):
+            """Dé-anonymise le texte d'un run en préservant son formatage"""
+            if not run.text:
+                return False
+                
+            original_text = run.text
+            modified_text = original_text
+            has_changes = False
+            
+            # Appliquer chaque remplacement du mapping (balise -> valeur originale)
+            for balise in sorted_tags:
+                valeur_originale = mapping[balise]
+                
+                # Chercher la balise dans toutes les variantes de casse possibles
+                balise_variants = [
+                    balise,           # PRENOM1
+                    balise.lower(),   # prenom1
+                    balise.title(),   # Prenom1
+                    balise.capitalize() # Prenom1 (même résultat que title pour ce cas)
+                ]
+                
+                for variant in balise_variants:
+                    if variant in modified_text:
+                        count_before = modified_text.count(variant)
+                        
+                        # Utiliser une expression régulière pour remplacer la balise exacte (pas de remplacement partiel)
+                        pattern = re.compile(r'\b' + re.escape(variant) + r'\b')
+                        modified_text_new = pattern.sub(valeur_originale, modified_text)
+                        
+                        count_after = modified_text_new.count(variant)
+                        actual_replacements = count_before - count_after
+                        
+                        if actual_replacements > 0:
+                            print(f"✅ Run: {actual_replacements} occurrence(s) de '{variant}' remplacée(s) par '{valeur_originale}'")
+                            modified_text = modified_text_new
+                            has_changes = True
+                            break  # Sortir de la boucle des variants une fois qu'on a trouvé et remplacé
+                        else:
+                            print(f"⚠️ Run: Aucun remplacement de mot entier pour '{variant}', tentative de remplacement simple")
+                            # Fallback: remplacement simple si le pattern de mot entier ne fonctionne pas
+                            if variant in modified_text:
+                                modified_text = modified_text.replace(variant, valeur_originale)
+                                print(f"🔄 Run: Remplacement simple effectué pour '{variant}'")
+                                has_changes = True
+                                break  # Sortir de la boucle des variants
+            
+            # Remplacer le texte du run seulement si modifié (le formatage est automatiquement préservé)
+            if has_changes:
+                print(f"📝 Run modifié: '{original_text}' -> '{modified_text}'")
+                run.text = modified_text
+            
+            return has_changes
+        
         paragraphs_modified = 0
-        cells_modified = 0
+        runs_modified = 0
         
         # Appliquer les dé-anonymisations dans les paragraphes
         for i, para in enumerate(doc.paragraphs):
             if para.text.strip():  # Seulement pour les paragraphes non vides
-                original_text = para.text
-                modified_text = original_text
+                para_has_changes = False
+                # Traiter chaque run individuellement pour préserver le formatage
+                for run in para.runs:
+                    if deanonymize_run_preserving_format(run, reverse_mapping, sorted_tags):
+                        runs_modified += 1
+                        para_has_changes = True
                 
-                # Appliquer chaque remplacement du mapping (balise -> valeur originale)
-                # Utiliser la même logique que deanonymize_text avec des mots entiers
-                for balise in sorted_tags:
-                    valeur_originale = reverse_mapping[balise]
-                    if balise in modified_text:
-                        count_before = modified_text.count(balise)
-                        
-                        # Utiliser une expression régulière pour remplacer la balise exacte (pas de remplacement partiel)
-                        pattern = re.compile(r'\b' + re.escape(balise) + r'\b')
-                        modified_text_new = pattern.sub(valeur_originale, modified_text)
-                        
-                        count_after = modified_text_new.count(balise)
-                        actual_replacements = count_before - count_after
-                        
-                        if actual_replacements > 0:
-                            print(f"✅ Paragraphe {i}: {actual_replacements} occurrence(s) de '{balise}' remplacée(s) par '{valeur_originale}'")
-                            modified_text = modified_text_new
-                        else:
-                            print(f"⚠️ Paragraphe {i}: Aucun remplacement de mot entier pour '{balise}', tentative de remplacement simple")
-                            # Fallback: remplacement simple si le pattern de mot entier ne fonctionne pas
-                            if balise in modified_text:
-                                modified_text = modified_text.replace(balise, valeur_originale)
-                                print(f"🔄 Paragraphe {i}: Remplacement simple effectué pour '{balise}'")
-                
-                # Remplacer le texte du paragraphe seulement si modifié
-                if modified_text != original_text:
-                    print(f"📝 Paragraphe {i} modifié: '{original_text}' -> '{modified_text}'")
-                    para.clear()
-                    para.add_run(modified_text)
+                if para_has_changes:
                     paragraphs_modified += 1
         
         # Traiter également les tableaux
+        cells_modified = 0
         for table_idx, table in enumerate(doc.tables):
             for row_idx, row in enumerate(table.rows):
                 for cell_idx, cell in enumerate(row.cells):
                     for para_idx, para in enumerate(cell.paragraphs):
                         if para.text.strip():
-                            original_text = para.text
-                            modified_text = original_text
+                            cell_has_changes = False
+                            # Traiter chaque run individuellement pour préserver le formatage
+                            for run in para.runs:
+                                if deanonymize_run_preserving_format(run, reverse_mapping, sorted_tags):
+                                    runs_modified += 1
+                                    cell_has_changes = True
                             
-                            # Appliquer chaque remplacement du mapping (balise -> valeur originale)
-                            # Utiliser la même logique que deanonymize_text avec des mots entiers
-                            for balise in sorted_tags:
-                                valeur_originale = reverse_mapping[balise]
-                                if balise in modified_text:
-                                    count_before = modified_text.count(balise)
-                                    
-                                    # Utiliser une expression régulière pour remplacer la balise exacte (pas de remplacement partiel)
-                                    pattern = re.compile(r'\b' + re.escape(balise) + r'\b')
-                                    modified_text_new = pattern.sub(valeur_originale, modified_text)
-                                    
-                                    count_after = modified_text_new.count(balise)
-                                    actual_replacements = count_before - count_after
-                                    
-                                    if actual_replacements > 0:
-                                        print(f"✅ Tableau {table_idx}, Ligne {row_idx}, Cellule {cell_idx}: {actual_replacements} occurrence(s) de '{balise}' remplacée(s) par '{valeur_originale}'")
-                                        modified_text = modified_text_new
-                                    else:
-                                        print(f"⚠️ Tableau {table_idx}, Ligne {row_idx}, Cellule {cell_idx}: Aucun remplacement de mot entier pour '{balise}', tentative de remplacement simple")
-                                        # Fallback: remplacement simple si le pattern de mot entier ne fonctionne pas
-                                        if balise in modified_text:
-                                            modified_text = modified_text.replace(balise, valeur_originale)
-                                            print(f"🔄 Tableau {table_idx}, Ligne {row_idx}, Cellule {cell_idx}: Remplacement simple effectué pour '{balise}'")
-                            
-                            # Remplacer le texte du paragraphe seulement si modifié
-                            if modified_text != original_text:
-                                print(f"📝 Cellule [{table_idx},{row_idx},{cell_idx}] modifiée: '{original_text}' -> '{modified_text}'")
-                                para.clear()
-                                para.add_run(modified_text)
+                            if cell_has_changes:
                                 cells_modified += 1
         
-        print(f"📈 Résultats: {paragraphs_modified} paragraphes et {cells_modified} cellules modifiés")
+        print(f"📈 Résultats: {paragraphs_modified} paragraphes, {cells_modified} cellules, {runs_modified} runs modifiés")
         
         # Sauvegarder le document modifié en bytes
         output = io.BytesIO()
@@ -772,7 +796,7 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
         
     except Exception as e:
         print(f"❌ Erreur dans deanonymize_docx_file: {str(e)}")
-        raise Exception(f"Erreur lors de la dé-anonymisation du fichier Word: {str(e)}") 
+        raise Exception(f"Erreur lors de la dé-anonymisation du fichier Word: {str(e)}")
 
 def extract_and_deanonymize_pdf(content: bytes, mapping: Dict[str, str]):
     """
