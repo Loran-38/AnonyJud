@@ -329,16 +329,23 @@ def create_pdf_from_text(text: str, title: str = "Document anonymisé") -> bytes
         story.append(Paragraph(title, title_style))
         story.append(Spacer(1, 12))
     
-    # Diviser le texte en paragraphes
+    # Diviser le texte en paragraphes (respecter les sauts de ligne)
     paragraphs = text.split('\n\n')
     
     for paragraph in paragraphs:
         if paragraph.strip():
-            # Nettoyer le paragraphe
-            clean_paragraph = paragraph.strip().replace('\n', ' ')
-            # Échapper les caractères spéciaux pour reportlab
-            clean_paragraph = clean_paragraph.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-            story.append(Paragraph(clean_paragraph, normal_style))
+            # Traiter les sauts de ligne simples comme des retours à la ligne
+            lines = paragraph.split('\n')
+            for line in lines:
+                if line.strip():
+                    # Nettoyer la ligne
+                    clean_line = line.strip()
+                    # Échapper les caractères spéciaux pour reportlab
+                    clean_line = clean_line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                    story.append(Paragraph(clean_line, normal_style))
+                    story.append(Spacer(1, 6))  # Espacement plus petit entre les lignes
+            
+            # Espacement plus grand entre les paragraphes
             story.append(Spacer(1, 12))
     
     # Construire le PDF
@@ -422,10 +429,39 @@ def deanonymize_pdf_file(file_content: bytes, mapping: Dict[str, str]) -> bytes:
         if mapping:
             logging.info(f"Application du mapping - {len(mapping)} remplacements")
             
-            for tag, original_value in mapping.items():
+            # Trier les balises par longueur décroissante pour éviter les remplacements partiels
+            sorted_tags = sorted(mapping.keys(), key=len, reverse=True)
+            logging.info(f"Balises triées par longueur: {sorted_tags}")
+            
+            replacements_made = 0
+            for tag in sorted_tags:
                 if tag in deanonymized_text:
-                    deanonymized_text = deanonymized_text.replace(tag, original_value)
-                    logging.debug(f"Remplacé {tag} par {original_value}")
+                    original_value = mapping[tag]
+                    
+                    # Compter les occurrences avant remplacement
+                    count_before = deanonymized_text.count(tag)
+                    
+                    # Utiliser une expression régulière pour remplacer la balise exacte (pas de remplacement partiel)
+                    pattern = re.compile(r'\b' + re.escape(tag) + r'\b')
+                    deanonymized_new = pattern.sub(original_value, deanonymized_text)
+                    
+                    # Compter les occurrences après remplacement
+                    count_after = deanonymized_new.count(tag)
+                    actual_replacements = count_before - count_after
+                    
+                    if actual_replacements > 0:
+                        logging.debug(f"Remplacé {actual_replacements} occurrence(s) de '{tag}' par '{original_value}'")
+                        replacements_made += actual_replacements
+                        deanonymized_text = deanonymized_new
+                    else:
+                        logging.debug(f"Aucun remplacement pour '{tag}' (pas de correspondance de mots entiers)")
+                        # Essayer un remplacement simple comme fallback
+                        if tag in deanonymized_text:
+                            deanonymized_text = deanonymized_text.replace(tag, original_value)
+                            logging.debug(f"Remplacement simple effectué pour '{tag}'")
+                            replacements_made += 1
+            
+            logging.info(f"Total des remplacements effectués: {replacements_made}")
         
         logging.info("Dé-anonymisation du texte terminée")
         
