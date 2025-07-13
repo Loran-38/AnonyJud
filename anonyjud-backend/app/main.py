@@ -1034,14 +1034,17 @@ def anonymize_odt_file(content: bytes, tiers: List[Dict[str, Any]]):
                     # Anonymiser le texte du paragraphe
                     anonymized_paragraph = anonymize_text(paragraph_text, tiers)[0]
                     
-                    # Remplacer le contenu du paragraphe
-                    # Supprimer tout le contenu existant
-                    for child in paragraph.childNodes[:]:
-                        paragraph.removeChild(child)
-                    
-                    # Ajouter le texte anonymisé
-                    paragraph.addText(anonymized_paragraph)
-                    paragraphs_processed += 1
+                    # Remplacer le contenu du paragraphe de manière sécurisée
+                    try:
+                        # Vider le paragraphe
+                        paragraph.childNodes = []
+                        # Ajouter le texte anonymisé
+                        paragraph.addText(anonymized_paragraph)
+                        paragraphs_processed += 1
+                    except Exception as e:
+                        print(f"⚠️ DEBUG: Erreur lors du traitement du paragraphe: {str(e)}")
+                        # Continuer avec le paragraphe suivant
+                        continue
             
             print(f"📊 DEBUG: Traitement terminé - {paragraphs_processed} paragraphes")
             
@@ -1116,13 +1119,16 @@ def deanonymize_odt_file(content: bytes, mapping: Dict[str, str]):
                     
                     # Si le texte a changé, le remplacer
                     if deanonymized_paragraph != paragraph_text:
-                        # Supprimer tout le contenu existant
-                        for child in paragraph.childNodes[:]:
-                            paragraph.removeChild(child)
-                        
-                        # Ajouter le texte dé-anonymisé
-                        paragraph.addText(deanonymized_paragraph)
-                        paragraphs_processed += 1
+                        try:
+                            # Vider le paragraphe
+                            paragraph.childNodes = []
+                            # Ajouter le texte dé-anonymisé
+                            paragraph.addText(deanonymized_paragraph)
+                            paragraphs_processed += 1
+                        except Exception as e:
+                            print(f"⚠️ DEBUG: Erreur lors du traitement du paragraphe: {str(e)}")
+                            # Continuer avec le paragraphe suivant
+                            continue
             
             print(f"📊 DEBUG: Traitement terminé - {paragraphs_processed} paragraphes modifiés")
             
