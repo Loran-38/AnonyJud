@@ -14,7 +14,7 @@ from odf import text as odf_text, teletype
 from odf.opendocument import load
 import re # Added for regex in deanonymize_docx_file
 
-from .anonymizer import anonymize_text
+from .anonymizer import anonymize_text, anonymize_pdf_file, deanonymize_pdf_file
 from .deanonymizer import deanonymize_text
 from .models import TextAnonymizationRequest, TextDeanonymizationRequest
 
@@ -451,7 +451,7 @@ async def anonymize_file_download(
     tiers_json: str = Form(...)
 ):
     """
-    Anonymise un fichier Word ou ODT et retourne le fichier modifié pour téléchargement.
+    Anonymise un fichier Word, ODT ou PDF et retourne le fichier modifié pour téléchargement.
     """
     try:
         print(f"🚀 ANONYMIZE_FILE_DOWNLOAD - Début du traitement")
@@ -502,9 +502,28 @@ async def anonymize_file_download(
                 media_type="application/vnd.oasis.opendocument.text",
                 headers={"Content-Disposition": f"attachment; filename={anonymized_filename}"}
             )
+        elif file_extension == ".pdf":
+            print(f"📄 Traitement fichier PDF...")
+            # Traitement des fichiers PDF
+            content = await file.read()
+            anonymized_file, mapping = anonymize_pdf_file(content, tiers)
+            
+            # Créer un nom de fichier pour le téléchargement
+            base_name = os.path.splitext(filename)[0]
+            anonymized_filename = f"{base_name}_ANONYM.pdf"
+            
+            print(f"✅ Fichier PDF anonymisé: {anonymized_filename}")
+            print(f"📊 Mapping généré: {len(mapping)} balises")
+            
+            # Retourner le fichier modifié
+            return StreamingResponse(
+                io.BytesIO(anonymized_file),
+                media_type="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename={anonymized_filename}"}
+            )
         else:
             print(f"❌ Format de fichier non supporté: {file_extension}")
-            raise HTTPException(status_code=400, detail="Seuls les fichiers Word (.docx) et ODT (.odt) sont supportés pour le téléchargement.")
+            raise HTTPException(status_code=400, detail="Seuls les fichiers Word (.docx), ODT (.odt) et PDF (.pdf) sont supportés pour le téléchargement.")
             
     except Exception as e:
         print(f"❌ Erreur dans anonymize_file_download: {str(e)}")
@@ -516,7 +535,7 @@ async def deanonymize_file_download(
     mapping_json: str = Form(...)
 ):
     """
-    Dé-anonymise un fichier Word ou ODT et retourne le fichier modifié pour téléchargement.
+    Dé-anonymise un fichier Word, ODT ou PDF et retourne le fichier modifié pour téléchargement.
     """
     try:
         print(f"🚀 DEANONYMIZE_FILE_DOWNLOAD - Début du traitement")
@@ -574,9 +593,31 @@ async def deanonymize_file_download(
                 media_type="application/vnd.oasis.opendocument.text",
                 headers={"Content-Disposition": f"attachment; filename={deanonymized_filename}"}
             )
+        elif file_extension == ".pdf":
+            print(f"📄 Traitement fichier PDF...")
+            # Traitement des fichiers PDF
+            content = await file.read()
+            deanonymized_file = deanonymize_pdf_file(content, mapping)
+            
+            # Créer un nom de fichier pour le téléchargement
+            base_name = os.path.splitext(filename)[0]
+            # Retirer "_ANONYM" du nom si présent
+            if base_name.endswith("_ANONYM"):
+                base_name = base_name[:-7]
+            deanonymized_filename = f"{base_name}_DESANONYM.pdf"
+            
+            print(f"✅ Fichier PDF dé-anonymisé: {deanonymized_filename}")
+            print(f"📊 Mapping appliqué: {len(mapping)} balises")
+            
+            # Retourner le fichier modifié
+            return StreamingResponse(
+                io.BytesIO(deanonymized_file),
+                media_type="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename={deanonymized_filename}"}
+            )
         else:
             print(f"❌ Format de fichier non supporté: {file_extension}")
-            raise HTTPException(status_code=400, detail="Seuls les fichiers Word (.docx) et ODT (.odt) sont supportés pour le téléchargement.")
+            raise HTTPException(status_code=400, detail="Seuls les fichiers Word (.docx), ODT (.odt) et PDF (.pdf) sont supportés pour le téléchargement.")
             
     except Exception as e:
         print(f"❌ Erreur dans deanonymize_file_download: {str(e)}")
