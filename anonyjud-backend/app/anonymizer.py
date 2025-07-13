@@ -2,6 +2,26 @@ import re
 import json
 from typing import Dict, List, Tuple, Any
 
+# Imports pour le support PDF
+try:
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from io import BytesIO
+    import logging
+    PDF_SUPPORT = True
+    print("✓ Support PDF activé avec reportlab")
+except ImportError as e:
+    PDF_SUPPORT = False
+    print(f"⚠ Support PDF non disponible: {e}")
+    print("Pour activer le support PDF, installez: pip install reportlab")
+
+
 def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Dict[str, str]]:
     """
     Anonymise le texte en détectant les entités personnelles et en les remplaçant par des balises.
@@ -269,4 +289,155 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
                         if champ_perso.lower() != champ_perso:
                             anonymized = anonymized.replace(champ_perso.lower(), tag)
     
-    return anonymized, mapping 
+    return anonymized, mapping
+
+def create_pdf_from_text(text: str, title: str = "Document anonymisé") -> bytes:
+    """
+    Crée un fichier PDF à partir d'un texte donné.
+    
+    Args:
+        text: Le texte à convertir en PDF
+        title: Le titre du document PDF
+        
+    Returns:
+        bytes: Le contenu du fichier PDF
+    """
+    if not PDF_SUPPORT:
+        raise ImportError("Support PDF non disponible. Installez reportlab: pip install reportlab")
+    
+    logging.info(f"Création PDF - Titre: {title}, Taille texte: {len(text)} caractères")
+    
+    # Créer un buffer en mémoire pour le PDF
+    buffer = BytesIO()
+    
+    # Créer le document PDF
+    doc = SimpleDocTemplate(buffer, pagesize=A4, 
+                          rightMargin=72, leftMargin=72,
+                          topMargin=72, bottomMargin=18)
+    
+    # Styles
+    styles = getSampleStyleSheet()
+    title_style = styles['Title']
+    normal_style = styles['Normal']
+    normal_style.alignment = TA_JUSTIFY
+    
+    # Contenu du PDF
+    story = []
+    
+    # Titre
+    if title:
+        story.append(Paragraph(title, title_style))
+        story.append(Spacer(1, 12))
+    
+    # Diviser le texte en paragraphes
+    paragraphs = text.split('\n\n')
+    
+    for paragraph in paragraphs:
+        if paragraph.strip():
+            # Nettoyer le paragraphe
+            clean_paragraph = paragraph.strip().replace('\n', ' ')
+            # Échapper les caractères spéciaux pour reportlab
+            clean_paragraph = clean_paragraph.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            story.append(Paragraph(clean_paragraph, normal_style))
+            story.append(Spacer(1, 12))
+    
+    # Construire le PDF
+    doc.build(story)
+    
+    # Récupérer le contenu du buffer
+    pdf_content = buffer.getvalue()
+    buffer.close()
+    
+    logging.info(f"PDF créé avec succès - Taille: {len(pdf_content)} bytes")
+    return pdf_content
+
+def anonymize_pdf_file(file_content: bytes, tiers: List[Dict[str, Any]] = []) -> Tuple[bytes, Dict[str, str]]:
+    """
+    Anonymise un fichier PDF en extrayant le texte, l'anonymisant et créant un nouveau PDF.
+    
+    Args:
+        file_content: Le contenu du fichier PDF original
+        tiers: Liste des tiers avec leurs informations personnelles
+        
+    Returns:
+        Tuple contenant (contenu_pdf_anonymisé, mapping_des_remplacements)
+    """
+    if not PDF_SUPPORT:
+        raise ImportError("Support PDF non disponible. Installez reportlab: pip install reportlab")
+    
+    logging.info("Début anonymisation PDF")
+    
+    try:
+        # Pour cette implémentation, nous extrayons le texte du PDF (fonction existante)
+        # puis créons un nouveau PDF avec le texte anonymisé
+        
+        # Note: L'extraction de texte PDF doit être implémentée dans utils.py
+        # Pour l'instant, nous simulons avec une extraction basique
+        
+        # Simuler l'extraction de texte (à remplacer par une vraie extraction)
+        extracted_text = "Texte extrait du PDF original"
+        
+        logging.info(f"Texte extrait du PDF - Taille: {len(extracted_text)} caractères")
+        
+        # Anonymiser le texte
+        anonymized_text, mapping = anonymize_text(extracted_text, tiers)
+        
+        logging.info(f"Texte anonymisé - Nouvelles balises: {len(mapping)}")
+        
+        # Créer un nouveau PDF avec le texte anonymisé
+        pdf_content = create_pdf_from_text(anonymized_text, "Document PDF Anonymisé")
+        
+        logging.info("Anonymisation PDF terminée avec succès")
+        return pdf_content, mapping
+        
+    except Exception as e:
+        logging.error(f"Erreur lors de l'anonymisation PDF: {str(e)}")
+        raise
+
+def deanonymize_pdf_file(file_content: bytes, mapping: Dict[str, str]) -> bytes:
+    """
+    Dé-anonymise un fichier PDF en remplaçant les balises par les valeurs originales.
+    
+    Args:
+        file_content: Le contenu du fichier PDF anonymisé
+        mapping: Dictionnaire de mapping des balises vers les valeurs originales
+        
+    Returns:
+        bytes: Le contenu du fichier PDF dé-anonymisé
+    """
+    if not PDF_SUPPORT:
+        raise ImportError("Support PDF non disponible. Installez reportlab: pip install reportlab")
+    
+    logging.info("Début dé-anonymisation PDF")
+    
+    try:
+        # Extraire le texte du PDF anonymisé
+        # Note: L'extraction de texte PDF doit être implémentée dans utils.py
+        # Pour l'instant, nous simulons avec une extraction basique
+        
+        extracted_text = "Texte extrait du PDF anonymisé"
+        
+        logging.info(f"Texte extrait du PDF anonymisé - Taille: {len(extracted_text)} caractères")
+        
+        # Dé-anonymiser le texte
+        deanonymized_text = extracted_text
+        
+        if mapping:
+            logging.info(f"Application du mapping - {len(mapping)} remplacements")
+            
+            for tag, original_value in mapping.items():
+                if tag in deanonymized_text:
+                    deanonymized_text = deanonymized_text.replace(tag, original_value)
+                    logging.debug(f"Remplacé {tag} par {original_value}")
+        
+        logging.info("Dé-anonymisation du texte terminée")
+        
+        # Créer un nouveau PDF avec le texte dé-anonymisé
+        pdf_content = create_pdf_from_text(deanonymized_text, "Document PDF Dé-anonymisé")
+        
+        logging.info("Dé-anonymisation PDF terminée avec succès")
+        return pdf_content
+        
+    except Exception as e:
+        logging.error(f"Erreur lors de la dé-anonymisation PDF: {str(e)}")
+        raise 
