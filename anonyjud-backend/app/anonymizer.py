@@ -2355,48 +2355,92 @@ def _insert_text_with_preserved_formatting(page, text_position, new_text, font_n
     logging.info(f"🎨 Police: {font_name}, Taille: {font_size}, Gras: {is_bold}, Italique: {is_italic}")
     logging.info(f"🎨 Couleur: {text_color} → {normalized_color}, Flags: {font_flags}")
     
-    # Priorité 1: Essayer avec la police originale AVEC formatage préservé
-    if is_bold or is_italic or normalized_color != (0, 0, 0):
+    # NOUVEAU: Forcer l'application du formatage gras/italique si détecté
+    if is_bold or is_italic:
+        logging.info(f"🎨 FORMATAGE DÉTECTÉ - Forcer l'application du formatage gras/italique")
+        
+        # Priorité 1: Utiliser la police originale si elle contient déjà le formatage
+        if is_bold and ("-bold" in font_name.lower() or "-Bold" in font_name):
+            try:
+                page.insert_text(
+                    text_position,
+                    new_text,
+                    fontname=font_name,  # Police originale déjà en gras
+                    fontsize=font_size,
+                    color=normalized_color
+                )
+                logging.info(f"✅ FORMATAGE GRAS PRÉSERVÉ - Police originale: '{original_text}' → '{new_text}' (police: {font_name})")
+                return True
+            except Exception as e:
+                logging.warning(f"⚠️ Police originale gras échouée: {str(e)}")
+        
+        # Priorité 2: Forcer l'application du formatage avec police de base
         try:
+            best_font = _get_best_matching_font(font_name, page)
+            
+            # FORCER l'application du formatage gras/italique
+            if is_bold and is_italic:
+                formatted_font = f"{best_font}-boldoblique" if best_font == "helv" else f"{best_font}-bolditalic"
+            elif is_bold:
+                formatted_font = f"{best_font}-bold"
+            elif is_italic:
+                formatted_font = f"{best_font}-oblique" if best_font == "helv" else f"{best_font}-italic"
+            else:
+                formatted_font = best_font
+            
+            logging.info(f"🎨 TENTATIVE FORMATAGE FORCÉ - Police: {best_font} → {formatted_font}")
+            
             page.insert_text(
                 text_position,
                 new_text,
-                fontname=font_name,
+                fontname=formatted_font,
                 fontsize=font_size,
                 color=normalized_color
             )
-            logging.info(f"✅ FORMATAGE PRÉSERVÉ - Police originale: '{original_text}' → '{new_text}' (police: {font_name}, couleur: {normalized_color})")
+            logging.info(f"✅ FORMATAGE GRAS FORCÉ - Police formatée: '{original_text}' → '{new_text}' (police: {formatted_font})")
             return True
         except Exception as e:
-            logging.debug(f"⚠️ Police originale échouée: {str(e)}")
+            logging.warning(f"⚠️ Police formatée échouée: {str(e)}")
+        
+        # Priorité 3: Forcer le gras avec les polices standards PyMuPDF
+        if is_bold:
+            try:
+                # Essayer avec les polices standards PyMuPDF en gras
+                standard_bold_fonts = ["helv-bold", "times-bold", "cour-bold"]
+                
+                for bold_font in standard_bold_fonts:
+                    try:
+                        page.insert_text(
+                            text_position,
+                            new_text,
+                            fontname=bold_font,
+                            fontsize=font_size,
+                            color=normalized_color
+                        )
+                        logging.info(f"✅ FORMATAGE GRAS FORCÉ - Police standard: '{original_text}' → '{new_text}' (police: {bold_font})")
+                        return True
+                    except Exception as font_e:
+                        logging.debug(f"⚠️ Police standard {bold_font} échouée: {str(font_e)}")
+                        continue
+                
+            except Exception as e:
+                logging.warning(f"⚠️ Toutes les polices standard gras ont échoué: {str(e)}")
     
-    # Priorité 2: Forcer l'application du formatage avec police de base
+    # Priorité 3: Essayer avec la police originale SANS formatage forcé (pour texte normal)
     try:
-        best_font = _get_best_matching_font(font_name, page)
-        
-        # FORCER l'application du formatage gras/italique
-        if is_bold and is_italic:
-            formatted_font = f"{best_font}-boldoblique" if best_font == "helv" else f"{best_font}-bolditalic"
-        elif is_bold:
-            formatted_font = f"{best_font}-bold"
-        elif is_italic:
-            formatted_font = f"{best_font}-oblique" if best_font == "helv" else f"{best_font}-italic"
-        else:
-            formatted_font = best_font
-        
         page.insert_text(
             text_position,
             new_text,
-            fontname=formatted_font,
+            fontname=font_name,
             fontsize=font_size,
             color=normalized_color
         )
-        logging.info(f"✅ FORMATAGE FORCÉ - Police formatée: '{original_text}' → '{new_text}' (police: {formatted_font}, couleur: {normalized_color})")
+        logging.info(f"✅ POLICE ORIGINALE - Texte inséré: '{original_text}' → '{new_text}' (police: {font_name})")
         return True
     except Exception as e:
-        logging.debug(f"⚠️ Police formatée échouée: {str(e)}")
+        logging.warning(f"⚠️ Police originale échouée: {str(e)}")
     
-    # Priorité 3: Au minimum préserver la couleur même si pas le gras
+    # Priorité 4: Au minimum préserver la couleur même si pas le gras
     try:
         best_font = _get_best_matching_font(font_name, page)
         
@@ -2410,7 +2454,7 @@ def _insert_text_with_preserved_formatting(page, text_position, new_text, font_n
         logging.info(f"✅ COULEUR PRÉSERVÉE - Police de base: '{original_text}' → '{new_text}' (police: {best_font}, couleur: {normalized_color})")
         return True
     except Exception as e:
-        logging.debug(f"⚠️ Police de base échouée: {str(e)}")
+        logging.warning(f"⚠️ Police de base échouée: {str(e)}")
     
     # Dernier recours: Helvetica avec couleur
     try:
