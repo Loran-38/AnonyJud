@@ -2225,8 +2225,8 @@ def _anonymize_text_block_comprehensive(page, block, mapping: Dict[str, str]):
                     except Exception as e2:
                         logging.warning(f"⚠️ Impossible d'effacer le rectangle: {str(e2)}")
                 
-                # CORRECTION 2: Insérer le nouveau texte avec système de fallback à 4 niveaux
-                success = _insert_text_with_comprehensive_fallback(
+                # CORRECTION 2: Insérer le nouveau texte avec formatage préservé dès l'anonymisation
+                success = _insert_text_with_preserved_formatting(
                     page, text_position, anonymized_text, font_name, font_size, font_flags, text_color, original_text
                 )
                 
@@ -2312,8 +2312,8 @@ def _deanonymize_text_block_comprehensive(page, block, mapping: Dict[str, str]):
                     except Exception as e2:
                         logging.warning(f"⚠️ Impossible d'effacer le rectangle: {str(e2)}")
                 
-                # CORRECTION 2: Insérer le nouveau texte avec système de fallback à 4 niveaux
-                success = _insert_text_with_comprehensive_fallback(
+                # CORRECTION 2: Insérer le nouveau texte avec formatage préservé lors de la déanonymisation
+                success = _insert_text_with_preserved_formatting(
                     page, text_position, deanonymized_text, font_name, font_size, font_flags, text_color, original_text
                 )
                 
@@ -2321,9 +2321,10 @@ def _deanonymize_text_block_comprehensive(page, block, mapping: Dict[str, str]):
                     logging.error(f"❌ Impossible de remplacer le texte: '{original_text}' → '{deanonymized_text}'")
 
 
-def _insert_text_with_comprehensive_fallback(page, text_position, new_text, font_name, font_size, font_flags, text_color, original_text):
+def _insert_text_with_preserved_formatting(page, text_position, new_text, font_name, font_size, font_flags, text_color, original_text):
     """
-    Insère du texte avec un système de fallback à 4 niveaux pour garantir le succès.
+    Insère du texte en préservant OBLIGATOIREMENT le formatage gras/couleur du texte original.
+    Applique le formatage directement au texte de remplacement (NOM1, PRENOM1, etc.).
     
     Args:
         page: Page PyMuPDF
@@ -2331,8 +2332,8 @@ def _insert_text_with_comprehensive_fallback(page, text_position, new_text, font
         new_text: Nouveau texte à insérer
         font_name: Nom de la police originale
         font_size: Taille de la police
-        font_flags: Flags de formatage
-        text_color: Couleur du texte
+        font_flags: Flags de formatage (gras, italique)
+        text_color: Couleur du texte original
         original_text: Texte original (pour le logging)
         
     Returns:
@@ -2343,24 +2344,45 @@ def _insert_text_with_comprehensive_fallback(page, text_position, new_text, font
     # Normaliser la couleur pour PyMuPDF
     normalized_color = _normalize_color(text_color)
     
-    # Niveau 1: Utiliser la police originale exacte
-    try:
-        page.insert_text(
-            text_position,
-            new_text,
-            fontname=font_name,
-            fontsize=font_size,
-            color=normalized_color
-        )
-        logging.debug(f"✅ Niveau 1 - Police originale: '{original_text}' → '{new_text}' (police: {font_name})")
-        return True
-    except Exception as e:
-        logging.debug(f"⚠️ Niveau 1 échoué: {str(e)}")
+    # Détecter le formatage du texte original
+    BOLD_FLAG = 2**4   # 16
+    ITALIC_FLAG = 2**5  # 32
+    is_bold = bool(font_flags & BOLD_FLAG)
+    is_italic = bool(font_flags & ITALIC_FLAG)
     
-    # Niveau 2: Utiliser une police de base avec formatage
+    # Log détaillé du formatage détecté
+    logging.info(f"🎨 FORMATAGE DÉTECTÉ - Texte: '{original_text}' → '{new_text}'")
+    logging.info(f"🎨 Police: {font_name}, Taille: {font_size}, Gras: {is_bold}, Italique: {is_italic}")
+    logging.info(f"🎨 Couleur: {text_color} → {normalized_color}, Flags: {font_flags}")
+    
+    # Priorité 1: Essayer avec la police originale AVEC formatage préservé
+    if is_bold or is_italic or normalized_color != (0, 0, 0):
+        try:
+            page.insert_text(
+                text_position,
+                new_text,
+                fontname=font_name,
+                fontsize=font_size,
+                color=normalized_color
+            )
+            logging.info(f"✅ FORMATAGE PRÉSERVÉ - Police originale: '{original_text}' → '{new_text}' (police: {font_name}, couleur: {normalized_color})")
+            return True
+        except Exception as e:
+            logging.debug(f"⚠️ Police originale échouée: {str(e)}")
+    
+    # Priorité 2: Forcer l'application du formatage avec police de base
     try:
         best_font = _get_best_matching_font(font_name, page)
-        formatted_font = _apply_font_formatting_comprehensive(best_font, font_flags)
+        
+        # FORCER l'application du formatage gras/italique
+        if is_bold and is_italic:
+            formatted_font = f"{best_font}-boldoblique" if best_font == "helv" else f"{best_font}-bolditalic"
+        elif is_bold:
+            formatted_font = f"{best_font}-bold"
+        elif is_italic:
+            formatted_font = f"{best_font}-oblique" if best_font == "helv" else f"{best_font}-italic"
+        else:
+            formatted_font = best_font
         
         page.insert_text(
             text_position,
@@ -2369,12 +2391,12 @@ def _insert_text_with_comprehensive_fallback(page, text_position, new_text, font
             fontsize=font_size,
             color=normalized_color
         )
-        logging.debug(f"✅ Niveau 2 - Police formatée: '{original_text}' → '{new_text}' (police: {formatted_font})")
+        logging.info(f"✅ FORMATAGE FORCÉ - Police formatée: '{original_text}' → '{new_text}' (police: {formatted_font}, couleur: {normalized_color})")
         return True
     except Exception as e:
-        logging.debug(f"⚠️ Niveau 2 échoué: {str(e)}")
+        logging.debug(f"⚠️ Police formatée échouée: {str(e)}")
     
-    # Niveau 3: Utiliser une police de base sans formatage
+    # Priorité 3: Au minimum préserver la couleur même si pas le gras
     try:
         best_font = _get_best_matching_font(font_name, page)
         
@@ -2383,14 +2405,14 @@ def _insert_text_with_comprehensive_fallback(page, text_position, new_text, font
             new_text,
             fontname=best_font,
             fontsize=font_size,
-            color=normalized_color
+            color=normalized_color  # Garder au moins la couleur
         )
-        logging.debug(f"✅ Niveau 3 - Police de base: '{original_text}' → '{new_text}' (police: {best_font})")
+        logging.info(f"✅ COULEUR PRÉSERVÉE - Police de base: '{original_text}' → '{new_text}' (police: {best_font}, couleur: {normalized_color})")
         return True
     except Exception as e:
-        logging.debug(f"⚠️ Niveau 3 échoué: {str(e)}")
+        logging.debug(f"⚠️ Police de base échouée: {str(e)}")
     
-    # Niveau 4: Dernier fallback avec Helvetica
+    # Dernier recours: Helvetica avec couleur
     try:
         page.insert_text(
             text_position,
@@ -2399,10 +2421,10 @@ def _insert_text_with_comprehensive_fallback(page, text_position, new_text, font
             fontsize=font_size,
             color=normalized_color
         )
-        logging.debug(f"✅ Niveau 4 - Helvetica: '{original_text}' → '{new_text}'")
+        logging.warning(f"⚠️ FALLBACK HELVETICA - Couleur préservée: '{original_text}' → '{new_text}' (couleur: {normalized_color})")
         return True
     except Exception as e:
-        logging.error(f"❌ Niveau 4 échoué: {str(e)}")
+        logging.error(f"❌ Dernier fallback échoué: {str(e)}")
     
     return False
 
