@@ -1547,9 +1547,23 @@ def _preserve_original_text_alignment(bbox, original_text, new_text, fontname, f
     # Position x: utiliser exactement la position originale (pas de centrage)
     x = bbox.x0
     
-    # Position y: utiliser la position originale avec un petit ajustement pour la ligne de base
-    # La ligne de base est généralement à environ 80% de la hauteur depuis le haut
-    y = bbox.y0 + (bbox.height * 0.8)
+    # Position y: calculer la ligne de base correctement pour éviter les coupures
+    # La ligne de base doit être calculée en tenant compte des descenders
+    # Utiliser une approche plus précise basée sur les métriques de la police
+    
+    # Estimation de la hauteur de la ligne de base (généralement 75-80% de la hauteur)
+    baseline_ratio = 0.75
+    y = bbox.y0 + (bbox.height * baseline_ratio)
+    
+    # Ajustement pour éviter les coupures de descenders (g, j, p, q, y)
+    # Vérifier si le nouveau texte contient des descenders
+    has_descenders = any(char in new_text for char in 'gjpqy')
+    if has_descenders:
+        # Ajuster légèrement vers le haut pour éviter les coupures
+        y = y - (fontsize * 0.1)  # Ajustement de 10% de la taille de police
+        logging.debug(f"🔧 Ajustement descenders pour '{new_text}': y = {y:.2f} (ajusté de -{fontsize * 0.1:.2f})")
+    
+    logging.debug(f"📍 Position calculée pour '{new_text}': x={x:.2f}, y={y:.2f} (bbox: {bbox}, ratio: {baseline_ratio})")
     
     return (x, y)
 
@@ -1578,28 +1592,35 @@ def _get_best_matching_font(original_fontname, page):
         "timesnewroman": "times",
         "courier": "cour",
         "couriernew": "cour",
-        "symbol": "symb",
-        "zapfdingbats": "zadb"
+        "calibri": "helv",
+        "verdana": "helv",
+        "georgia": "times",
+        "trebuchet": "helv",
+        "lucida": "helv",
+        "palatino": "times",
+        "garamond": "times",
+        "bookman": "times",
+        "avantgarde": "helv",
+        "zapfdingbats": "zadb",
+        "symbol": "symb"
     }
     
-    # Chercher une correspondance exacte
-    if clean_fontname in font_mapping:
-        return font_mapping[clean_fontname]
-    
-    # Chercher une correspondance partielle
-    for pattern, font in font_mapping.items():
+    # Chercher une correspondance directe
+    for pattern, mapped_font in font_mapping.items():
         if pattern in clean_fontname:
-            return font
+            return mapped_font
     
-    # Essayer d'utiliser la police originale telle quelle
-    try:
-        fitz.Font(original_fontname)
-        return original_fontname
-    except:
-        pass
-    
-    # Fallback vers Helvetica
-    return "helv"
+    # Fallback intelligent basé sur les caractéristiques de la police
+    if "bold" in clean_fontname or "black" in clean_fontname:
+        return "helv"  # Helvetica pour le gras
+    elif "italic" in clean_fontname or "oblique" in clean_fontname:
+        return "helv"  # Helvetica pour l'italique
+    elif "mono" in clean_fontname or "fixed" in clean_fontname:
+        return "cour"  # Courier pour les polices monospace
+    elif "serif" in clean_fontname or "roman" in clean_fontname:
+        return "times"  # Times pour les polices serif
+    else:
+        return "helv"  # Helvetica par défaut
 
 
 def _anonymize_text_block_perfect_alignment(page, block, mapping: Dict[str, str]):
@@ -1640,7 +1661,7 @@ def _anonymize_text_block_perfect_alignment(page, block, mapping: Dict[str, str]
                 # Obtenir les propriétés du texte original
                 font_name = span["font"]
                 font_size = span["size"]
-                font_flags = span["flags"]
+                font_flags = span["flags"]  # Important pour le formatage
                 text_color = span["color"]
                 bbox = fitz.Rect(span["bbox"])
                 
@@ -1655,30 +1676,154 @@ def _anonymize_text_block_perfect_alignment(page, block, mapping: Dict[str, str]
                 # Effacer l'ancien texte avec un rectangle exact (sans padding excessif)
                 page.draw_rect(bbox, color=None, fill=fitz.pdfcolor["white"])
                 
-                # Insérer le nouveau texte anonymisé avec alignement parfait
+                # Insérer le nouveau texte anonymisé avec alignement parfait et formatage préservé
                 try:
+                    # Construire le nom de police avec les flags de formatage
+                    formatted_font = _apply_font_formatting(best_font, font_flags)
+                    
+                    # Normaliser la couleur pour PyMuPDF
+                    normalized_color = _normalize_color(text_color)
+                    
                     page.insert_text(
                         text_position,
                         anonymized_text,
-                        fontname=best_font,
+                        fontname=formatted_font,
                         fontsize=font_size,  # Utiliser la taille originale
-                        color=text_color
+                        color=normalized_color
                     )
-                    logging.debug(f"✅ Texte remplacé avec alignement parfait: '{original_text}' → '{anonymized_text}' (police: {best_font})")
+                    logging.debug(f"✅ Texte remplacé avec alignement parfait et formatage: '{original_text}' → '{anonymized_text}' (police: {formatted_font})")
                 except Exception as e:
-                    logging.warning(f"⚠️ Erreur remplacement texte: {str(e)}")
-                    # Fallback avec police par défaut mais même position
+                    logging.warning(f"⚠️ Erreur remplacement texte formaté: {str(e)}")
+                    # Fallback avec police par défaut mais même position et formatage
                     try:
+                        fallback_font = _apply_font_formatting("helv", font_flags)
+                        normalized_color = _normalize_color(text_color)
                         page.insert_text(
                             text_position,
                             anonymized_text,
-                            fontname="helv",
+                            fontname=fallback_font,
                             fontsize=font_size,
-                            color=text_color
+                            color=normalized_color
                         )
-                        logging.debug(f"✅ Texte remplacé avec police par défaut et alignement parfait")
+                        logging.debug(f"✅ Texte remplacé avec police par défaut et formatage: {fallback_font}")
                     except Exception as e2:
-                        logging.error(f"❌ Impossible de remplacer le texte: {str(e2)}")
+                        # Dernier fallback sans formatage
+                        try:
+                            normalized_color = _normalize_color(text_color)
+                            page.insert_text(
+                                text_position,
+                                anonymized_text,
+                                fontname="helv",
+                                fontsize=font_size,
+                                color=normalized_color
+                            )
+                            logging.debug(f"✅ Texte remplacé avec police par défaut sans formatage")
+                        except Exception as e3:
+                            logging.error(f"❌ Impossible de remplacer le texte: {str(e3)}")
+
+
+def _normalize_color(color_value):
+    """
+    Normalise une valeur de couleur pour PyMuPDF.
+    
+    Args:
+        color_value: Valeur de couleur (peut être int, float, tuple, etc.)
+        
+    Returns:
+        tuple: Couleur normalisée (R, G, B) avec des valeurs entre 0 et 1
+    """
+    if color_value is None:
+        return (0, 0, 0)  # Noir par défaut
+    
+    # Si c'est déjà un tuple/liste de 3 valeurs
+    if isinstance(color_value, (tuple, list)) and len(color_value) == 3:
+        return tuple(float(c) for c in color_value)
+    
+    # Si c'est un entier (couleur RGB encodée)
+    if isinstance(color_value, int):
+        # Convertir l'entier en RGB
+        r = ((color_value >> 16) & 0xFF) / 255.0
+        g = ((color_value >> 8) & 0xFF) / 255.0
+        b = (color_value & 0xFF) / 255.0
+        return (r, g, b)
+    
+    # Si c'est un float (niveau de gris)
+    if isinstance(color_value, float):
+        if 0 <= color_value <= 1:
+            return (color_value, color_value, color_value)
+        else:
+            # Normaliser si > 1
+            normalized = color_value / 255.0 if color_value > 1 else color_value
+            return (normalized, normalized, normalized)
+    
+    # Fallback: noir
+    return (0, 0, 0)
+
+
+def _apply_font_formatting(base_font: str, font_flags: int) -> str:
+    """
+    Applique le formatage (gras, italique) à une police de base.
+    
+    Args:
+        base_font: Police de base (helv, times, cour)
+        font_flags: Flags de formatage PyMuPDF
+        
+    Returns:
+        str: Nom de police avec formatage appliqué
+    """
+    import fitz
+    
+    # Constantes PyMuPDF pour les flags
+    BOLD_FLAG = 2**4   # 16
+    ITALIC_FLAG = 2**5  # 32
+    
+    # Détecter le formatage
+    is_bold = bool(font_flags & BOLD_FLAG)
+    is_italic = bool(font_flags & ITALIC_FLAG)
+    
+    logging.debug(f"🎨 Formatage détecté: flags={font_flags}, bold={is_bold}, italic={is_italic}")
+    
+    # Appliquer le formatage selon la police de base
+    if base_font == "helv":
+        if is_bold and is_italic:
+            result = "helv-bolditalic"
+        elif is_bold:
+            result = "helv-bold"
+        elif is_italic:
+            result = "helv-italic"
+        else:
+            result = "helv"
+    elif base_font == "times":
+        if is_bold and is_italic:
+            result = "times-bolditalic"
+        elif is_bold:
+            result = "times-bold"
+        elif is_italic:
+            result = "times-italic"
+        else:
+            result = "times"
+    elif base_font == "cour":
+        if is_bold and is_italic:
+            result = "cour-bolditalic"
+        elif is_bold:
+            result = "cour-bold"
+        elif is_italic:
+            result = "cour-italic"
+        else:
+            result = "cour"
+    else:
+        # Pour les autres polices, utiliser Helvetica avec formatage
+        if is_bold and is_italic:
+            result = "helv-bolditalic"
+        elif is_bold:
+            result = "helv-bold"
+        elif is_italic:
+            result = "helv-italic"
+        else:
+            result = "helv"
+    
+    logging.debug(f"🎨 Police formatée: '{base_font}' → '{result}'")
+    return result
 
 
 def _deanonymize_text_block_perfect_alignment(page, block, mapping: Dict[str, str]):
@@ -1718,7 +1863,7 @@ def _deanonymize_text_block_perfect_alignment(page, block, mapping: Dict[str, st
                 # Obtenir les propriétés du texte original
                 font_name = span["font"]
                 font_size = span["size"]
-                font_flags = span["flags"]
+                font_flags = span["flags"]  # Important pour le formatage
                 text_color = span["color"]
                 bbox = fitz.Rect(span["bbox"])
                 
@@ -1733,33 +1878,53 @@ def _deanonymize_text_block_perfect_alignment(page, block, mapping: Dict[str, st
                 # Effacer l'ancien texte avec un rectangle exact (sans padding excessif)
                 page.draw_rect(bbox, color=None, fill=fitz.pdfcolor["white"])
                 
-                # Insérer le nouveau texte dé-anonymisé avec alignement parfait
+                # Insérer le nouveau texte dé-anonymisé avec alignement parfait et formatage préservé
                 try:
+                    # Construire le nom de police avec les flags de formatage
+                    formatted_font = _apply_font_formatting(best_font, font_flags)
+                    
+                    # Normaliser la couleur pour PyMuPDF
+                    normalized_color = _normalize_color(text_color)
+                    
                     page.insert_text(
                         text_position,
                         deanonymized_text,
-                        fontname=best_font,
+                        fontname=formatted_font,
                         fontsize=font_size,  # Utiliser la taille originale
-                        color=text_color
+                        color=normalized_color
                     )
-                    logging.debug(f"✅ Texte dé-anonymisé avec alignement parfait: '{original_text}' → '{deanonymized_text}' (police: {best_font})")
+                    logging.debug(f"✅ Texte dé-anonymisé avec alignement parfait et formatage: '{original_text}' → '{deanonymized_text}' (police: {formatted_font})")
                 except Exception as e:
-                    logging.warning(f"⚠️ Erreur dé-anonymisation texte: {str(e)}")
-                    # Fallback avec police par défaut mais même position
+                    logging.warning(f"⚠️ Erreur dé-anonymisation texte formaté: {str(e)}")
+                    # Fallback avec police par défaut mais même position et formatage
                     try:
+                        fallback_font = _apply_font_formatting("helv", font_flags)
+                        normalized_color = _normalize_color(text_color)
                         page.insert_text(
                             text_position,
                             deanonymized_text,
-                            fontname="helv",
+                            fontname=fallback_font,
                             fontsize=font_size,
-                            color=text_color
+                            color=normalized_color
                         )
-                        logging.debug(f"✅ Texte dé-anonymisé avec police par défaut et alignement parfait")
+                        logging.debug(f"✅ Texte dé-anonymisé avec police par défaut et formatage: {fallback_font}")
                     except Exception as e2:
-                        logging.error(f"❌ Impossible de dé-anonymiser le texte: {str(e2)}")
+                        # Dernier fallback sans formatage
+                        try:
+                            normalized_color = _normalize_color(text_color)
+                            page.insert_text(
+                                text_position,
+                                deanonymized_text,
+                                fontname="helv",
+                                fontsize=font_size,
+                                color=normalized_color
+                            )
+                            logging.debug(f"✅ Texte dé-anonymisé avec police par défaut sans formatage")
+                        except Exception as e3:
+                            logging.error(f"❌ Impossible de dé-anonymiser le texte: {str(e3)}")
 
 
-# ===== FIN ANONYMISATION DIRECTE PDF ===== 
+# ===== FIN ANONYMISATION DIRECTE PDF =====
 
 def _safe_replace_with_word_boundaries(text: str, old_value: str, new_value: str) -> str:
     """
