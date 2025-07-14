@@ -954,10 +954,10 @@ def anonymize_pdf_direct(pdf_content: bytes, tiers: List[Dict[str, Any]] = []) -
             # Obtenir tous les blocs de texte de la page
             text_blocks = page.get_text("dict")
             
-            # Parcourir chaque bloc de texte
+            # Parcourir chaque bloc de texte avec positionnement ultra-précis
             for block in text_blocks["blocks"]:
                 if "lines" in block:  # Bloc de texte
-                    _anonymize_text_block_direct(page, block, reverse_mapping)
+                    _anonymize_text_block_ultra_precise(page, block, reverse_mapping)
         
         # Sauvegarder le PDF modifié
         anonymized_pdf = doc.tobytes()
@@ -973,9 +973,76 @@ def anonymize_pdf_direct(pdf_content: bytes, tiers: List[Dict[str, Any]] = []) -
         raise Exception(f"Erreur anonymisation PDF directe: {str(e)}")
 
 
+def _calculate_text_baseline_position(bbox, font_size):
+    """
+    Calcule la position optimale pour insérer du texte en tenant compte de la ligne de base.
+    
+    Args:
+        bbox: Rectangle englobant du texte original (fitz.Rect)
+        font_size: Taille de la police
+        
+    Returns:
+        tuple: (x, y) position pour insert_text
+    """
+    # Calculer la ligne de base approximative
+    # La ligne de base est généralement située à environ 20-25% de la hauteur depuis le bas
+    height = bbox.height
+    baseline_offset = height * 0.2  # 20% depuis le bas
+    
+    # Position x: coin gauche de la boîte
+    x = bbox.x0
+    
+    # Position y: bas de la boîte + offset de ligne de base
+    y = bbox.y1 - baseline_offset
+    
+    return (x, y)
+
+
+def _get_text_width_estimation(text, font_size):
+    """
+    Estime la largeur du texte pour vérifier s'il rentre dans la boîte englobante.
+    
+    Args:
+        text: Texte à mesurer
+        font_size: Taille de la police
+        
+    Returns:
+        float: Largeur estimée du texte
+    """
+    # Estimation approximative: largeur moyenne d'un caractère = 0.6 * font_size
+    avg_char_width = font_size * 0.6
+    return len(text) * avg_char_width
+
+
+def _adjust_font_size_to_fit(text, bbox, original_font_size):
+    """
+    Ajuste la taille de la police pour que le texte rentre dans la boîte englobante.
+    
+    Args:
+        text: Texte à insérer
+        bbox: Rectangle englobant disponible
+        original_font_size: Taille de police originale
+        
+    Returns:
+        float: Taille de police ajustée
+    """
+    available_width = bbox.width
+    estimated_width = _get_text_width_estimation(text, original_font_size)
+    
+    if estimated_width <= available_width:
+        return original_font_size
+    
+    # Calculer le facteur de réduction nécessaire
+    scale_factor = available_width / estimated_width
+    adjusted_size = original_font_size * scale_factor
+    
+    # Ne pas descendre en dessous de 6pt pour la lisibilité
+    return max(adjusted_size, 6.0)
+
+
 def _anonymize_text_block_direct(page, block, mapping: Dict[str, str]):
     """
-    Anonymise un bloc de texte directement dans la page PDF.
+    Anonymise un bloc de texte directement dans la page PDF avec positionnement précis.
     Le mapping contient: {valeur_originale: balise_anonymisée}
     """
     import fitz
@@ -1010,31 +1077,37 @@ def _anonymize_text_block_direct(page, block, mapping: Dict[str, str]):
                 text_color = span["color"]
                 bbox = fitz.Rect(span["bbox"])
                 
+                # Ajuster la taille de la police si nécessaire
+                adjusted_font_size = _adjust_font_size_to_fit(anonymized_text, bbox, font_size)
+                
+                # Calculer la position optimale pour la ligne de base
+                text_position = _calculate_text_baseline_position(bbox, adjusted_font_size)
+                
                 # Effacer l'ancien texte en le couvrant avec un rectangle blanc
                 page.draw_rect(bbox, color=None, fill=fitz.pdfcolor["white"])
                 
-                # Insérer le nouveau texte anonymisé avec les mêmes propriétés
+                # Insérer le nouveau texte anonymisé avec positionnement précis
                 try:
                     page.insert_text(
-                        bbox.tl,  # Position top-left
+                        text_position,  # Position calculée pour la ligne de base
                         anonymized_text,
                         fontname=font_name,
-                        fontsize=font_size,
+                        fontsize=adjusted_font_size,
                         color=text_color
                     )
-                    logging.debug(f"✅ Texte remplacé: '{original_text}' → '{anonymized_text}'")
+                    logging.debug(f"✅ Texte remplacé avec positionnement précis: '{original_text}' → '{anonymized_text}' (taille: {adjusted_font_size})")
                 except Exception as e:
                     logging.warning(f"⚠️ Erreur remplacement texte: {str(e)}")
-                    # Fallback: utiliser une police par défaut
+                    # Fallback: utiliser une police par défaut avec positionnement précis
                     try:
                         page.insert_text(
-                            bbox.tl,
+                            text_position,
                             anonymized_text,
                             fontname="helv",  # Police par défaut
-                            fontsize=font_size,
+                            fontsize=adjusted_font_size,
                             color=text_color
                         )
-                        logging.debug(f"✅ Texte remplacé avec police par défaut")
+                        logging.debug(f"✅ Texte remplacé avec police par défaut et positionnement précis")
                     except Exception as e2:
                         logging.error(f"❌ Impossible de remplacer le texte: {str(e2)}")
 
@@ -1069,10 +1142,10 @@ def deanonymize_pdf_direct(pdf_content: bytes, mapping: Dict[str, str]) -> bytes
             # Obtenir tous les blocs de texte de la page
             text_blocks = page.get_text("dict")
             
-            # Parcourir chaque bloc de texte
+            # Parcourir chaque bloc de texte avec positionnement ultra-précis
             for block in text_blocks["blocks"]:
                 if "lines" in block:  # Bloc de texte
-                    _deanonymize_text_block_direct(page, block, mapping)
+                    _deanonymize_text_block_ultra_precise(page, block, mapping)
         
         # Sauvegarder le PDF modifié
         deanonymized_pdf = doc.tobytes()
@@ -1090,7 +1163,7 @@ def deanonymize_pdf_direct(pdf_content: bytes, mapping: Dict[str, str]) -> bytes
 
 def _deanonymize_text_block_direct(page, block, mapping: Dict[str, str]):
     """
-    Dé-anonymise un bloc de texte directement dans la page PDF.
+    Dé-anonymise un bloc de texte directement dans la page PDF avec positionnement précis.
     """
     import fitz
     
@@ -1123,31 +1196,335 @@ def _deanonymize_text_block_direct(page, block, mapping: Dict[str, str]):
                 text_color = span["color"]
                 bbox = fitz.Rect(span["bbox"])
                 
+                # Ajuster la taille de la police si nécessaire
+                adjusted_font_size = _adjust_font_size_to_fit(deanonymized_text, bbox, font_size)
+                
+                # Calculer la position optimale pour la ligne de base
+                text_position = _calculate_text_baseline_position(bbox, adjusted_font_size)
+                
                 # Effacer l'ancien texte en le couvrant avec un rectangle blanc
                 page.draw_rect(bbox, color=None, fill=fitz.pdfcolor["white"])
                 
-                # Insérer le nouveau texte dé-anonymisé avec les mêmes propriétés
+                # Insérer le nouveau texte dé-anonymisé avec positionnement précis
                 try:
                     page.insert_text(
-                        bbox.tl,  # Position top-left
+                        text_position,  # Position calculée pour la ligne de base
                         deanonymized_text,
                         fontname=font_name,
-                        fontsize=font_size,
+                        fontsize=adjusted_font_size,
                         color=text_color
                     )
-                    logging.debug(f"✅ Texte dé-anonymisé: '{original_text}' → '{deanonymized_text}'")
+                    logging.debug(f"✅ Texte dé-anonymisé avec positionnement précis: '{original_text}' → '{deanonymized_text}' (taille: {adjusted_font_size})")
                 except Exception as e:
                     logging.warning(f"⚠️ Erreur dé-anonymisation texte: {str(e)}")
-                    # Fallback: utiliser une police par défaut
+                    # Fallback: utiliser une police par défaut avec positionnement précis
                     try:
                         page.insert_text(
-                            bbox.tl,
+                            text_position,
                             deanonymized_text,
                             fontname="helv",  # Police par défaut
-                            fontsize=font_size,
+                            fontsize=adjusted_font_size,
                             color=text_color
                         )
-                        logging.debug(f"✅ Texte dé-anonymisé avec police par défaut")
+                        logging.debug(f"✅ Texte dé-anonymisé avec police par défaut et positionnement précis")
+                    except Exception as e2:
+                        logging.error(f"❌ Impossible de dé-anonymiser le texte: {str(e2)}")
+
+
+def _get_precise_text_metrics(page, text, fontname, fontsize):
+    """
+    Obtient les métriques précises d'un texte avec PyMuPDF.
+    
+    Args:
+        page: Page PyMuPDF
+        text: Texte à mesurer
+        fontname: Nom de la police
+        fontsize: Taille de la police
+        
+    Returns:
+        dict: Métriques du texte (width, height, ascender, descender)
+    """
+    import fitz
+    
+    try:
+        # Obtenir les métriques de la police
+        font = fitz.Font(fontname)
+        
+        # Calculer les métriques du texte
+        text_width = font.text_length(text, fontsize)
+        
+        # Métriques de la police
+        ascender = font.ascender * fontsize
+        descender = font.descender * fontsize
+        height = ascender - descender
+        
+        return {
+            'width': text_width,
+            'height': height,
+            'ascender': ascender,
+            'descender': descender
+        }
+    except Exception as e:
+        logging.debug(f"⚠️ Erreur métriques police: {str(e)}")
+        # Fallback avec estimation
+        return {
+            'width': len(text) * fontsize * 0.6,
+            'height': fontsize * 1.2,
+            'ascender': fontsize * 0.8,
+            'descender': fontsize * 0.2
+        }
+
+
+def _calculate_precise_text_position(bbox, text, fontname, fontsize, page):
+    """
+    Calcule la position ultra-précise pour insérer du texte en utilisant les métriques réelles.
+    
+    Args:
+        bbox: Rectangle englobant du texte original (fitz.Rect)
+        text: Texte à insérer
+        fontname: Nom de la police
+        fontsize: Taille de la police
+        page: Page PyMuPDF pour les métriques
+        
+    Returns:
+        tuple: (x, y) position optimale pour insert_text
+    """
+    # Obtenir les métriques précises
+    metrics = _get_precise_text_metrics(page, text, fontname, fontsize)
+    
+    # Position x: centrée horizontalement dans la boîte si possible
+    available_width = bbox.width
+    text_width = metrics['width']
+    
+    if text_width <= available_width:
+        # Centrer le texte horizontalement
+        x = bbox.x0 + (available_width - text_width) / 2
+    else:
+        # Aligner à gauche si trop large
+        x = bbox.x0
+    
+    # Position y: calculer la ligne de base précise
+    # La ligne de base est à une distance de l'ascender depuis le haut
+    bbox_height = bbox.height
+    text_height = metrics['height']
+    ascender = metrics['ascender']
+    
+    # Centrer verticalement puis ajuster pour la ligne de base
+    y_center = bbox.y0 + bbox_height / 2
+    y = y_center + ascender / 2
+    
+    # S'assurer que le texte reste dans les limites
+    if y > bbox.y1:
+        y = bbox.y1 - metrics['descender']
+    elif y < bbox.y0 + ascender:
+        y = bbox.y0 + ascender
+    
+    return (x, y)
+
+
+def _adjust_font_size_precise(text, bbox, original_font_size, fontname, page):
+    """
+    Ajuste la taille de la police de manière précise en utilisant les métriques réelles.
+    
+    Args:
+        text: Texte à insérer
+        bbox: Rectangle englobant disponible
+        original_font_size: Taille de police originale
+        fontname: Nom de la police
+        page: Page PyMuPDF pour les métriques
+        
+    Returns:
+        float: Taille de police ajustée
+    """
+    # Obtenir les métriques avec la taille originale
+    metrics = _get_precise_text_metrics(page, text, fontname, original_font_size)
+    
+    available_width = bbox.width
+    available_height = bbox.height
+    
+    # Calculer les facteurs d'ajustement
+    width_scale = 1.0
+    height_scale = 1.0
+    
+    if metrics['width'] > available_width:
+        width_scale = available_width / metrics['width']
+    
+    if metrics['height'] > available_height:
+        height_scale = available_height / metrics['height']
+    
+    # Utiliser le facteur le plus restrictif
+    scale_factor = min(width_scale, height_scale)
+    
+    if scale_factor < 1.0:
+        adjusted_size = original_font_size * scale_factor
+        # Ne pas descendre en dessous de 6pt
+        return max(adjusted_size, 6.0)
+    
+    return original_font_size
+
+
+def _anonymize_text_block_ultra_precise(page, block, mapping: Dict[str, str]):
+    """
+    Anonymise un bloc de texte avec un positionnement ultra-précis utilisant les métriques réelles.
+    Le mapping contient: {valeur_originale: balise_anonymisée}
+    """
+    import fitz
+    
+    for line in block["lines"]:
+        for span in line["spans"]:
+            original_text = span["text"]
+            
+            if not original_text.strip():
+                continue
+                
+            # Appliquer les remplacements du mapping
+            anonymized_text = original_text
+            text_changed = False
+            
+            # Le mapping contient {valeur_originale: balise_anonymisée}
+            # Trier les clés par longueur décroissante pour éviter les remplacements partiels
+            sorted_items = sorted(mapping.items(), key=lambda x: len(x[0]), reverse=True)
+            
+            for original_value, anonymized_tag in sorted_items:
+                if original_value in anonymized_text:
+                    anonymized_text = anonymized_text.replace(original_value, anonymized_tag)
+                    text_changed = True
+                    logging.debug(f"🔄 Remplacement: '{original_value}' → '{anonymized_tag}'")
+            
+            # Si le texte a changé, le remplacer dans le PDF
+            if text_changed and anonymized_text != original_text:
+                # Obtenir les propriétés du texte original
+                font_name = span["font"]
+                font_size = span["size"]
+                font_flags = span["flags"]
+                text_color = span["color"]
+                bbox = fitz.Rect(span["bbox"])
+                
+                # Ajuster la taille de la police avec précision
+                adjusted_font_size = _adjust_font_size_precise(
+                    anonymized_text, bbox, font_size, font_name, page
+                )
+                
+                # Calculer la position ultra-précise
+                text_position = _calculate_precise_text_position(
+                    bbox, anonymized_text, font_name, adjusted_font_size, page
+                )
+                
+                # Effacer l'ancien texte avec un rectangle légèrement plus grand
+                padding = 1  # 1 point de padding
+                expanded_bbox = fitz.Rect(
+                    bbox.x0 - padding, bbox.y0 - padding,
+                    bbox.x1 + padding, bbox.y1 + padding
+                )
+                page.draw_rect(expanded_bbox, color=None, fill=fitz.pdfcolor["white"])
+                
+                # Insérer le nouveau texte anonymisé avec positionnement ultra-précis
+                try:
+                    page.insert_text(
+                        text_position,
+                        anonymized_text,
+                        fontname=font_name,
+                        fontsize=adjusted_font_size,
+                        color=text_color
+                    )
+                    logging.debug(f"✅ Texte remplacé avec positionnement ultra-précis: '{original_text}' → '{anonymized_text}' (taille: {adjusted_font_size:.1f})")
+                except Exception as e:
+                    logging.warning(f"⚠️ Erreur remplacement texte: {str(e)}")
+                    # Fallback avec police par défaut
+                    try:
+                        fallback_position = _calculate_precise_text_position(
+                            bbox, anonymized_text, "helv", adjusted_font_size, page
+                        )
+                        page.insert_text(
+                            fallback_position,
+                            anonymized_text,
+                            fontname="helv",
+                            fontsize=adjusted_font_size,
+                            color=text_color
+                        )
+                        logging.debug(f"✅ Texte remplacé avec police par défaut et positionnement ultra-précis")
+                    except Exception as e2:
+                        logging.error(f"❌ Impossible de remplacer le texte: {str(e2)}")
+
+
+def _deanonymize_text_block_ultra_precise(page, block, mapping: Dict[str, str]):
+    """
+    Dé-anonymise un bloc de texte avec un positionnement ultra-précis utilisant les métriques réelles.
+    """
+    import fitz
+    
+    for line in block["lines"]:
+        for span in line["spans"]:
+            original_text = span["text"]
+            
+            if not original_text.strip():
+                continue
+                
+            # Appliquer les remplacements du mapping (balise → valeur originale)
+            deanonymized_text = original_text
+            text_changed = False
+            
+            # Trier les clés par longueur décroissante pour éviter les remplacements partiels
+            sorted_keys = sorted(mapping.keys(), key=len, reverse=True)
+            
+            for anonymized_tag, original_value in mapping.items():
+                if anonymized_tag in deanonymized_text:
+                    deanonymized_text = deanonymized_text.replace(anonymized_tag, original_value)
+                    text_changed = True
+                    logging.debug(f"🔄 Dé-anonymisation: '{anonymized_tag}' → '{original_value}'")
+            
+            # Si le texte a changé, le remplacer dans le PDF
+            if text_changed and deanonymized_text != original_text:
+                # Obtenir les propriétés du texte original
+                font_name = span["font"]
+                font_size = span["size"]
+                font_flags = span["flags"]
+                text_color = span["color"]
+                bbox = fitz.Rect(span["bbox"])
+                
+                # Ajuster la taille de la police avec précision
+                adjusted_font_size = _adjust_font_size_precise(
+                    deanonymized_text, bbox, font_size, font_name, page
+                )
+                
+                # Calculer la position ultra-précise
+                text_position = _calculate_precise_text_position(
+                    bbox, deanonymized_text, font_name, adjusted_font_size, page
+                )
+                
+                # Effacer l'ancien texte avec un rectangle légèrement plus grand
+                padding = 1  # 1 point de padding
+                expanded_bbox = fitz.Rect(
+                    bbox.x0 - padding, bbox.y0 - padding,
+                    bbox.x1 + padding, bbox.y1 + padding
+                )
+                page.draw_rect(expanded_bbox, color=None, fill=fitz.pdfcolor["white"])
+                
+                # Insérer le nouveau texte dé-anonymisé avec positionnement ultra-précis
+                try:
+                    page.insert_text(
+                        text_position,
+                        deanonymized_text,
+                        fontname=font_name,
+                        fontsize=adjusted_font_size,
+                        color=text_color
+                    )
+                    logging.debug(f"✅ Texte dé-anonymisé avec positionnement ultra-précis: '{original_text}' → '{deanonymized_text}' (taille: {adjusted_font_size:.1f})")
+                except Exception as e:
+                    logging.warning(f"⚠️ Erreur dé-anonymisation texte: {str(e)}")
+                    # Fallback avec police par défaut
+                    try:
+                        fallback_position = _calculate_precise_text_position(
+                            bbox, deanonymized_text, "helv", adjusted_font_size, page
+                        )
+                        page.insert_text(
+                            fallback_position,
+                            deanonymized_text,
+                            fontname="helv",
+                            fontsize=adjusted_font_size,
+                            color=text_color
+                        )
+                        logging.debug(f"✅ Texte dé-anonymisé avec police par défaut et positionnement ultra-précis")
                     except Exception as e2:
                         logging.error(f"❌ Impossible de dé-anonymiser le texte: {str(e2)}")
 
