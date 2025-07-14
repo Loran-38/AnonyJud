@@ -2668,7 +2668,35 @@ def _try_original_font_with_fallback(page, text_position, new_text, font_name, f
     except Exception as e:
         logging.debug(f"⚠️ Police originale base échouée: {str(e)}")
     
-    # ÉTAPE 3: Essayer l'équivalent PyMuPDF de la police
+    # ÉTAPE 3: Essayer l'équivalent PyMuPDF avec formatage préservé
+    try:
+        equivalent_font = _get_pymupdf_font_equivalent(font_name)
+        
+        # APPLIQUER LE FORMATAGE à la police équivalente
+        if is_bold and is_italic:
+            formatted_equivalent = f"{equivalent_font}-boldoblique" if equivalent_font == "helv" else f"{equivalent_font}-bolditalic"
+        elif is_bold:
+            formatted_equivalent = f"{equivalent_font}-bold"
+        elif is_italic:
+            formatted_equivalent = f"{equivalent_font}-oblique" if equivalent_font == "helv" else f"{equivalent_font}-italic"
+        else:
+            formatted_equivalent = equivalent_font
+        
+        logging.info(f"🎨 FORMATAGE ÉQUIVALENT - Police: {font_name} → {equivalent_font} → {formatted_equivalent}")
+        
+        page.insert_text(
+            text_position,
+            new_text,
+            fontname=formatted_equivalent,
+            fontsize=font_size,
+            color=normalized_color
+        )
+        logging.info(f"✅ POLICE ÉQUIVALENTE + FORMATAGE RÉUSSI - '{original_text}' → '{new_text}' (police: {font_name} → {formatted_equivalent})")
+        return True
+    except Exception as e:
+        logging.debug(f"⚠️ Police équivalente formatée échouée: {str(e)}")
+    
+    # ÉTAPE 4: Fallback police équivalente sans formatage
     try:
         equivalent_font = _get_pymupdf_font_equivalent(font_name)
         
@@ -2679,10 +2707,10 @@ def _try_original_font_with_fallback(page, text_position, new_text, font_name, f
             fontsize=font_size,
             color=normalized_color
         )
-        logging.info(f"✅ POLICE ÉQUIVALENTE RÉUSSIE - '{original_text}' → '{new_text}' (police: {font_name} → {equivalent_font})")
-        logging.warning(f"⚠️ FORMATAGE PERDU - Le gras/italique n'a pas pu être appliqué pour préserver la police similaire")
+        logging.info(f"✅ POLICE ÉQUIVALENTE SANS FORMATAGE - '{original_text}' → '{new_text}' (police: {font_name} → {equivalent_font})")
+        logging.warning(f"⚠️ FORMATAGE PERDU - Le gras/italique n'a pas pu être appliqué avec la police équivalente")
         return True
     except Exception as e:
-        logging.debug(f"⚠️ Police équivalente échouée: {str(e)}")
+        logging.debug(f"⚠️ Police équivalente sans formatage échouée: {str(e)}")
     
     return False
