@@ -2323,8 +2323,8 @@ def _deanonymize_text_block_comprehensive(page, block, mapping: Dict[str, str]):
 
 def _insert_text_with_preserved_formatting(page, text_position, new_text, font_name, font_size, font_flags, text_color, original_text):
     """
-    Insère du texte en préservant OBLIGATOIREMENT le formatage gras/couleur du texte original.
-    Applique le formatage directement au texte de remplacement (NOM1, PRENOM1, etc.).
+    Insère du texte en préservant PRIORITAIREMENT la police originale, puis le formatage si possible.
+    NOUVELLE STRATÉGIE: Police originale > Formatage gras/italique.
     
     Args:
         page: Page PyMuPDF
@@ -2351,42 +2351,33 @@ def _insert_text_with_preserved_formatting(page, text_position, new_text, font_n
     is_italic = bool(font_flags & ITALIC_FLAG)
     
     # Log détaillé du formatage détecté
-    logging.info(f"🎨 FORMATAGE DÉTECTÉ - Texte: '{original_text}' → '{new_text}'")
+    logging.info(f"🎨 NOUVELLE STRATÉGIE - Texte: '{original_text}' → '{new_text}'")
     logging.info(f"🎨 Police: {font_name}, Taille: {font_size}, Gras: {is_bold}, Italique: {is_italic}")
     logging.info(f"🎨 Couleur: {text_color} → {normalized_color}, Flags: {font_flags}")
     
-    # PRIORITÉ 1: TOUJOURS essayer d'abord la police originale exacte (même avec formatage)
-    try:
-        page.insert_text(
-            text_position,
-            new_text,
-            fontname=font_name,  # Police originale exacte
-            fontsize=font_size,
-            color=normalized_color
-        )
-        logging.info(f"✅ POLICE ORIGINALE PRÉSERVÉE - Texte inséré: '{original_text}' → '{new_text}' (police: {font_name})")
+    # PRIORITÉ 1: TOUJOURS essayer d'abord la police originale avec système de fallback intelligent
+    if _try_original_font_with_fallback(page, text_position, new_text, font_name, font_size, font_flags, text_color, original_text):
         return True
-    except Exception as e:
-        logging.warning(f"⚠️ Police originale échouée: {str(e)}")
     
-    # PRIORITÉ 2: Si formatage gras/italique détecté, forcer l'application avec police de base
+    # PRIORITÉ 2: Si la police originale a totalement échoué, essayer de préserver le formatage gras/italique
     if is_bold or is_italic:
-        logging.info(f"🎨 FORMATAGE DÉTECTÉ - Forcer l'application du formatage gras/italique")
+        logging.info(f"🎨 FALLBACK FORMATAGE - Police originale impossible, essai formatage gras/italique")
         
         try:
-            best_font = _get_best_matching_font(font_name, page)
+            # Utiliser l'équivalent PyMuPDF de la police
+            equivalent_font = _get_pymupdf_font_equivalent(font_name)
             
             # FORCER l'application du formatage gras/italique
             if is_bold and is_italic:
-                formatted_font = f"{best_font}-boldoblique" if best_font == "helv" else f"{best_font}-bolditalic"
+                formatted_font = f"{equivalent_font}-boldoblique" if equivalent_font == "helv" else f"{equivalent_font}-bolditalic"
             elif is_bold:
-                formatted_font = f"{best_font}-bold"
+                formatted_font = f"{equivalent_font}-bold"
             elif is_italic:
-                formatted_font = f"{best_font}-oblique" if best_font == "helv" else f"{best_font}-italic"
+                formatted_font = f"{equivalent_font}-oblique" if equivalent_font == "helv" else f"{equivalent_font}-italic"
             else:
-                formatted_font = best_font
+                formatted_font = equivalent_font
             
-            logging.info(f"🎨 TENTATIVE FORMATAGE FORCÉ - Police: {best_font} → {formatted_font}")
+            logging.info(f"🎨 TENTATIVE FORMATAGE ÉQUIVALENT - Police: {font_name} → {equivalent_font} → {formatted_font}")
             
             page.insert_text(
                 text_position,
@@ -2395,10 +2386,10 @@ def _insert_text_with_preserved_formatting(page, text_position, new_text, font_n
                 fontsize=font_size,
                 color=normalized_color
             )
-            logging.info(f"✅ FORMATAGE GRAS FORCÉ - Police formatée: '{original_text}' → '{new_text}' (police: {formatted_font})")
+            logging.info(f"✅ FORMATAGE ÉQUIVALENT RÉUSSI - '{original_text}' → '{new_text}' (police: {formatted_font})")
             return True
         except Exception as e:
-            logging.warning(f"⚠️ Police formatée échouée: {str(e)}")
+            logging.warning(f"⚠️ Police équivalente formatée échouée: {str(e)}")
         
         # PRIORITÉ 3: Forcer le gras avec les polices standards PyMuPDF
         if is_bold:
@@ -2415,7 +2406,7 @@ def _insert_text_with_preserved_formatting(page, text_position, new_text, font_n
                             fontsize=font_size,
                             color=normalized_color
                         )
-                        logging.info(f"✅ FORMATAGE GRAS FORCÉ - Police standard: '{original_text}' → '{new_text}' (police: {bold_font})")
+                        logging.info(f"✅ FORMATAGE GRAS STANDARD - '{original_text}' → '{new_text}' (police: {bold_font})")
                         return True
                     except Exception as font_e:
                         logging.debug(f"⚠️ Police standard {bold_font} échouée: {str(font_e)}")
@@ -2424,21 +2415,21 @@ def _insert_text_with_preserved_formatting(page, text_position, new_text, font_n
             except Exception as e:
                 logging.warning(f"⚠️ Toutes les polices standard gras ont échoué: {str(e)}")
     
-    # Priorité 4: Au minimum préserver la couleur même si pas le gras
+    # PRIORITÉ 4: Au minimum préserver la couleur avec police équivalente
     try:
-        best_font = _get_best_matching_font(font_name, page)
+        equivalent_font = _get_pymupdf_font_equivalent(font_name)
         
         page.insert_text(
             text_position,
             new_text,
-            fontname=best_font,
+            fontname=equivalent_font,
             fontsize=font_size,
-            color=normalized_color  # Garder au moins la couleur
+            color=normalized_color
         )
-        logging.info(f"✅ COULEUR PRÉSERVÉE - Police de base: '{original_text}' → '{new_text}' (police: {best_font}, couleur: {normalized_color})")
+        logging.info(f"✅ COULEUR PRÉSERVÉE ÉQUIVALENTE - '{original_text}' → '{new_text}' (police: {font_name} → {equivalent_font}, couleur: {normalized_color})")
         return True
     except Exception as e:
-        logging.warning(f"⚠️ Police de base échouée: {str(e)}")
+        logging.warning(f"⚠️ Police équivalente échouée: {str(e)}")
     
     # Dernier recours: Helvetica avec couleur
     try:
@@ -2523,3 +2514,175 @@ def _apply_font_formatting_comprehensive(base_font: str, font_flags: int) -> str
     # Si la police de base n'est pas reconnue, retourner telle quelle
     logging.debug(f"🎨 Police non reconnue, retour de la police de base: {base_font}")
     return base_font
+
+# Dictionnaire des polices Microsoft Word les plus courantes avec leurs équivalents PyMuPDF
+MICROSOFT_WORD_FONTS = {
+    # Polices serif
+    "times new roman": "times",
+    "times-roman": "times",
+    "timesnewroman": "times",
+    "times": "times",
+    "georgia": "times",  # Fallback vers Times
+    "book antiqua": "times",
+    "bookantiqua": "times",
+    "garamond": "times",
+    "palatino": "times",
+    "palatino linotype": "times",
+    "palatinolinotype": "times",
+    
+    # Polices sans-serif
+    "arial": "helv",
+    "helvetica": "helv",
+    "calibri": "helv",  # Fallback vers Helvetica
+    "verdana": "helv",
+    "tahoma": "helv",
+    "trebuchet ms": "helv",
+    "trebuchetms": "helv",
+    "franklin gothic medium": "helv",
+    "franklingingothicmedium": "helv",
+    "century gothic": "helv",
+    "centurygothic": "helv",
+    "lucida sans unicode": "helv",
+    "lucidasansunicode": "helv",
+    "ms sans serif": "helv",
+    "mssansserif": "helv",
+    "segoe ui": "helv",
+    "segoeui": "helv",
+    
+    # Polices monospace
+    "courier new": "cour",
+    "courier": "cour",
+    "couriernew": "cour",
+    "consolas": "cour",
+    "lucida console": "cour",
+    "lucidaconsole": "cour",
+    "monaco": "cour",
+    "menlo": "cour",
+    
+    # Polices spéciales
+    "comic sans ms": "helv",  # Fallback vers Helvetica
+    "comicsansms": "helv",
+    "impact": "helv",
+    "papyrus": "helv",
+    "brush script mt": "helv",
+    "brushscriptmt": "helv",
+    "chiller": "helv",
+    "curlz mt": "helv",
+    "curlzmt": "helv",
+}
+
+def _get_pymupdf_font_equivalent(font_name: str) -> str:
+    """
+    Trouve l'équivalent PyMuPDF d'une police Microsoft Word.
+    
+    Args:
+        font_name: Nom de la police originale
+        
+    Returns:
+        str: Nom de la police équivalente PyMuPDF (helv, times, cour)
+    """
+    if not font_name:
+        return "helv"
+    
+    # Normaliser le nom de la police (minuscules, sans espaces)
+    normalized_name = font_name.lower().replace(" ", "").replace("-", "")
+    
+    # Chercher dans le dictionnaire
+    equivalent = MICROSOFT_WORD_FONTS.get(normalized_name)
+    
+    if equivalent:
+        logging.debug(f"🔄 Police mappée: {font_name} → {equivalent}")
+        return equivalent
+    
+    # Si pas trouvé, essayer de deviner par le nom
+    if "times" in normalized_name or "roman" in normalized_name:
+        logging.debug(f"🔄 Police devinée (serif): {font_name} → times")
+        return "times"
+    elif "courier" in normalized_name or "mono" in normalized_name or "console" in normalized_name:
+        logging.debug(f"🔄 Police devinée (monospace): {font_name} → cour")
+        return "cour"
+    else:
+        logging.debug(f"🔄 Police par défaut (sans-serif): {font_name} → helv")
+        return "helv"
+
+def _try_original_font_with_fallback(page, text_position, new_text, font_name, font_size, font_flags, text_color, original_text):
+    """
+    Essaie d'utiliser la police originale avec un système de fallback intelligent.
+    
+    Args:
+        page: Page PyMuPDF
+        text_position: Position (x, y) pour insérer le texte
+        new_text: Nouveau texte à insérer
+        font_name: Nom de la police originale
+        font_size: Taille de la police
+        font_flags: Flags de formatage (gras, italique)
+        text_color: Couleur du texte original
+        original_text: Texte original (pour le logging)
+        
+    Returns:
+        bool: True si l'insertion a réussi, False sinon
+    """
+    import fitz
+    
+    # Normaliser la couleur pour PyMuPDF
+    normalized_color = _normalize_color(text_color)
+    
+    # Détecter le formatage du texte original
+    BOLD_FLAG = 2**4   # 16
+    ITALIC_FLAG = 2**5  # 32
+    is_bold = bool(font_flags & BOLD_FLAG)
+    is_italic = bool(font_flags & ITALIC_FLAG)
+    
+    logging.info(f"🎨 TENTATIVE POLICE ORIGINALE - Texte: '{original_text}' → '{new_text}'")
+    logging.info(f"🎨 Police: {font_name}, Taille: {font_size}, Gras: {is_bold}, Italique: {is_italic}")
+    
+    # ÉTAPE 1: Essayer la police originale exacte (priorité absolue)
+    try:
+        page.insert_text(
+            text_position,
+            new_text,
+            fontname=font_name,
+            fontsize=font_size,
+            color=normalized_color
+        )
+        logging.info(f"✅ POLICE ORIGINALE EXACTE RÉUSSIE - '{original_text}' → '{new_text}' (police: {font_name})")
+        return True
+    except Exception as e:
+        logging.debug(f"⚠️ Police originale exacte échouée: {str(e)}")
+    
+    # ÉTAPE 2: Si police originale échoue, essayer sans formatage (juste la police de base)
+    try:
+        # Retirer le formatage du nom de police (enlever -bold, -italic, etc.)
+        base_font_name = font_name.replace("-bold", "").replace("-italic", "").replace("-oblique", "").replace("-bolditalic", "").replace("-boldoblique", "")
+        
+        page.insert_text(
+            text_position,
+            new_text,
+            fontname=base_font_name,
+            fontsize=font_size,
+            color=normalized_color
+        )
+        logging.info(f"✅ POLICE ORIGINALE BASE RÉUSSIE - '{original_text}' → '{new_text}' (police: {base_font_name})")
+        logging.warning(f"⚠️ FORMATAGE PERDU - Le gras/italique n'a pas pu être appliqué pour préserver la police originale")
+        return True
+    except Exception as e:
+        logging.debug(f"⚠️ Police originale base échouée: {str(e)}")
+    
+    # ÉTAPE 3: Essayer l'équivalent PyMuPDF de la police
+    try:
+        equivalent_font = _get_pymupdf_font_equivalent(font_name)
+        
+        page.insert_text(
+            text_position,
+            new_text,
+            fontname=equivalent_font,
+            fontsize=font_size,
+            color=normalized_color
+        )
+        logging.info(f"✅ POLICE ÉQUIVALENTE RÉUSSIE - '{original_text}' → '{new_text}' (police: {font_name} → {equivalent_font})")
+        logging.warning(f"⚠️ FORMATAGE PERDU - Le gras/italique n'a pas pu être appliqué pour préserver la police similaire")
+        return True
+    except Exception as e:
+        logging.debug(f"⚠️ Police équivalente échouée: {str(e)}")
+    
+    return False
