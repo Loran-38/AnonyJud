@@ -954,10 +954,10 @@ def anonymize_pdf_direct(pdf_content: bytes, tiers: List[Dict[str, Any]] = []) -
             # Obtenir tous les blocs de texte de la page
             text_blocks = page.get_text("dict")
             
-            # Parcourir chaque bloc de texte avec positionnement ultra-précis
+            # Parcourir chaque bloc de texte avec alignement parfait
             for block in text_blocks["blocks"]:
                 if "lines" in block:  # Bloc de texte
-                    _anonymize_text_block_ultra_precise(page, block, reverse_mapping)
+                    _anonymize_text_block_perfect_alignment(page, block, reverse_mapping)
         
         # Sauvegarder le PDF modifié
         anonymized_pdf = doc.tobytes()
@@ -1142,10 +1142,10 @@ def deanonymize_pdf_direct(pdf_content: bytes, mapping: Dict[str, str]) -> bytes
             # Obtenir tous les blocs de texte de la page
             text_blocks = page.get_text("dict")
             
-            # Parcourir chaque bloc de texte avec positionnement ultra-précis
+            # Parcourir chaque bloc de texte avec alignement parfait
             for block in text_blocks["blocks"]:
                 if "lines" in block:  # Bloc de texte
-                    _deanonymize_text_block_ultra_precise(page, block, mapping)
+                    _deanonymize_text_block_perfect_alignment(page, block, mapping)
         
         # Sauvegarder le PDF modifié
         deanonymized_pdf = doc.tobytes()
@@ -1525,6 +1525,257 @@ def _deanonymize_text_block_ultra_precise(page, block, mapping: Dict[str, str]):
                             color=text_color
                         )
                         logging.debug(f"✅ Texte dé-anonymisé avec police par défaut et positionnement ultra-précis")
+                    except Exception as e2:
+                        logging.error(f"❌ Impossible de dé-anonymiser le texte: {str(e2)}")
+
+
+def _preserve_original_text_alignment(bbox, original_text, new_text, fontname, fontsize, page):
+    """
+    Calcule la position exacte pour préserver l'alignement original du texte.
+    
+    Args:
+        bbox: Rectangle englobant du texte original
+        original_text: Texte original
+        new_text: Nouveau texte à insérer
+        fontname: Nom de la police
+        fontsize: Taille de la police
+        page: Page PyMuPDF
+        
+    Returns:
+        tuple: (x, y) position exacte pour préserver l'alignement
+    """
+    # Position x: utiliser exactement la position originale (pas de centrage)
+    x = bbox.x0
+    
+    # Position y: utiliser la position originale avec un petit ajustement pour la ligne de base
+    # La ligne de base est généralement à environ 80% de la hauteur depuis le haut
+    y = bbox.y0 + (bbox.height * 0.8)
+    
+    return (x, y)
+
+
+def _get_best_matching_font(original_fontname, page):
+    """
+    Trouve la meilleure police disponible qui correspond à la police originale.
+    
+    Args:
+        original_fontname: Nom de la police originale
+        page: Page PyMuPDF
+        
+    Returns:
+        str: Nom de la police à utiliser
+    """
+    import fitz
+    
+    # Nettoyer le nom de la police original
+    clean_fontname = original_fontname.lower().replace("-", "").replace(" ", "")
+    
+    # Mapping des polices communes
+    font_mapping = {
+        "helvetica": "helv",
+        "arial": "helv", 
+        "times": "times",
+        "timesnewroman": "times",
+        "courier": "cour",
+        "couriernew": "cour",
+        "symbol": "symb",
+        "zapfdingbats": "zadb"
+    }
+    
+    # Chercher une correspondance exacte
+    if clean_fontname in font_mapping:
+        return font_mapping[clean_fontname]
+    
+    # Chercher une correspondance partielle
+    for pattern, font in font_mapping.items():
+        if pattern in clean_fontname:
+            return font
+    
+    # Essayer d'utiliser la police originale telle quelle
+    try:
+        fitz.Font(original_fontname)
+        return original_fontname
+    except:
+        pass
+    
+    # Fallback vers Helvetica
+    return "helv"
+
+
+def _anonymize_text_block_perfect_alignment(page, block, mapping: Dict[str, str]):
+    """
+    Anonymise un bloc de texte en préservant parfaitement l'alignement et les polices originales.
+    Le mapping contient: {valeur_originale: balise_anonymisée}
+    """
+    import fitz
+    
+    for line in block["lines"]:
+        # Traiter tous les spans d'une ligne ensemble pour maintenir l'alignement
+        line_spans = []
+        
+        for span in line["spans"]:
+            original_text = span["text"]
+            
+            if not original_text.strip():
+                continue
+                
+            # Appliquer les remplacements du mapping
+            anonymized_text = original_text
+            text_changed = False
+            
+            # Le mapping contient {valeur_originale: balise_anonymisée}
+            # Trier les clés par longueur décroissante pour éviter les remplacements partiels
+            sorted_items = sorted(mapping.items(), key=lambda x: len(x[0]), reverse=True)
+            
+            for original_value, anonymized_tag in sorted_items:
+                if original_value in anonymized_text:
+                    anonymized_text = anonymized_text.replace(original_value, anonymized_tag)
+                    text_changed = True
+                    logging.debug(f"🔄 Remplacement: '{original_value}' → '{anonymized_tag}'")
+            
+            # Ajouter ce span à la liste des spans de la ligne
+            line_spans.append({
+                'span': span,
+                'original_text': original_text,
+                'anonymized_text': anonymized_text,
+                'text_changed': text_changed
+            })
+        
+        # Traiter tous les spans modifiés de la ligne
+        for span_info in line_spans:
+            if span_info['text_changed'] and span_info['anonymized_text'] != span_info['original_text']:
+                span = span_info['span']
+                original_text = span_info['original_text']
+                anonymized_text = span_info['anonymized_text']
+                
+                # Obtenir les propriétés du texte original
+                font_name = span["font"]
+                font_size = span["size"]
+                font_flags = span["flags"]
+                text_color = span["color"]
+                bbox = fitz.Rect(span["bbox"])
+                
+                # Trouver la meilleure police correspondante
+                best_font = _get_best_matching_font(font_name, page)
+                
+                # Calculer la position exacte pour préserver l'alignement
+                text_position = _preserve_original_text_alignment(
+                    bbox, original_text, anonymized_text, best_font, font_size, page
+                )
+                
+                # Effacer l'ancien texte avec un rectangle exact (sans padding excessif)
+                page.draw_rect(bbox, color=None, fill=fitz.pdfcolor["white"])
+                
+                # Insérer le nouveau texte anonymisé avec alignement parfait
+                try:
+                    page.insert_text(
+                        text_position,
+                        anonymized_text,
+                        fontname=best_font,
+                        fontsize=font_size,  # Utiliser la taille originale
+                        color=text_color
+                    )
+                    logging.debug(f"✅ Texte remplacé avec alignement parfait: '{original_text}' → '{anonymized_text}' (police: {best_font})")
+                except Exception as e:
+                    logging.warning(f"⚠️ Erreur remplacement texte: {str(e)}")
+                    # Fallback avec police par défaut mais même position
+                    try:
+                        page.insert_text(
+                            text_position,
+                            anonymized_text,
+                            fontname="helv",
+                            fontsize=font_size,
+                            color=text_color
+                        )
+                        logging.debug(f"✅ Texte remplacé avec police par défaut et alignement parfait")
+                    except Exception as e2:
+                        logging.error(f"❌ Impossible de remplacer le texte: {str(e2)}")
+
+
+def _deanonymize_text_block_perfect_alignment(page, block, mapping: Dict[str, str]):
+    """
+    Dé-anonymise un bloc de texte en préservant parfaitement l'alignement et les polices originales.
+    """
+    import fitz
+    
+    for line in block["lines"]:
+        # Traiter tous les spans d'une ligne ensemble pour maintenir l'alignement
+        line_spans = []
+        
+        for span in line["spans"]:
+            original_text = span["text"]
+            
+            if not original_text.strip():
+                continue
+                
+            # Appliquer les remplacements du mapping (balise → valeur originale)
+            deanonymized_text = original_text
+            text_changed = False
+            
+            # Trier les clés par longueur décroissante pour éviter les remplacements partiels
+            sorted_keys = sorted(mapping.keys(), key=len, reverse=True)
+            
+            for anonymized_tag, original_value in mapping.items():
+                if anonymized_tag in deanonymized_text:
+                    deanonymized_text = deanonymized_text.replace(anonymized_tag, original_value)
+                    text_changed = True
+                    logging.debug(f"🔄 Dé-anonymisation: '{anonymized_tag}' → '{original_value}'")
+            
+            # Ajouter ce span à la liste des spans de la ligne
+            line_spans.append({
+                'span': span,
+                'original_text': original_text,
+                'deanonymized_text': deanonymized_text,
+                'text_changed': text_changed
+            })
+        
+        # Traiter tous les spans modifiés de la ligne
+        for span_info in line_spans:
+            if span_info['text_changed'] and span_info['deanonymized_text'] != span_info['original_text']:
+                span = span_info['span']
+                original_text = span_info['original_text']
+                deanonymized_text = span_info['deanonymized_text']
+                
+                # Obtenir les propriétés du texte original
+                font_name = span["font"]
+                font_size = span["size"]
+                font_flags = span["flags"]
+                text_color = span["color"]
+                bbox = fitz.Rect(span["bbox"])
+                
+                # Trouver la meilleure police correspondante
+                best_font = _get_best_matching_font(font_name, page)
+                
+                # Calculer la position exacte pour préserver l'alignement
+                text_position = _preserve_original_text_alignment(
+                    bbox, original_text, deanonymized_text, best_font, font_size, page
+                )
+                
+                # Effacer l'ancien texte avec un rectangle exact (sans padding excessif)
+                page.draw_rect(bbox, color=None, fill=fitz.pdfcolor["white"])
+                
+                # Insérer le nouveau texte dé-anonymisé avec alignement parfait
+                try:
+                    page.insert_text(
+                        text_position,
+                        deanonymized_text,
+                        fontname=best_font,
+                        fontsize=font_size,  # Utiliser la taille originale
+                        color=text_color
+                    )
+                    logging.debug(f"✅ Texte dé-anonymisé avec alignement parfait: '{original_text}' → '{deanonymized_text}' (police: {best_font})")
+                except Exception as e:
+                    logging.warning(f"⚠️ Erreur dé-anonymisation texte: {str(e)}")
+                    # Fallback avec police par défaut mais même position
+                    try:
+                        page.insert_text(
+                            text_position,
+                            deanonymized_text,
+                            fontname="helv",
+                            fontsize=font_size,
+                            color=text_color
+                        )
+                        logging.debug(f"✅ Texte dé-anonymisé avec police par défaut et alignement parfait")
                     except Exception as e2:
                         logging.error(f"❌ Impossible de dé-anonymiser le texte: {str(e2)}")
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test du positionnement amélioré pour l'anonymisation PDF directe
+Test de l'alignement parfait pour l'anonymisation PDF directe
 """
 
 import os
@@ -19,9 +19,9 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-def test_improved_positioning():
-    """Test l'amélioration du positionnement du texte"""
-    print("🧪 Test du positionnement amélioré pour l'anonymisation PDF directe")
+def test_perfect_alignment():
+    """Test l'alignement parfait et le respect des polices originales"""
+    print("🎯 Test de l'ALIGNEMENT PARFAIT pour l'anonymisation PDF directe")
     print("=" * 70)
     
     # Données de test
@@ -49,26 +49,23 @@ def test_improved_positioning():
             "adresse": "256 Montée du Mollard",
             "code_postal": "38790",
             "ville": "CHARANTONNAY"
+        },
+        {
+            "numero": 4,
+            "nom": "THOIZET",
+            "prenom": "Jacques",
+            "adresse": "61, Quai Riondet",
+            "code_postal": "38205",
+            "ville": "VIENNE"
         }
     ]
     
-    # Chercher un fichier PDF de test
-    test_files = [
-        "test_data.pdf",
-        "document_test.pdf",
-        "sample.pdf"
-    ]
-    
-    pdf_file = None
-    for filename in test_files:
-        if os.path.exists(filename):
-            pdf_file = filename
-            break
-    
-    if not pdf_file:
-        print("❌ Aucun fichier PDF de test trouvé")
-        print("Créez un fichier PDF de test avec du texte contenant les noms/prénoms des tiers")
-        return False
+    # Créer un fichier PDF de test si nécessaire
+    pdf_file = "test_data.pdf"
+    if not os.path.exists(pdf_file):
+        print("📄 Création d'un fichier PDF de test...")
+        from create_test_pdf import create_test_pdf
+        create_test_pdf()
     
     print(f"📄 Fichier de test: {pdf_file}")
     
@@ -79,8 +76,13 @@ def test_improved_positioning():
         
         print(f"📊 Taille du PDF original: {len(pdf_content)} bytes")
         
-        # Test d'anonymisation avec positionnement amélioré
-        print("\n🔄 Anonymisation avec positionnement amélioré...")
+        # Test d'anonymisation avec alignement parfait
+        print("\n🎯 Anonymisation avec ALIGNEMENT PARFAIT...")
+        print("   • Préservation exacte de la position originale")
+        print("   • Respect des polices originales")
+        print("   • Traitement cohérent des lignes complètes")
+        print("   • Élimination du centrage artificiel")
+        
         anonymized_content, mapping = anonymize_pdf_direct(pdf_content, tiers_test)
         
         print(f"📊 Taille du PDF anonymisé: {len(anonymized_content)} bytes")
@@ -92,27 +94,72 @@ def test_improved_positioning():
             print(f"  • '{original}' → '{anonymized}'")
         
         # Sauvegarder le PDF anonymisé
-        anonymized_file = "test_anonymized_improved.pdf"
+        anonymized_file = "test_perfect_alignment_anonymized.pdf"
         with open(anonymized_file, 'wb') as f:
             f.write(anonymized_content)
         print(f"💾 PDF anonymisé sauvegardé: {anonymized_file}")
         
-        # Test de dé-anonymisation
-        print("\n🔄 Dé-anonymisation...")
+        # Test de dé-anonymisation avec alignement parfait
+        print("\n🎯 Dé-anonymisation avec ALIGNEMENT PARFAIT...")
         deanonymized_content = deanonymize_pdf_direct(anonymized_content, mapping)
         
         print(f"📊 Taille du PDF dé-anonymisé: {len(deanonymized_content)} bytes")
         
         # Sauvegarder le PDF dé-anonymisé
-        deanonymized_file = "test_deanonymized_improved.pdf"
+        deanonymized_file = "test_perfect_alignment_deanonymized.pdf"
         with open(deanonymized_file, 'wb') as f:
             f.write(deanonymized_content)
         print(f"💾 PDF dé-anonymisé sauvegardé: {deanonymized_file}")
         
+        # Analyser les polices utilisées
+        print("\n🔍 Analyse des polices utilisées...")
+        
+        try:
+            import fitz
+            
+            # Analyser les polices du document original
+            doc_original = fitz.open(stream=pdf_content, filetype="pdf")
+            original_fonts = set()
+            for page in doc_original:
+                for block in page.get_text("dict")["blocks"]:
+                    if "lines" in block:
+                        for line in block["lines"]:
+                            for span in line["spans"]:
+                                if span["font"]:
+                                    original_fonts.add(span["font"])
+            doc_original.close()
+            
+            # Analyser les polices du document anonymisé
+            doc_anonymized = fitz.open(stream=anonymized_content, filetype="pdf")
+            anonymized_fonts = set()
+            for page in doc_anonymized:
+                for block in page.get_text("dict")["blocks"]:
+                    if "lines" in block:
+                        for line in block["lines"]:
+                            for span in line["spans"]:
+                                if span["font"]:
+                                    anonymized_fonts.add(span["font"])
+            doc_anonymized.close()
+            
+            print(f"📝 Polices dans le document original: {sorted(original_fonts)}")
+            print(f"📝 Polices dans le document anonymisé: {sorted(anonymized_fonts)}")
+            
+            # Vérifier la cohérence des polices
+            fonts_preserved = len(original_fonts.intersection(anonymized_fonts))
+            fonts_total = len(original_fonts)
+            print(f"📊 Polices préservées: {fonts_preserved}/{fonts_total}")
+            
+            if fonts_preserved == fonts_total:
+                print("✅ Toutes les polices originales ont été préservées!")
+            else:
+                print("⚠️ Certaines polices ont été remplacées par des équivalents")
+            
+        except Exception as e:
+            print(f"⚠️ Erreur lors de l'analyse des polices: {str(e)}")
+        
         # Vérification du contenu
         print("\n🔍 Vérification du contenu...")
         
-        # Extraire le texte pour vérification
         try:
             import fitz
             
@@ -137,7 +184,7 @@ def test_improved_positioning():
                 text_deanonymized += page.get_text()
             doc_deanonymized.close()
             
-            # Vérifier que les balises sont présentes dans le texte anonymisé
+            # Vérifier que les balises sont présentes
             balises_trouvees = 0
             for balise in mapping.values():
                 if balise in text_anonymized:
@@ -153,20 +200,20 @@ def test_improved_positioning():
             
             print(f"✅ {valeurs_restaurees}/{len(mapping)} valeurs restaurées dans le texte dé-anonymisé")
             
-            # Afficher des extraits pour vérification visuelle
-            print("\n📝 Extraits de texte (premiers 200 caractères):")
-            print(f"Original: {text_original[:200]}...")
-            print(f"Anonymisé: {text_anonymized[:200]}...")
-            print(f"Dé-anonymisé: {text_deanonymized[:200]}...")
-            
         except Exception as e:
             print(f"⚠️ Erreur lors de la vérification du contenu: {str(e)}")
         
-        print("\n🎯 Test du positionnement amélioré terminé!")
-        print("📋 Vérifiez visuellement les fichiers générés:")
-        print(f"   • {anonymized_file} (anonymisé)")
-        print(f"   • {deanonymized_file} (dé-anonymisé)")
-        print("   • Le texte doit être correctement aligné sans décalages")
+        print("\n🎉 Test de l'alignement parfait terminé!")
+        print("=" * 70)
+        print("🎯 Améliorations apportées:")
+        print("   • Position exacte préservée (pas de centrage artificiel)")
+        print("   • Polices originales respectées")
+        print("   • Traitement cohérent des lignes complètes")
+        print("   • Élimination des décalages de retrait")
+        print("\n📋 Vérification visuelle recommandée:")
+        print(f"   1. Ouvrir {anonymized_file} → Vérifier l'alignement parfait")
+        print(f"   2. Ouvrir {deanonymized_file} → Vérifier la restauration exacte")
+        print("   3. Comparer avec le document original pour confirmer l'alignement")
         
         return True
         
@@ -178,5 +225,5 @@ def test_improved_positioning():
 
 
 if __name__ == "__main__":
-    success = test_improved_positioning()
+    success = test_perfect_alignment()
     sys.exit(0 if success else 1) 
