@@ -1619,19 +1619,8 @@ def _anonymize_text_block_perfect_alignment(page, block, mapping: Dict[str, str]
             if not original_text.strip():
                 continue
                 
-            # Appliquer les remplacements du mapping
-            anonymized_text = original_text
-            text_changed = False
-            
-            # Le mapping contient {valeur_originale: balise_anonymisée}
-            # Trier les clés par longueur décroissante pour éviter les remplacements partiels
-            sorted_items = sorted(mapping.items(), key=lambda x: len(x[0]), reverse=True)
-            
-            for original_value, anonymized_tag in sorted_items:
-                if original_value in anonymized_text:
-                    anonymized_text = anonymized_text.replace(original_value, anonymized_tag)
-                    text_changed = True
-                    logging.debug(f"🔄 Remplacement: '{original_value}' → '{anonymized_tag}'")
+            # Appliquer les remplacements du mapping avec remplacement sécurisé
+            anonymized_text, text_changed = _safe_replace_in_span_text(original_text, mapping)
             
             # Ajouter ce span à la liste des spans de la ligne
             line_spans.append({
@@ -1708,18 +1697,8 @@ def _deanonymize_text_block_perfect_alignment(page, block, mapping: Dict[str, st
             if not original_text.strip():
                 continue
                 
-            # Appliquer les remplacements du mapping (balise → valeur originale)
-            deanonymized_text = original_text
-            text_changed = False
-            
-            # Trier les clés par longueur décroissante pour éviter les remplacements partiels
-            sorted_keys = sorted(mapping.keys(), key=len, reverse=True)
-            
-            for anonymized_tag, original_value in mapping.items():
-                if anonymized_tag in deanonymized_text:
-                    deanonymized_text = deanonymized_text.replace(anonymized_tag, original_value)
-                    text_changed = True
-                    logging.debug(f"🔄 Dé-anonymisation: '{anonymized_tag}' → '{original_value}'")
+            # Appliquer les remplacements du mapping avec remplacement sécurisé (balise → valeur originale)
+            deanonymized_text, text_changed = _safe_replace_in_span_text(original_text, mapping)
             
             # Ajouter ce span à la liste des spans de la ligne
             line_spans.append({
@@ -1781,3 +1760,56 @@ def _deanonymize_text_block_perfect_alignment(page, block, mapping: Dict[str, st
 
 
 # ===== FIN ANONYMISATION DIRECTE PDF ===== 
+
+def _safe_replace_with_word_boundaries(text: str, old_value: str, new_value: str) -> str:
+    """
+    Remplace une valeur dans le texte en utilisant des limites de mots pour éviter les remplacements partiels.
+    
+    Args:
+        text: Texte dans lequel effectuer le remplacement
+        old_value: Valeur à remplacer
+        new_value: Nouvelle valeur
+        
+    Returns:
+        str: Texte avec les remplacements effectués
+    """
+    # Échapper les caractères spéciaux pour les expressions régulières
+    escaped_old = re.escape(old_value)
+    
+    # Créer un pattern avec des limites de mots
+    # \b assure que le remplacement ne se fait que sur des mots entiers
+    pattern = r'\b' + escaped_old + r'\b'
+    
+    # Effectuer le remplacement avec des expressions régulières
+    result = re.sub(pattern, new_value, text, flags=re.IGNORECASE)
+    
+    return result
+
+
+def _safe_replace_in_span_text(span_text: str, mapping: Dict[str, str]) -> Tuple[str, bool]:
+    """
+    Remplace les valeurs dans un span de texte en utilisant des limites de mots.
+    
+    Args:
+        span_text: Texte du span
+        mapping: Mapping des remplacements {old_value: new_value}
+        
+    Returns:
+        Tuple[str, bool]: (texte_modifié, changement_effectué)
+    """
+    modified_text = span_text
+    text_changed = False
+    
+    # Trier les clés par longueur décroissante pour éviter les remplacements partiels
+    sorted_items = sorted(mapping.items(), key=lambda x: len(x[0]), reverse=True)
+    
+    for old_value, new_value in sorted_items:
+        # Utiliser le remplacement sécurisé avec limites de mots
+        before_replace = modified_text
+        modified_text = _safe_replace_with_word_boundaries(modified_text, old_value, new_value)
+        
+        if modified_text != before_replace:
+            text_changed = True
+            logging.debug(f"🔄 Remplacement sécurisé: '{old_value}' → '{new_value}'")
+    
+    return modified_text, text_changed
