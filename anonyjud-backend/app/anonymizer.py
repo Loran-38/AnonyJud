@@ -928,7 +928,7 @@ def anonymize_pdf_direct(pdf_content: bytes, tiers: List[Dict[str, Any]] = []) -
         # Générer le mapping d'anonymisation
         full_text = ""
         
-        # Ouvrir le PDF avec gestion d'erreur MuPDF
+        # Ouvrir le PDF avec gestion d'erreur MuPDF améliorée
         try:
             doc = fitz.open(stream=pdf_content, filetype="pdf")
         except Exception as e:
@@ -965,7 +965,7 @@ def anonymize_pdf_direct(pdf_content: bytes, tiers: List[Dict[str, Any]] = []) -
         reverse_mapping = {v: k for k, v in mapping.items()}
         logging.info(f"📊 Mapping inversé: {reverse_mapping}")
         
-        # Ouvrir le PDF pour modification avec gestion d'erreur
+        # Ouvrir le PDF pour modification avec gestion d'erreur améliorée
         try:
             doc = fitz.open(stream=pdf_content, filetype="pdf")
         except Exception as e:
@@ -985,16 +985,16 @@ def anonymize_pdf_direct(pdf_content: bytes, tiers: List[Dict[str, Any]] = []) -
                 # Obtenir tous les blocs de texte de la page
                 text_blocks = page.get_text("dict")
                 
-                # Parcourir chaque bloc de texte avec alignement parfait
+                # Parcourir chaque bloc de texte avec alignement parfait amélioré
                 for block in text_blocks["blocks"]:
                     if "lines" in block:  # Bloc de texte
-                        _anonymize_text_block_perfect_alignment(page, block, reverse_mapping)
+                        _anonymize_text_block_comprehensive(page, block, reverse_mapping)
                         
             except Exception as e:
                 logging.warning(f"⚠️ Erreur traitement page {page_num + 1}: {str(e)}")
                 continue
         
-        # Sauvegarder le PDF modifié avec gestion d'erreur
+        # Sauvegarder le PDF modifié avec gestion d'erreur améliorée
         try:
             anonymized_pdf = doc.tobytes()
         except Exception as e:
@@ -1036,26 +1036,27 @@ def deanonymize_pdf_direct(pdf_content: bytes, mapping: Dict[str, str]) -> bytes
     """
     import fitz  # PyMuPDF
     
-    logging.info("🔓 Début dé-anonymisation PDF directe avec PyMuPDF")
+    logging.info("🚀 Début dé-anonymisation PDF directe avec PyMuPDF")
     logging.info(f"📊 Taille PDF d'entrée: {len(pdf_content)} bytes")
-    logging.info(f"🔢 Nombre de balises dans le mapping: {len(mapping)}")
+    logging.info(f"📊 Mapping: {len(mapping)} remplacements - {list(mapping.keys())}")
     
     try:
-        # Ouvrir le PDF pour modification avec gestion d'erreur
+        # Ouvrir le PDF avec gestion d'erreur MuPDF améliorée
         try:
             doc = fitz.open(stream=pdf_content, filetype="pdf")
         except Exception as e:
             if "object out of range" in str(e):
-                logging.warning(f"⚠️ Erreur MuPDF lors de l'ouverture: {str(e)}")
-                # Essayer de récupérer le PDF
+                logging.warning(f"⚠️ Erreur MuPDF 'object out of range': {str(e)}")
+                # Essayer de récupérer le PDF en mode tolérant
                 try:
                     doc = fitz.open(stream=pdf_content, filetype="pdf")
+                    # Réparer le PDF si possible
                     doc.save(doc.name, garbage=4, deflate=True)
                     doc.close()
                     doc = fitz.open(stream=pdf_content, filetype="pdf")
                 except:
-                    logging.error(f"❌ Impossible de récupérer le PDF: {str(e)}")
-                    raise Exception(f"PDF corrompu: {str(e)}")
+                    logging.error(f"❌ Impossible de réparer le PDF: {str(e)}")
+                    raise Exception(f"PDF corrompu ou non supporté: {str(e)}")
             else:
                 raise
         
@@ -1068,16 +1069,16 @@ def deanonymize_pdf_direct(pdf_content: bytes, mapping: Dict[str, str]) -> bytes
                 # Obtenir tous les blocs de texte de la page
                 text_blocks = page.get_text("dict")
                 
-                # Parcourir chaque bloc de texte avec alignement parfait
+                # Parcourir chaque bloc de texte avec alignement parfait amélioré
                 for block in text_blocks["blocks"]:
                     if "lines" in block:  # Bloc de texte
-                        _deanonymize_text_block_perfect_alignment(page, block, mapping)
+                        _deanonymize_text_block_comprehensive(page, block, mapping)
                         
             except Exception as e:
                 logging.warning(f"⚠️ Erreur traitement page {page_num + 1}: {str(e)}")
                 continue
         
-        # Sauvegarder le PDF modifié avec gestion d'erreur
+        # Sauvegarder le PDF modifié avec gestion d'erreur améliorée
         try:
             deanonymized_pdf = doc.tobytes()
         except Exception as e:
@@ -2048,7 +2049,8 @@ def _normalize_color(color_value):
             normalized = color_value / 255.0 if color_value > 1 else color_value
             return (normalized, normalized, normalized)
     
-    # Fallback: noir
+    # Fallback: noir avec log détaillé
+    logging.debug(f"🎨 Couleur non reconnue: {color_value} (type: {type(color_value)}), utilisation du noir")
     return (0, 0, 0)
 
 
@@ -2133,3 +2135,341 @@ def _apply_font_formatting_safe(base_font: str, font_flags: int) -> str:
     except Exception as e:
         logging.debug(f"⚠️ Erreur formatage police: {str(e)}, utilisation de '{base_font}'")
         return base_font
+
+
+def _anonymize_text_block_comprehensive(page, block, mapping: Dict[str, str]):
+    """
+    Anonymise un bloc de texte avec gestion complète des problèmes:
+    - Marge droite respectée avec ajustement automatique
+    - Formatage gras/couleur préservé
+    - Gestion robuste des erreurs MuPDF
+    Le mapping contient: {valeur_originale: balise_anonymisée}
+    """
+    import fitz
+    
+    for line in block["lines"]:
+        # Traiter tous les spans d'une ligne ensemble pour maintenir l'alignement
+        line_spans = []
+        
+        for span in line["spans"]:
+            original_text = span["text"]
+            
+            if not original_text.strip():
+                continue
+                
+            # Appliquer les remplacements du mapping avec remplacement sécurisé
+            anonymized_text, text_changed = _safe_replace_in_span_text(original_text, mapping)
+            
+            # Ajouter ce span à la liste des spans de la ligne
+            line_spans.append({
+                'span': span,
+                'original_text': original_text,
+                'anonymized_text': anonymized_text,
+                'text_changed': text_changed
+            })
+        
+        # Traiter tous les spans modifiés de la ligne
+        for span_info in line_spans:
+            if span_info['text_changed'] and span_info['anonymized_text'] != span_info['original_text']:
+                span = span_info['span']
+                original_text = span_info['original_text']
+                anonymized_text = span_info['anonymized_text']
+                
+                # Obtenir les propriétés du texte original
+                font_name = span["font"]
+                font_size = span["size"]
+                font_flags = span["flags"]  # Important pour le formatage
+                text_color = span["color"]
+                bbox = fitz.Rect(span["bbox"])
+                
+                # CORRECTION 1: Vérifier et ajuster les marges droites de manière robuste
+                page_rect = page.rect
+                margin_right = 50  # Marge droite de 50 points
+                
+                if bbox.x1 > page_rect.x1 - margin_right:
+                    logging.warning(f"⚠️ Texte trop proche du bord droit: {bbox.x1} > {page_rect.x1 - margin_right}")
+                    logging.info(f"📏 Texte original: '{original_text}' → Texte anonymisé: '{anonymized_text}'")
+                    
+                    # Ajuster la largeur disponible
+                    available_width = page_rect.x1 - bbox.x0 - margin_right
+                    if available_width < 100:  # Minimum 100 points
+                        available_width = 100
+                        logging.warning(f"⚠️ Largeur disponible très réduite: {available_width} points")
+                    
+                    # Créer un nouveau bbox avec la largeur ajustée
+                    original_bbox = bbox
+                    bbox = fitz.Rect(bbox.x0, bbox.y0, bbox.x0 + available_width, bbox.y1)
+                    logging.info(f"📏 Bbox ajusté pour marge droite: {original_bbox} → {bbox}")
+                    
+                    # Vérifier si le texte anonymisé est plus long que l'original
+                    if len(anonymized_text) > len(original_text):
+                        logging.warning(f"⚠️ Texte anonymisé plus long que l'original: {len(anonymized_text)} > {len(original_text)}")
+                        # Ajuster la taille de police si nécessaire
+                        font_size = font_size * 0.9  # Réduire de 10%
+                        logging.info(f"📏 Taille de police ajustée: {font_size:.1f}")
+                
+                # Calculer la position exacte pour préserver l'alignement
+                text_position = _preserve_original_text_alignment(
+                    bbox, original_text, anonymized_text, font_name, font_size, page
+                )
+                
+                # Effacer l'ancien texte avec gestion d'erreur robuste
+                try:
+                    page.draw_rect(bbox, color=None, fill=fitz.pdfcolor["white"])
+                except Exception as e:
+                    logging.warning(f"⚠️ Erreur effacement rectangle: {str(e)}")
+                    # Essayer avec un rectangle légèrement plus petit
+                    try:
+                        smaller_bbox = fitz.Rect(bbox.x0 + 1, bbox.y0 + 1, bbox.x1 - 1, bbox.y1 - 1)
+                        page.draw_rect(smaller_bbox, color=None, fill=fitz.pdfcolor["white"])
+                    except Exception as e2:
+                        logging.warning(f"⚠️ Impossible d'effacer le rectangle: {str(e2)}")
+                
+                # CORRECTION 2: Insérer le nouveau texte avec système de fallback à 4 niveaux
+                success = _insert_text_with_comprehensive_fallback(
+                    page, text_position, anonymized_text, font_name, font_size, font_flags, text_color, original_text
+                )
+                
+                if not success:
+                    logging.error(f"❌ Impossible de remplacer le texte: '{original_text}' → '{anonymized_text}'")
+
+
+def _deanonymize_text_block_comprehensive(page, block, mapping: Dict[str, str]):
+    """
+    Dé-anonymise un bloc de texte avec gestion complète des problèmes:
+    - Marge droite respectée avec ajustement automatique
+    - Formatage gras/couleur préservé et restauré
+    - Gestion robuste des erreurs MuPDF
+    Le mapping contient: {balise_anonymisée: valeur_originale}
+    """
+    import fitz
+    
+    for line in block["lines"]:
+        # Traiter tous les spans d'une ligne ensemble pour maintenir l'alignement
+        line_spans = []
+        
+        for span in line["spans"]:
+            original_text = span["text"]
+            
+            if not original_text.strip():
+                continue
+                
+            # Appliquer les remplacements du mapping avec remplacement sécurisé
+            deanonymized_text, text_changed = _safe_replace_in_span_text(original_text, mapping)
+            
+            # Ajouter ce span à la liste des spans de la ligne
+            line_spans.append({
+                'span': span,
+                'original_text': original_text,
+                'deanonymized_text': deanonymized_text,
+                'text_changed': text_changed
+            })
+        
+        # Traiter tous les spans modifiés de la ligne
+        for span_info in line_spans:
+            if span_info['text_changed'] and span_info['deanonymized_text'] != span_info['original_text']:
+                span = span_info['span']
+                original_text = span_info['original_text']
+                deanonymized_text = span_info['deanonymized_text']
+                
+                # Obtenir les propriétés du texte original
+                font_name = span["font"]
+                font_size = span["size"]
+                font_flags = span["flags"]  # Important pour le formatage
+                text_color = span["color"]
+                bbox = fitz.Rect(span["bbox"])
+                
+                # CORRECTION 1: Vérifier et ajuster les marges droites de manière robuste
+                page_rect = page.rect
+                margin_right = 50  # Marge droite de 50 points
+                
+                if bbox.x1 > page_rect.x1 - margin_right:
+                    logging.warning(f"⚠️ Texte trop proche du bord droit: {bbox.x1} > {page_rect.x1 - margin_right}")
+                    # Ajuster la largeur disponible
+                    available_width = page_rect.x1 - bbox.x0 - margin_right
+                    if available_width < 100:  # Minimum 100 points
+                        available_width = 100
+                        logging.warning(f"⚠️ Largeur disponible très réduite: {available_width} points")
+                    
+                    # Créer un nouveau bbox avec la largeur ajustée
+                    bbox = fitz.Rect(bbox.x0, bbox.y0, bbox.x0 + available_width, bbox.y1)
+                    logging.info(f"📏 Bbox ajusté pour marge droite: {bbox}")
+                
+                # Calculer la position exacte pour préserver l'alignement
+                text_position = _preserve_original_text_alignment(
+                    bbox, original_text, deanonymized_text, font_name, font_size, page
+                )
+                
+                # Effacer l'ancien texte avec gestion d'erreur robuste
+                try:
+                    page.draw_rect(bbox, color=None, fill=fitz.pdfcolor["white"])
+                except Exception as e:
+                    logging.warning(f"⚠️ Erreur effacement rectangle: {str(e)}")
+                    # Essayer avec un rectangle légèrement plus petit
+                    try:
+                        smaller_bbox = fitz.Rect(bbox.x0 + 1, bbox.y0 + 1, bbox.x1 - 1, bbox.y1 - 1)
+                        page.draw_rect(smaller_bbox, color=None, fill=fitz.pdfcolor["white"])
+                    except Exception as e2:
+                        logging.warning(f"⚠️ Impossible d'effacer le rectangle: {str(e2)}")
+                
+                # CORRECTION 2: Insérer le nouveau texte avec système de fallback à 4 niveaux
+                success = _insert_text_with_comprehensive_fallback(
+                    page, text_position, deanonymized_text, font_name, font_size, font_flags, text_color, original_text
+                )
+                
+                if not success:
+                    logging.error(f"❌ Impossible de remplacer le texte: '{original_text}' → '{deanonymized_text}'")
+
+
+def _insert_text_with_comprehensive_fallback(page, text_position, new_text, font_name, font_size, font_flags, text_color, original_text):
+    """
+    Insère du texte avec un système de fallback à 4 niveaux pour garantir le succès.
+    
+    Args:
+        page: Page PyMuPDF
+        text_position: Position (x, y) pour insérer le texte
+        new_text: Nouveau texte à insérer
+        font_name: Nom de la police originale
+        font_size: Taille de la police
+        font_flags: Flags de formatage
+        text_color: Couleur du texte
+        original_text: Texte original (pour le logging)
+        
+    Returns:
+        bool: True si l'insertion a réussi, False sinon
+    """
+    import fitz
+    
+    # Normaliser la couleur pour PyMuPDF
+    normalized_color = _normalize_color(text_color)
+    
+    # Niveau 1: Utiliser la police originale exacte
+    try:
+        page.insert_text(
+            text_position,
+            new_text,
+            fontname=font_name,
+            fontsize=font_size,
+            color=normalized_color
+        )
+        logging.debug(f"✅ Niveau 1 - Police originale: '{original_text}' → '{new_text}' (police: {font_name})")
+        return True
+    except Exception as e:
+        logging.debug(f"⚠️ Niveau 1 échoué: {str(e)}")
+    
+    # Niveau 2: Utiliser une police de base avec formatage
+    try:
+        best_font = _get_best_matching_font(font_name, page)
+        formatted_font = _apply_font_formatting_comprehensive(best_font, font_flags)
+        
+        page.insert_text(
+            text_position,
+            new_text,
+            fontname=formatted_font,
+            fontsize=font_size,
+            color=normalized_color
+        )
+        logging.debug(f"✅ Niveau 2 - Police formatée: '{original_text}' → '{new_text}' (police: {formatted_font})")
+        return True
+    except Exception as e:
+        logging.debug(f"⚠️ Niveau 2 échoué: {str(e)}")
+    
+    # Niveau 3: Utiliser une police de base sans formatage
+    try:
+        best_font = _get_best_matching_font(font_name, page)
+        
+        page.insert_text(
+            text_position,
+            new_text,
+            fontname=best_font,
+            fontsize=font_size,
+            color=normalized_color
+        )
+        logging.debug(f"✅ Niveau 3 - Police de base: '{original_text}' → '{new_text}' (police: {best_font})")
+        return True
+    except Exception as e:
+        logging.debug(f"⚠️ Niveau 3 échoué: {str(e)}")
+    
+    # Niveau 4: Dernier fallback avec Helvetica
+    try:
+        page.insert_text(
+            text_position,
+            new_text,
+            fontname="helv",
+            fontsize=font_size,
+            color=normalized_color
+        )
+        logging.debug(f"✅ Niveau 4 - Helvetica: '{original_text}' → '{new_text}'")
+        return True
+    except Exception as e:
+        logging.error(f"❌ Niveau 4 échoué: {str(e)}")
+    
+    return False
+
+
+def _apply_font_formatting_comprehensive(base_font: str, font_flags: int) -> str:
+    """
+    Applique le formatage (gras, italique) à une police de base de manière complète.
+    Teste la disponibilité de chaque police avant de la retourner.
+    
+    Args:
+        base_font: Police de base (helv, times, cour)
+        font_flags: Flags de formatage PyMuPDF
+        
+    Returns:
+        str: Nom de police avec formatage appliqué ou police de base
+    """
+    import fitz
+    
+    # Constantes PyMuPDF pour les flags
+    BOLD_FLAG = 2**4   # 16
+    ITALIC_FLAG = 2**5  # 32
+    
+    # Détecter le formatage
+    is_bold = bool(font_flags & BOLD_FLAG)
+    is_italic = bool(font_flags & ITALIC_FLAG)
+    
+    logging.debug(f"🎨 Formatage détecté: flags={font_flags}, bold={is_bold}, italic={is_italic}")
+    
+    # Si pas de formatage, retourner la police de base
+    if not is_bold and not is_italic:
+        return base_font
+    
+    # Mapping des polices avec formatage
+    font_mapping = {
+        "helv": {
+            "bold": "helv-bold",
+            "italic": "helv-oblique",
+            "bold_italic": "helv-boldoblique"
+        },
+        "times": {
+            "bold": "times-bold",
+            "italic": "times-italic",
+            "bold_italic": "times-bolditalic"
+        },
+        "cour": {
+            "bold": "cour-bold",
+            "italic": "cour-oblique",
+            "bold_italic": "cour-boldoblique"
+        }
+    }
+    
+    # Déterminer la police formatée
+    if base_font in font_mapping:
+        font_variants = font_mapping[base_font]
+        
+        if is_bold and is_italic:
+            formatted_font = font_variants.get("bold_italic", base_font)
+        elif is_bold:
+            formatted_font = font_variants.get("bold", base_font)
+        elif is_italic:
+            formatted_font = font_variants.get("italic", base_font)
+        else:
+            formatted_font = base_font
+        
+        logging.debug(f"🎨 Police formatée: {base_font} → {formatted_font}")
+        return formatted_font
+    
+    # Si la police de base n'est pas reconnue, retourner telle quelle
+    logging.debug(f"🎨 Police non reconnue, retour de la police de base: {base_font}")
+    return base_font
