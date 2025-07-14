@@ -464,7 +464,7 @@ def deanonymize_pdf_file(file_content: bytes, mapping: Dict[str, str]) -> bytes:
         raise 
 
 
-# ===== NOUVEAU PIPELINE PDF → WORD → ANONYMISATION → PDF =====
+# ===== NOUVEAU PIPELINE PDF → WORD → PDF =====
 
 def convert_pdf_to_word_enhanced(pdf_content: bytes) -> bytes:
     """
@@ -902,3 +902,254 @@ def deanonymize_pdf_enhanced_pipeline(pdf_content: bytes, mapping: Dict[str, str
     except Exception as e:
         logging.error(f"❌ Erreur dans le pipeline PDF dé-anonymisation enhanced: {str(e)}")
         raise Exception(f"Erreur pipeline PDF dé-anonymisation enhanced: {str(e)}") 
+
+
+# ===== ANONYMISATION DIRECTE PDF AVEC PYMUPDF =====
+
+def anonymize_pdf_direct(pdf_content: bytes, tiers: List[Dict[str, Any]] = []) -> Tuple[bytes, Dict[str, str]]:
+    """
+    Anonymise directement un PDF en remplaçant le texte in-place avec PyMuPDF.
+    Préserve parfaitement la mise en page, les polices, les couleurs et la structure.
+    
+    Args:
+        pdf_content: Le contenu du fichier PDF original
+        tiers: Liste des tiers avec leurs informations personnelles
+        
+    Returns:
+        Tuple contenant (pdf_anonymisé, mapping_des_remplacements)
+    """
+    import fitz  # PyMuPDF
+    
+    logging.info("🚀 Début anonymisation PDF directe avec PyMuPDF")
+    logging.info(f"📊 Taille PDF d'entrée: {len(pdf_content)} bytes")
+    logging.info(f"👥 Nombre de tiers: {len(tiers)}")
+    
+    try:
+        # Générer le mapping d'anonymisation
+        full_text = ""
+        doc = fitz.open(stream=pdf_content, filetype="pdf")
+        
+        # Extraire tout le texte pour générer le mapping
+        for page in doc:
+            full_text += page.get_text() + "\n"
+        
+        doc.close()
+        
+        # Générer le mapping d'anonymisation
+        anonymized_text, mapping = anonymize_text(full_text, tiers)
+        logging.info(f"📊 Mapping généré: {len(mapping)} remplacements - {list(mapping.keys())}")
+        
+        # Inverser le mapping pour avoir {valeur_originale: balise_anonymisée}
+        reverse_mapping = {v: k for k, v in mapping.items()}
+        logging.info(f"📊 Mapping inversé: {reverse_mapping}")
+        
+        # Ouvrir le PDF pour modification
+        doc = fitz.open(stream=pdf_content, filetype="pdf")
+        
+        # Parcourir chaque page
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            logging.info(f"📄 Traitement page {page_num + 1}/{len(doc)}")
+            
+            # Obtenir tous les blocs de texte de la page
+            text_blocks = page.get_text("dict")
+            
+            # Parcourir chaque bloc de texte
+            for block in text_blocks["blocks"]:
+                if "lines" in block:  # Bloc de texte
+                    _anonymize_text_block_direct(page, block, reverse_mapping)
+        
+        # Sauvegarder le PDF modifié
+        anonymized_pdf = doc.tobytes()
+        doc.close()
+        
+        logging.info(f"✅ Anonymisation PDF directe terminée avec succès")
+        logging.info(f"📊 Taille PDF anonymisé: {len(anonymized_pdf)} bytes")
+        
+        return anonymized_pdf, mapping
+        
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de l'anonymisation PDF directe: {str(e)}")
+        raise Exception(f"Erreur anonymisation PDF directe: {str(e)}")
+
+
+def _anonymize_text_block_direct(page, block, mapping: Dict[str, str]):
+    """
+    Anonymise un bloc de texte directement dans la page PDF.
+    Le mapping contient: {valeur_originale: balise_anonymisée}
+    """
+    import fitz
+    
+    for line in block["lines"]:
+        for span in line["spans"]:
+            original_text = span["text"]
+            
+            if not original_text.strip():
+                continue
+                
+            # Appliquer les remplacements du mapping
+            anonymized_text = original_text
+            text_changed = False
+            
+            # Le mapping contient {valeur_originale: balise_anonymisée}
+            # Trier les clés par longueur décroissante pour éviter les remplacements partiels
+            sorted_items = sorted(mapping.items(), key=lambda x: len(x[0]), reverse=True)
+            
+            for original_value, anonymized_tag in sorted_items:
+                if original_value in anonymized_text:
+                    anonymized_text = anonymized_text.replace(original_value, anonymized_tag)
+                    text_changed = True
+                    logging.debug(f"🔄 Remplacement: '{original_value}' → '{anonymized_tag}'")
+            
+            # Si le texte a changé, le remplacer dans le PDF
+            if text_changed and anonymized_text != original_text:
+                # Obtenir les propriétés du texte original
+                font_name = span["font"]
+                font_size = span["size"]
+                font_flags = span["flags"]
+                text_color = span["color"]
+                bbox = fitz.Rect(span["bbox"])
+                
+                # Effacer l'ancien texte en le couvrant avec un rectangle blanc
+                page.draw_rect(bbox, color=None, fill=fitz.pdfcolor["white"])
+                
+                # Insérer le nouveau texte anonymisé avec les mêmes propriétés
+                try:
+                    page.insert_text(
+                        bbox.tl,  # Position top-left
+                        anonymized_text,
+                        fontname=font_name,
+                        fontsize=font_size,
+                        color=text_color
+                    )
+                    logging.debug(f"✅ Texte remplacé: '{original_text}' → '{anonymized_text}'")
+                except Exception as e:
+                    logging.warning(f"⚠️ Erreur remplacement texte: {str(e)}")
+                    # Fallback: utiliser une police par défaut
+                    try:
+                        page.insert_text(
+                            bbox.tl,
+                            anonymized_text,
+                            fontname="helv",  # Police par défaut
+                            fontsize=font_size,
+                            color=text_color
+                        )
+                        logging.debug(f"✅ Texte remplacé avec police par défaut")
+                    except Exception as e2:
+                        logging.error(f"❌ Impossible de remplacer le texte: {str(e2)}")
+
+
+def deanonymize_pdf_direct(pdf_content: bytes, mapping: Dict[str, str]) -> bytes:
+    """
+    Dé-anonymise directement un PDF en remplaçant les balises par les valeurs originales.
+    Préserve parfaitement la mise en page, les polices, les couleurs et la structure.
+    
+    Args:
+        pdf_content: Le contenu du fichier PDF anonymisé
+        mapping: Dictionnaire de mapping des balises vers les valeurs originales
+        
+    Returns:
+        bytes: Le contenu du fichier PDF dé-anonymisé
+    """
+    import fitz  # PyMuPDF
+    
+    logging.info("🔓 Début dé-anonymisation PDF directe avec PyMuPDF")
+    logging.info(f"📊 Taille PDF d'entrée: {len(pdf_content)} bytes")
+    logging.info(f"🔢 Nombre de balises dans le mapping: {len(mapping)}")
+    
+    try:
+        # Ouvrir le PDF pour modification
+        doc = fitz.open(stream=pdf_content, filetype="pdf")
+        
+        # Parcourir chaque page
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            logging.info(f"📄 Traitement page {page_num + 1}/{len(doc)}")
+            
+            # Obtenir tous les blocs de texte de la page
+            text_blocks = page.get_text("dict")
+            
+            # Parcourir chaque bloc de texte
+            for block in text_blocks["blocks"]:
+                if "lines" in block:  # Bloc de texte
+                    _deanonymize_text_block_direct(page, block, mapping)
+        
+        # Sauvegarder le PDF modifié
+        deanonymized_pdf = doc.tobytes()
+        doc.close()
+        
+        logging.info(f"✅ Dé-anonymisation PDF directe terminée avec succès")
+        logging.info(f"📊 Taille PDF dé-anonymisé: {len(deanonymized_pdf)} bytes")
+        
+        return deanonymized_pdf
+        
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de la dé-anonymisation PDF directe: {str(e)}")
+        raise Exception(f"Erreur dé-anonymisation PDF directe: {str(e)}")
+
+
+def _deanonymize_text_block_direct(page, block, mapping: Dict[str, str]):
+    """
+    Dé-anonymise un bloc de texte directement dans la page PDF.
+    """
+    import fitz
+    
+    for line in block["lines"]:
+        for span in line["spans"]:
+            original_text = span["text"]
+            
+            if not original_text.strip():
+                continue
+                
+            # Appliquer les remplacements du mapping (balise → valeur originale)
+            deanonymized_text = original_text
+            text_changed = False
+            
+            # Trier les clés par longueur décroissante pour éviter les remplacements partiels
+            sorted_keys = sorted(mapping.keys(), key=len, reverse=True)
+            
+            for anonymized_tag, original_value in mapping.items():
+                if anonymized_tag in deanonymized_text:
+                    deanonymized_text = deanonymized_text.replace(anonymized_tag, original_value)
+                    text_changed = True
+                    logging.debug(f"🔄 Dé-anonymisation: '{anonymized_tag}' → '{original_value}'")
+            
+            # Si le texte a changé, le remplacer dans le PDF
+            if text_changed and deanonymized_text != original_text:
+                # Obtenir les propriétés du texte original
+                font_name = span["font"]
+                font_size = span["size"]
+                font_flags = span["flags"]
+                text_color = span["color"]
+                bbox = fitz.Rect(span["bbox"])
+                
+                # Effacer l'ancien texte en le couvrant avec un rectangle blanc
+                page.draw_rect(bbox, color=None, fill=fitz.pdfcolor["white"])
+                
+                # Insérer le nouveau texte dé-anonymisé avec les mêmes propriétés
+                try:
+                    page.insert_text(
+                        bbox.tl,  # Position top-left
+                        deanonymized_text,
+                        fontname=font_name,
+                        fontsize=font_size,
+                        color=text_color
+                    )
+                    logging.debug(f"✅ Texte dé-anonymisé: '{original_text}' → '{deanonymized_text}'")
+                except Exception as e:
+                    logging.warning(f"⚠️ Erreur dé-anonymisation texte: {str(e)}")
+                    # Fallback: utiliser une police par défaut
+                    try:
+                        page.insert_text(
+                            bbox.tl,
+                            deanonymized_text,
+                            fontname="helv",  # Police par défaut
+                            fontsize=font_size,
+                            color=text_color
+                        )
+                        logging.debug(f"✅ Texte dé-anonymisé avec police par défaut")
+                    except Exception as e2:
+                        logging.error(f"❌ Impossible de dé-anonymiser le texte: {str(e2)}")
+
+
+# ===== FIN ANONYMISATION DIRECTE PDF ===== 

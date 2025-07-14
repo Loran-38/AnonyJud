@@ -14,7 +14,7 @@ from odf import text as odf_text, teletype
 from odf.opendocument import load
 import re # Added for regex in deanonymize_docx_file
 
-from .anonymizer import anonymize_text, anonymize_pdf_file, deanonymize_pdf_file, anonymize_pdf_enhanced_pipeline, deanonymize_pdf_enhanced_pipeline
+from .anonymizer import anonymize_text, anonymize_pdf_file, deanonymize_pdf_file, anonymize_pdf_enhanced_pipeline, deanonymize_pdf_enhanced_pipeline, anonymize_pdf_direct, deanonymize_pdf_direct
 from .deanonymizer import deanonymize_text
 from .models import TextAnonymizationRequest, TextDeanonymizationRequest
 
@@ -503,29 +503,37 @@ async def anonymize_file_download(
                 headers={"Content-Disposition": f"attachment; filename={anonymized_filename}"}
             )
         elif file_extension == ".pdf":
-            print(f"📄 Traitement fichier PDF avec pipeline enhanced...")
-            print(f"🚀 Utilisation du pipeline PDF→Word→Anonymisation→PDF pour préserver la mise en page")
-            # Traitement des fichiers PDF avec le nouveau pipeline enhanced
+            print(f"📄 Traitement fichier PDF avec anonymisation directe...")
+            print(f"🚀 Utilisation de l'anonymisation directe PyMuPDF pour préserver parfaitement la mise en page")
+            # Traitement des fichiers PDF avec l'anonymisation directe
             content = await file.read()
             
-            # Logs de débogage pour le pipeline enhanced
+            # Logs de débogage pour l'anonymisation directe
             print(f"📊 Taille du fichier PDF d'entrée: {len(content)} bytes")
             print(f"👥 Tiers fournis: {[f'{t.get('nom', '')} {t.get('prenom', '')}' for t in tiers]}")
             
             try:
-                # Utiliser le nouveau pipeline enhanced qui préserve la mise en page
-                print(f"🔄 Lancement du pipeline enhanced...")
-                anonymized_file, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
-                print(f"✅ Pipeline enhanced réussi")
+                # Utiliser l'anonymisation directe qui préserve parfaitement la mise en page
+                print(f"🔄 Lancement de l'anonymisation directe...")
+                anonymized_file, mapping = anonymize_pdf_direct(content, tiers)
+                print(f"✅ Anonymisation directe réussie")
                 print(f"📊 Mapping final: {mapping}")
                 print(f"📁 Taille fichier anonymisé: {len(anonymized_file)} bytes")
-            except Exception as enhanced_error:
-                print(f"⚠️ Pipeline enhanced échoué: {str(enhanced_error)}")
-                print(f"🔄 Fallback vers l'ancien système PDF...")
-                # Fallback vers l'ancien système si le enhanced échoue
-                anonymized_file, mapping = anonymize_pdf_file(content, tiers)
-                print(f"✅ Fallback réussi")
-                print(f"📊 Mapping fallback: {mapping}")
+            except Exception as direct_error:
+                print(f"⚠️ Anonymisation directe échouée: {str(direct_error)}")
+                print(f"🔄 Fallback vers le pipeline enhanced...")
+                # Fallback vers le pipeline enhanced si l'anonymisation directe échoue
+                try:
+                    anonymized_file, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
+                    print(f"✅ Pipeline enhanced réussi")
+                    print(f"📊 Mapping fallback enhanced: {mapping}")
+                except Exception as enhanced_error:
+                    print(f"⚠️ Pipeline enhanced échoué: {str(enhanced_error)}")
+                    print(f"🔄 Fallback vers l'ancien système PDF...")
+                    # Fallback vers l'ancien système si tout échoue
+                    anonymized_file, mapping = anonymize_pdf_file(content, tiers)
+                    print(f"✅ Fallback ancien système réussi")
+                    print(f"📊 Mapping fallback ancien: {mapping}")
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
@@ -614,29 +622,37 @@ async def deanonymize_file_download(
                 headers={"Content-Disposition": f"attachment; filename={deanonymized_filename}"}
             )
         elif file_extension == ".pdf":
-            print(f"📄 Traitement fichier PDF avec pipeline enhanced...")
-            print(f"🚀 Utilisation du pipeline PDF→Word→Dé-anonymisation→PDF pour préserver la mise en page")
-            # Traitement des fichiers PDF avec le nouveau pipeline enhanced
+            print(f"📄 Traitement fichier PDF avec dé-anonymisation directe...")
+            print(f"🚀 Utilisation de la dé-anonymisation directe PyMuPDF pour préserver parfaitement la mise en page")
+            # Traitement des fichiers PDF avec la dé-anonymisation directe
             content = await file.read()
             
-            # Logs de débogage pour le pipeline enhanced
+            # Logs de débogage pour la dé-anonymisation directe
             print(f"📊 Taille du fichier PDF d'entrée: {len(content)} bytes") 
             print(f"🗂️ Mapping fourni: {mapping}")
             print(f"🔢 Nombre de balises dans le mapping: {len(mapping)}")
             
             try:
-                # Utiliser le nouveau pipeline enhanced qui préserve la mise en page
-                print(f"🔓 Lancement du pipeline de dé-anonymisation enhanced...")
-                deanonymized_file = deanonymize_pdf_enhanced_pipeline(content, mapping)
-                print(f"✅ Pipeline enhanced de dé-anonymisation réussi")
+                # Utiliser la dé-anonymisation directe qui préserve parfaitement la mise en page
+                print(f"🔓 Lancement de la dé-anonymisation directe...")
+                deanonymized_file = deanonymize_pdf_direct(content, mapping)
+                print(f"✅ Dé-anonymisation directe réussie")
                 print(f"📁 Taille fichier dé-anonymisé: {len(deanonymized_file)} bytes")
-            except Exception as enhanced_error:
-                print(f"⚠️ Pipeline enhanced échoué: {str(enhanced_error)}")
-                print(f"🔄 Fallback vers l'ancien système PDF...")
-                # Fallback vers l'ancien système si le enhanced échoue
-                deanonymized_file = deanonymize_pdf_file(content, mapping)
-                print(f"✅ Fallback réussi")
-                print(f"📁 Taille fichier fallback: {len(deanonymized_file)} bytes")
+            except Exception as direct_error:
+                print(f"⚠️ Dé-anonymisation directe échouée: {str(direct_error)}")
+                print(f"🔄 Fallback vers le pipeline enhanced...")
+                # Fallback vers le pipeline enhanced si la dé-anonymisation directe échoue
+                try:
+                    deanonymized_file = deanonymize_pdf_enhanced_pipeline(content, mapping)
+                    print(f"✅ Pipeline enhanced de dé-anonymisation réussi")
+                    print(f"📁 Taille fichier enhanced: {len(deanonymized_file)} bytes")
+                except Exception as enhanced_error:
+                    print(f"⚠️ Pipeline enhanced échoué: {str(enhanced_error)}")
+                    print(f"🔄 Fallback vers l'ancien système PDF...")
+                    # Fallback vers l'ancien système si tout échoue
+                    deanonymized_file = deanonymize_pdf_file(content, mapping)
+                    print(f"✅ Fallback ancien système réussi")
+                    print(f"📁 Taille fichier fallback: {len(deanonymized_file)} bytes")
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
