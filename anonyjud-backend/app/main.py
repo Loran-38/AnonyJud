@@ -14,7 +14,7 @@ from odf import text as odf_text, teletype
 from odf.opendocument import load
 import re # Added for regex in deanonymize_docx_file
 
-from .anonymizer import anonymize_text, anonymize_pdf_file, deanonymize_pdf_file
+from .anonymizer import anonymize_text, anonymize_pdf_file, deanonymize_pdf_file, anonymize_pdf_enhanced_pipeline, deanonymize_pdf_enhanced_pipeline
 from .deanonymizer import deanonymize_text
 from .models import TextAnonymizationRequest, TextDeanonymizationRequest
 
@@ -388,11 +388,7 @@ async def deanonymize_file(
                     with fitz.open(stream=content, filetype="pdf") as pdf:
                         text = ""
                         for page in pdf:
-                            try:
-                                text += page.get_text()
-                            except AttributeError:
-                                # Fallback pour différentes versions de PyMuPDF
-                                text += page.getText()
+                            text += page.get_text()
                 elif file_extension in [".doc", ".docx"]:
                     doc = Document(io.BytesIO(content))
                     text = ""
@@ -507,13 +503,29 @@ async def anonymize_file_download(
                 headers={"Content-Disposition": f"attachment; filename={anonymized_filename}"}
             )
         elif file_extension == ".pdf":
-            print(f"📄 Traitement fichier PDF...")
-            # Traitement des fichiers PDF
+            print(f"📄 Traitement fichier PDF avec pipeline enhanced...")
+            print(f"🚀 Utilisation du pipeline PDF→Word→Anonymisation→PDF pour préserver la mise en page")
+            # Traitement des fichiers PDF avec le nouveau pipeline enhanced
             content = await file.read()
             
-            # Utiliser la méthode standard corrigée
-            print(f"📝 Utilisation de la méthode standard corrigée")
-            anonymized_file, mapping = anonymize_pdf_file(content, tiers)
+            # Logs de débogage pour le pipeline enhanced
+            print(f"📊 Taille du fichier PDF d'entrée: {len(content)} bytes")
+            print(f"👥 Tiers fournis: {[f'{t.get(\"nom\", \"\")} {t.get(\"prenom\", \"\")}' for t in tiers]}")
+            
+            try:
+                # Utiliser le nouveau pipeline enhanced qui préserve la mise en page
+                print(f"🔄 Lancement du pipeline enhanced...")
+                anonymized_file, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
+                print(f"✅ Pipeline enhanced réussi")
+                print(f"📊 Mapping final: {mapping}")
+                print(f"📁 Taille fichier anonymisé: {len(anonymized_file)} bytes")
+            except Exception as enhanced_error:
+                print(f"⚠️ Pipeline enhanced échoué: {str(enhanced_error)}")
+                print(f"🔄 Fallback vers l'ancien système PDF...")
+                # Fallback vers l'ancien système si le enhanced échoue
+                anonymized_file, mapping = anonymize_pdf_file(content, tiers)
+                print(f"✅ Fallback réussi")
+                print(f"📊 Mapping fallback: {mapping}")
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
@@ -521,6 +533,7 @@ async def anonymize_file_download(
             
             print(f"✅ Fichier PDF anonymisé: {anonymized_filename}")
             print(f"📊 Mapping généré: {len(mapping)} balises")
+            print(f"🏷️ Balises créées: {list(mapping.keys())}")
             
             # Retourner le fichier modifié
             return StreamingResponse(
@@ -601,13 +614,29 @@ async def deanonymize_file_download(
                 headers={"Content-Disposition": f"attachment; filename={deanonymized_filename}"}
             )
         elif file_extension == ".pdf":
-            print(f"📄 Traitement fichier PDF...")
-            # Traitement des fichiers PDF
+            print(f"📄 Traitement fichier PDF avec pipeline enhanced...")
+            print(f"🚀 Utilisation du pipeline PDF→Word→Dé-anonymisation→PDF pour préserver la mise en page")
+            # Traitement des fichiers PDF avec le nouveau pipeline enhanced
             content = await file.read()
             
-            # Utiliser la méthode standard corrigée
-            print(f"📝 Utilisation de la méthode standard corrigée")
-            deanonymized_file = deanonymize_pdf_file(content, mapping)
+            # Logs de débogage pour le pipeline enhanced
+            print(f"📊 Taille du fichier PDF d'entrée: {len(content)} bytes") 
+            print(f"🗂️ Mapping fourni: {mapping}")
+            print(f"🔢 Nombre de balises dans le mapping: {len(mapping)}")
+            
+            try:
+                # Utiliser le nouveau pipeline enhanced qui préserve la mise en page
+                print(f"🔓 Lancement du pipeline de dé-anonymisation enhanced...")
+                deanonymized_file = deanonymize_pdf_enhanced_pipeline(content, mapping)
+                print(f"✅ Pipeline enhanced de dé-anonymisation réussi")
+                print(f"📁 Taille fichier dé-anonymisé: {len(deanonymized_file)} bytes")
+            except Exception as enhanced_error:
+                print(f"⚠️ Pipeline enhanced échoué: {str(enhanced_error)}")
+                print(f"🔄 Fallback vers l'ancien système PDF...")
+                # Fallback vers l'ancien système si le enhanced échoue
+                deanonymized_file = deanonymize_pdf_file(content, mapping)
+                print(f"✅ Fallback réussi")
+                print(f"📁 Taille fichier fallback: {len(deanonymized_file)} bytes")
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
@@ -618,6 +647,7 @@ async def deanonymize_file_download(
             
             print(f"✅ Fichier PDF dé-anonymisé: {deanonymized_filename}")
             print(f"📊 Mapping appliqué: {len(mapping)} balises")
+            print(f"🏷️ Balises traitées: {list(mapping.keys())}")
             
             # Retourner le fichier modifié
             return StreamingResponse(

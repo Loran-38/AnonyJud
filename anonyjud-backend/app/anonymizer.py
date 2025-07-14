@@ -21,6 +21,20 @@ except ImportError as e:
     print(f"⚠ Support PDF non disponible: {e}")
     print("Pour activer le support PDF, installez: pip install reportlab")
 
+# Imports pour le pipeline PDF → Word → PDF avec préservation de mise en page
+try:
+    from pdf2docx import Converter
+    import tempfile
+    import os
+    import subprocess
+    import sys
+    PDF_ENHANCED_PIPELINE = True
+    print("✓ Pipeline PDF enhanced activé avec pdf2docx")
+except ImportError as e:
+    PDF_ENHANCED_PIPELINE = False
+    print(f"⚠ Pipeline PDF enhanced non disponible: {e}")
+    print("Pour activer le pipeline enhanced, installez: pip install pdf2docx")
+
 
 def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Dict[str, str]]:
     """
@@ -329,23 +343,16 @@ def create_pdf_from_text(text: str, title: str = "Document anonymisé") -> bytes
         story.append(Paragraph(title, title_style))
         story.append(Spacer(1, 12))
     
-    # Diviser le texte en paragraphes (respecter les sauts de ligne)
+    # Diviser le texte en paragraphes
     paragraphs = text.split('\n\n')
     
     for paragraph in paragraphs:
         if paragraph.strip():
-            # Traiter les sauts de ligne simples comme des retours à la ligne
-            lines = paragraph.split('\n')
-            for line in lines:
-                if line.strip():
-                    # Nettoyer la ligne
-                    clean_line = line.strip()
-                    # Échapper les caractères spéciaux pour reportlab
-                    clean_line = clean_line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                    story.append(Paragraph(clean_line, normal_style))
-                    story.append(Spacer(1, 6))  # Espacement plus petit entre les lignes
-            
-            # Espacement plus grand entre les paragraphes
+            # Nettoyer le paragraphe
+            clean_paragraph = paragraph.strip().replace('\n', ' ')
+            # Échapper les caractères spéciaux pour reportlab
+            clean_paragraph = clean_paragraph.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            story.append(Paragraph(clean_paragraph, normal_style))
             story.append(Spacer(1, 12))
     
     # Construire le PDF
@@ -429,39 +436,10 @@ def deanonymize_pdf_file(file_content: bytes, mapping: Dict[str, str]) -> bytes:
         if mapping:
             logging.info(f"Application du mapping - {len(mapping)} remplacements")
             
-            # Trier les balises par longueur décroissante pour éviter les remplacements partiels
-            sorted_tags = sorted(mapping.keys(), key=len, reverse=True)
-            logging.info(f"Balises triées par longueur: {sorted_tags}")
-            
-            replacements_made = 0
-            for tag in sorted_tags:
+            for tag, original_value in mapping.items():
                 if tag in deanonymized_text:
-                    original_value = mapping[tag]
-                    
-                    # Compter les occurrences avant remplacement
-                    count_before = deanonymized_text.count(tag)
-                    
-                    # Utiliser une expression régulière pour remplacer la balise exacte (pas de remplacement partiel)
-                    pattern = re.compile(r'\b' + re.escape(tag) + r'\b')
-                    deanonymized_new = pattern.sub(original_value, deanonymized_text)
-                    
-                    # Compter les occurrences après remplacement
-                    count_after = deanonymized_new.count(tag)
-                    actual_replacements = count_before - count_after
-                    
-                    if actual_replacements > 0:
-                        logging.debug(f"Remplacé {actual_replacements} occurrence(s) de '{tag}' par '{original_value}'")
-                        replacements_made += actual_replacements
-                        deanonymized_text = deanonymized_new
-                    else:
-                        logging.debug(f"Aucun remplacement pour '{tag}' (pas de correspondance de mots entiers)")
-                        # Essayer un remplacement simple comme fallback
-                        if tag in deanonymized_text:
-                            deanonymized_text = deanonymized_text.replace(tag, original_value)
-                            logging.debug(f"Remplacement simple effectué pour '{tag}'")
-                            replacements_made += 1
-            
-            logging.info(f"Total des remplacements effectués: {replacements_made}")
+                    deanonymized_text = deanonymized_text.replace(tag, original_value)
+                    logging.debug(f"Remplacé {tag} par {original_value}")
         
         logging.info("Dé-anonymisation du texte terminée")
         
@@ -474,3 +452,275 @@ def deanonymize_pdf_file(file_content: bytes, mapping: Dict[str, str]) -> bytes:
     except Exception as e:
         logging.error(f"Erreur lors de la dé-anonymisation PDF: {str(e)}")
         raise 
+
+
+# ===== NOUVEAU PIPELINE PDF → WORD → ANONYMISATION → PDF =====
+
+def convert_pdf_to_word_enhanced(pdf_content: bytes) -> bytes:
+    """
+    Convertit un PDF en Word en préservant strictement la mise en page avec pdf2docx.
+    
+    Args:
+        pdf_content: Le contenu du fichier PDF
+        
+    Returns:
+        bytes: Le contenu du fichier Word (.docx) généré
+    """
+    if not PDF_ENHANCED_PIPELINE:
+        raise ImportError("Pipeline PDF enhanced non disponible. Installez pdf2docx: pip install pdf2docx")
+    
+    logging.info("🔄 Début conversion PDF → Word avec préservation de mise en page")
+    
+    try:
+        # Créer des fichiers temporaires pour la conversion
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
+            temp_pdf.write(pdf_content)
+            temp_pdf_path = temp_pdf.name
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_docx:
+            temp_docx_path = temp_docx.name
+        
+        try:
+            # Conversion PDF → DOCX avec pdf2docx
+            logging.info(f"📄 Conversion de {temp_pdf_path} vers {temp_docx_path}")
+            
+            # Utiliser pdf2docx pour convertir avec préservation maximale
+            cv = Converter(temp_pdf_path)
+            cv.convert(temp_docx_path, start=0, end=None)
+            cv.close()
+            
+            # Lire le fichier Word généré
+            with open(temp_docx_path, 'rb') as f:
+                docx_content = f.read()
+            
+            logging.info(f"✅ Conversion PDF → Word réussie. Taille DOCX: {len(docx_content)} bytes")
+            return docx_content
+            
+        finally:
+            # Nettoyer les fichiers temporaires
+            if os.path.exists(temp_pdf_path):
+                os.unlink(temp_pdf_path)
+            if os.path.exists(temp_docx_path):
+                os.unlink(temp_docx_path)
+    
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de la conversion PDF → Word: {str(e)}")
+        raise Exception(f"Erreur conversion PDF → Word: {str(e)}")
+
+
+def convert_word_to_pdf_enhanced(docx_content: bytes) -> bytes:
+    """
+    Convertit un fichier Word en PDF en préservant la mise en page.
+    Utilise LibreOffice en mode headless ou reportlab selon la disponibilité.
+    
+    Args:
+        docx_content: Le contenu du fichier Word (.docx)
+        
+    Returns:
+        bytes: Le contenu du fichier PDF généré
+    """
+    logging.info("🔄 Début conversion Word → PDF avec préservation de mise en page")
+    
+    try:
+        # Méthode 1: Essayer LibreOffice headless (meilleure préservation)
+        return _convert_word_to_pdf_libreoffice(docx_content)
+    except Exception as e:
+        logging.warning(f"⚠️ LibreOffice non disponible: {str(e)}")
+        
+        try:
+            # Méthode 2: Fallback avec extraction de texte + reportlab
+            logging.info("🔄 Fallback: conversion via extraction de texte + reportlab")
+            return _convert_word_to_pdf_reportlab(docx_content)
+        except Exception as e2:
+            logging.error(f"❌ Toutes les méthodes de conversion ont échoué: {str(e2)}")
+            raise Exception(f"Impossible de convertir Word → PDF: {str(e2)}")
+
+
+def _convert_word_to_pdf_libreoffice(docx_content: bytes) -> bytes:
+    """
+    Convertit Word → PDF avec LibreOffice en mode headless (préservation maximale).
+    """
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_docx:
+        temp_docx.write(docx_content)
+        temp_docx_path = temp_docx.name
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
+        temp_pdf_path = temp_pdf.name
+    
+    try:
+        # Déterminer la commande LibreOffice selon l'OS
+        if sys.platform == "win32":
+            # Windows
+            libreoffice_commands = [
+                "soffice",
+                "libreoffice",
+                r"C:\Program Files\LibreOffice\program\soffice.exe",
+                r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"
+            ]
+        elif sys.platform == "darwin":
+            # macOS
+            libreoffice_commands = [
+                "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+                "soffice",
+                "libreoffice"
+            ]
+        else:
+            # Linux
+            libreoffice_commands = [
+                "soffice",
+                "libreoffice",
+                "/usr/bin/soffice",
+                "/opt/libreoffice7.1/program/soffice"
+            ]
+        
+        # Essayer chaque commande jusqu'à ce qu'une fonctionne
+        success = False
+        for cmd in libreoffice_commands:
+            try:
+                # Commande LibreOffice headless
+                result = subprocess.run([
+                    cmd,
+                    "--headless",
+                    "--convert-to", "pdf",
+                    "--outdir", os.path.dirname(temp_pdf_path),
+                    temp_docx_path
+                ], capture_output=True, text=True, timeout=30)
+                
+                if result.returncode == 0:
+                    success = True
+                    logging.info(f"✅ LibreOffice conversion réussie avec: {cmd}")
+                    break
+                else:
+                    logging.debug(f"❌ Commande {cmd} échouée: {result.stderr}")
+            except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+                logging.debug(f"❌ Commande {cmd} non trouvée ou timeout: {str(e)}")
+                continue
+        
+        if not success:
+            raise Exception("LibreOffice non trouvé ou échec de conversion")
+        
+        # Le fichier PDF généré aura le même nom de base que le docx
+        expected_pdf_path = temp_docx_path.replace('.docx', '.pdf')
+        
+        if not os.path.exists(expected_pdf_path):
+            raise Exception(f"Fichier PDF non généré: {expected_pdf_path}")
+        
+        # Lire le PDF généré
+        with open(expected_pdf_path, 'rb') as f:
+            pdf_content = f.read()
+        
+        logging.info(f"✅ Conversion Word → PDF réussie. Taille PDF: {len(pdf_content)} bytes")
+        return pdf_content
+        
+    finally:
+        # Nettoyer les fichiers temporaires
+        if os.path.exists(temp_docx_path):
+            os.unlink(temp_docx_path)
+        if os.path.exists(temp_pdf_path):
+            os.unlink(temp_pdf_path)
+        
+        # Nettoyer le PDF généré par LibreOffice
+        expected_pdf_path = temp_docx_path.replace('.docx', '.pdf')
+        if os.path.exists(expected_pdf_path):
+            os.unlink(expected_pdf_path)
+
+
+def _convert_word_to_pdf_reportlab(docx_content: bytes) -> bytes:
+    """
+    Méthode de fallback: extrait le texte du Word et génère un PDF avec reportlab.
+    """
+    if not PDF_SUPPORT:
+        raise ImportError("Support PDF non disponible. Installez reportlab: pip install reportlab")
+    
+    from docx import Document
+    
+    # Extraire le texte du document Word
+    doc = Document(BytesIO(docx_content))
+    text = ""
+    
+    for para in doc.paragraphs:
+        text += para.text + "\n"
+    
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for para in cell.paragraphs:
+                    text += para.text + "\n"
+    
+    # Générer un PDF avec le texte extrait
+    return create_pdf_from_text(text, "Document converti depuis Word")
+
+
+def anonymize_pdf_enhanced_pipeline(pdf_content: bytes, tiers: List[Dict[str, Any]] = []) -> Tuple[bytes, Dict[str, str]]:
+    """
+    Pipeline complet : PDF → Word → Anonymisation → PDF
+    Préserve la mise en page tout au long du processus.
+    
+    Args:
+        pdf_content: Le contenu du fichier PDF original
+        tiers: Liste des tiers avec leurs informations personnelles
+        
+    Returns:
+        Tuple contenant (pdf_anonymisé, mapping_des_remplacements)
+    """
+    logging.info("🚀 Début du pipeline PDF enhanced: PDF → Word → Anonymisation → PDF")
+    
+    try:
+        # Étape 1: PDF → Word avec préservation de mise en page
+        logging.info("📄 Étape 1/3: Conversion PDF → Word")
+        docx_content = convert_pdf_to_word_enhanced(pdf_content)
+        
+        # Étape 2: Anonymisation du fichier Word (préserve le formatage)
+        logging.info("🔒 Étape 2/3: Anonymisation du document Word")
+        from .main import anonymize_docx_file  # Import dynamique pour éviter la circularité
+        anonymized_docx_content, mapping = anonymize_docx_file(docx_content, tiers)
+        
+        # Étape 3: Word anonymisé → PDF final
+        logging.info("📄 Étape 3/3: Conversion Word anonymisé → PDF")
+        final_pdf_content = convert_word_to_pdf_enhanced(anonymized_docx_content)
+        
+        logging.info(f"✅ Pipeline PDF enhanced terminé avec succès")
+        logging.info(f"📊 Mapping généré: {len(mapping)} remplacements")
+        
+        return final_pdf_content, mapping
+        
+    except Exception as e:
+        logging.error(f"❌ Erreur dans le pipeline PDF enhanced: {str(e)}")
+        raise Exception(f"Erreur pipeline PDF enhanced: {str(e)}")
+
+
+def deanonymize_pdf_enhanced_pipeline(pdf_content: bytes, mapping: Dict[str, str]) -> bytes:
+    """
+    Pipeline de dé-anonymisation : PDF → Word → Dé-anonymisation → PDF
+    Préserve la mise en page tout au long du processus.
+    
+    Args:
+        pdf_content: Le contenu du fichier PDF anonymisé
+        mapping: Dictionnaire de mapping des balises vers les valeurs originales
+        
+    Returns:
+        bytes: Le contenu du fichier PDF dé-anonymisé
+    """
+    logging.info("🔓 Début du pipeline PDF dé-anonymisation enhanced")
+    
+    try:
+        # Étape 1: PDF anonymisé → Word avec préservation de mise en page
+        logging.info("📄 Étape 1/3: Conversion PDF anonymisé → Word")
+        docx_content = convert_pdf_to_word_enhanced(pdf_content)
+        
+        # Étape 2: Dé-anonymisation du fichier Word (préserve le formatage)
+        logging.info("🔓 Étape 2/3: Dé-anonymisation du document Word")
+        from .main import deanonymize_docx_file  # Import dynamique pour éviter la circularité
+        deanonymized_docx_content = deanonymize_docx_file(docx_content, mapping)
+        
+        # Étape 3: Word dé-anonymisé → PDF final
+        logging.info("📄 Étape 3/3: Conversion Word dé-anonymisé → PDF")
+        final_pdf_content = convert_word_to_pdf_enhanced(deanonymized_docx_content)
+        
+        logging.info(f"✅ Pipeline PDF dé-anonymisation enhanced terminé avec succès")
+        
+        return final_pdf_content
+        
+    except Exception as e:
+        logging.error(f"❌ Erreur dans le pipeline PDF dé-anonymisation enhanced: {str(e)}")
+        raise Exception(f"Erreur pipeline PDF dé-anonymisation enhanced: {str(e)}") 
