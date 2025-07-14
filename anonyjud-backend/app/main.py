@@ -105,10 +105,10 @@ async def anonymize_file(
         file_extension = os.path.splitext(filename)[1].lower()
         
         if file_extension == ".pdf":
-            # Traitement des fichiers PDF
+            # Traitement sécurisé des fichiers PDF : pipeline PDF → Word → Anonymisation → PDF
             content = await file.read()
-            pdf_text, mapping = extract_and_anonymize_pdf(content, tiers)
-            return {"text": pdf_text, "mapping": mapping}
+            anonymized_file, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
+            return {"text": "PDF anonymisé via pipeline sécurisé", "mapping": mapping}
             
         elif file_extension in [".doc", ".docx"]:
             # Traitement des fichiers Word
@@ -422,7 +422,7 @@ async def deanonymize_file(
         # Procéder à la dé-anonymisation
         if file_extension == ".pdf":
             print(f"📄 Traitement PDF...")
-            pdf_text = extract_and_deanonymize_pdf(content, mapping)
+            pdf_text = extract_and_deanonymize_docx(content, mapping) # Changed to docx as per new_code
             print(f"✅ PDF désanonymisé avec succès")
             return {"text": pdf_text, "mapping": mapping}
             
@@ -503,47 +503,12 @@ async def anonymize_file_download(
                 headers={"Content-Disposition": f"attachment; filename={anonymized_filename}"}
             )
         elif file_extension == ".pdf":
-            print(f"📄 Traitement fichier PDF avec anonymisation directe...")
-            print(f"🚀 Utilisation de l'anonymisation directe PyMuPDF pour préserver parfaitement la mise en page")
-            # Traitement des fichiers PDF avec l'anonymisation directe
+            print(f"📄 Traitement fichier PDF avec pipeline sécurisé PDF → Word → PDF...")
             content = await file.read()
-            
-            # Logs de débogage pour l'anonymisation directe
-            print(f"📊 Taille du fichier PDF d'entrée: {len(content)} bytes")
-            print(f"👥 Tiers fournis: {[f'{t.get('nom', '')} {t.get('prenom', '')}' for t in tiers]}")
-            
-            try:
-                # Utiliser l'anonymisation directe qui préserve parfaitement la mise en page
-                print(f"🔄 Lancement de l'anonymisation directe...")
-                anonymized_file, mapping = anonymize_pdf_direct(content, tiers)
-                print(f"✅ Anonymisation directe réussie")
-                print(f"📊 Mapping final: {mapping}")
-                print(f"📁 Taille fichier anonymisé: {len(anonymized_file)} bytes")
-            except Exception as direct_error:
-                print(f"⚠️ Anonymisation directe échouée: {str(direct_error)}")
-                print(f"🔄 Fallback vers le pipeline enhanced...")
-                # Fallback vers le pipeline enhanced si l'anonymisation directe échoue
-                try:
-                    anonymized_file, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
-                    print(f"✅ Pipeline enhanced réussi")
-                    print(f"📊 Mapping fallback enhanced: {mapping}")
-                except Exception as enhanced_error:
-                    print(f"⚠️ Pipeline enhanced échoué: {str(enhanced_error)}")
-                    print(f"🔄 Fallback vers l'ancien système PDF...")
-                    # Fallback vers l'ancien système si tout échoue
-                    anonymized_file, mapping = anonymize_pdf_file(content, tiers)
-                    print(f"✅ Fallback ancien système réussi")
-                    print(f"📊 Mapping fallback ancien: {mapping}")
-            
-            # Créer un nom de fichier pour le téléchargement
+            anonymized_file, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
             base_name = os.path.splitext(filename)[0]
             anonymized_filename = f"{base_name}_ANONYM.pdf"
-            
             print(f"✅ Fichier PDF anonymisé: {anonymized_filename}")
-            print(f"📊 Mapping généré: {len(mapping)} balises")
-            print(f"🏷️ Balises créées: {list(mapping.keys())}")
-            
-            # Retourner le fichier modifié
             return StreamingResponse(
                 io.BytesIO(anonymized_file),
                 media_type="application/pdf",
@@ -622,50 +587,14 @@ async def deanonymize_file_download(
                 headers={"Content-Disposition": f"attachment; filename={deanonymized_filename}"}
             )
         elif file_extension == ".pdf":
-            print(f"📄 Traitement fichier PDF avec dé-anonymisation directe...")
-            print(f"🚀 Utilisation de la dé-anonymisation directe PyMuPDF pour préserver parfaitement la mise en page")
-            # Traitement des fichiers PDF avec la dé-anonymisation directe
+            print(f"📄 Traitement fichier PDF avec pipeline sécurisé PDF → Word → PDF...")
             content = await file.read()
-            
-            # Logs de débogage pour la dé-anonymisation directe
-            print(f"📊 Taille du fichier PDF d'entrée: {len(content)} bytes") 
-            print(f"🗂️ Mapping fourni: {mapping}")
-            print(f"🔢 Nombre de balises dans le mapping: {len(mapping)}")
-            
-            try:
-                # Utiliser la dé-anonymisation directe qui préserve parfaitement la mise en page
-                print(f"🔓 Lancement de la dé-anonymisation directe...")
-                deanonymized_file = deanonymize_pdf_direct(content, mapping)
-                print(f"✅ Dé-anonymisation directe réussie")
-                print(f"📁 Taille fichier dé-anonymisé: {len(deanonymized_file)} bytes")
-            except Exception as direct_error:
-                print(f"⚠️ Dé-anonymisation directe échouée: {str(direct_error)}")
-                print(f"🔄 Fallback vers le pipeline enhanced...")
-                # Fallback vers le pipeline enhanced si la dé-anonymisation directe échoue
-                try:
-                    deanonymized_file = deanonymize_pdf_enhanced_pipeline(content, mapping)
-                    print(f"✅ Pipeline enhanced de dé-anonymisation réussi")
-                    print(f"📁 Taille fichier enhanced: {len(deanonymized_file)} bytes")
-                except Exception as enhanced_error:
-                    print(f"⚠️ Pipeline enhanced échoué: {str(enhanced_error)}")
-                    print(f"🔄 Fallback vers l'ancien système PDF...")
-                    # Fallback vers l'ancien système si tout échoue
-                    deanonymized_file = deanonymize_pdf_file(content, mapping)
-                    print(f"✅ Fallback ancien système réussi")
-                    print(f"📁 Taille fichier fallback: {len(deanonymized_file)} bytes")
-            
-            # Créer un nom de fichier pour le téléchargement
+            deanonymized_file = deanonymize_pdf_enhanced_pipeline(content, mapping)
             base_name = os.path.splitext(filename)[0]
-            # Retirer "_ANONYM" du nom si présent
             if base_name.endswith("_ANONYM"):
                 base_name = base_name[:-7]
             deanonymized_filename = f"{base_name}_DESANONYM.pdf"
-            
             print(f"✅ Fichier PDF dé-anonymisé: {deanonymized_filename}")
-            print(f"📊 Mapping appliqué: {len(mapping)} balises")
-            print(f"🏷️ Balises traitées: {list(mapping.keys())}")
-            
-            # Retourner le fichier modifié
             return StreamingResponse(
                 io.BytesIO(deanonymized_file),
                 media_type="application/pdf",
@@ -678,25 +607,6 @@ async def deanonymize_file_download(
     except Exception as e:
         print(f"❌ Erreur dans deanonymize_file_download: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
-def extract_and_anonymize_pdf(content: bytes, tiers: List[Dict[str, Any]]):
-    """
-    Extrait le texte d'un PDF et l'anonymise.
-    """
-    try:
-        # Ouvrir le PDF depuis les bytes
-        with fitz.open(stream=content, filetype="pdf") as pdf:
-            text = ""
-            # Extraire le texte de chaque page
-            for page in pdf:
-                text += page.get_text()
-        
-        # Anonymiser le texte extrait
-        anonymized, mapping = anonymize_text(text, tiers)
-        return anonymized, mapping
-        
-    except Exception as e:
-        raise Exception(f"Erreur lors du traitement du PDF: {str(e)}")
 
 def extract_and_anonymize_docx(content: bytes, tiers: List[Dict[str, Any]]):
     """
@@ -995,25 +905,6 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
     except Exception as e:
         print(f"❌ Erreur dans deanonymize_docx_file: {str(e)}")
         raise Exception(f"Erreur lors de la dé-anonymisation du fichier Word: {str(e)}")
-
-def extract_and_deanonymize_pdf(content: bytes, mapping: Dict[str, str]):
-    """
-    Extrait le texte d'un PDF et le dé-anonymise.
-    """
-    try:
-        # Ouvrir le PDF depuis les bytes
-        with fitz.open(stream=content, filetype="pdf") as pdf:
-            text = ""
-            # Extraire le texte de chaque page
-            for page in pdf:
-                text += page.get_text()
-        
-        # Dé-anonymiser le texte extrait
-        deanonymized = deanonymize_text(text, mapping)
-        return deanonymized
-        
-    except Exception as e:
-        raise Exception(f"Erreur lors du traitement du PDF: {str(e)}")
 
 def extract_and_deanonymize_docx(content: bytes, mapping: Dict[str, str]):
     """
