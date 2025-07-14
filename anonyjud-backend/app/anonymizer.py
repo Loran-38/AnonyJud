@@ -35,6 +35,16 @@ except ImportError as e:
     print(f"⚠ Pipeline PDF enhanced non disponible: {e}")
     print("Pour activer le pipeline enhanced, installez: pip install pdf2docx")
 
+# Import docx2pdf comme alternative à LibreOffice
+try:
+    from docx2pdf import convert as docx2pdf_convert
+    DOCX2PDF_AVAILABLE = True
+    print("✓ docx2pdf disponible pour conversion Word→PDF")
+except ImportError as e:
+    DOCX2PDF_AVAILABLE = False
+    print(f"⚠ docx2pdf non disponible: {e}")
+    print("Pour installer docx2pdf: pip install docx2pdf")
+
 
 def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Dict[str, str]]:
     """
@@ -485,9 +495,15 @@ def convert_pdf_to_word_enhanced(pdf_content: bytes) -> bytes:
             logging.info(f"📄 Conversion de {temp_pdf_path} vers {temp_docx_path}")
             
             # Utiliser pdf2docx pour convertir avec préservation maximale
+            # Paramètres optimisés pour préserver la mise en page
             cv = Converter(temp_pdf_path)
-            cv.convert(temp_docx_path, start=0, end=None)
+            cv.convert(temp_docx_path, 
+                      start=0, 
+                      # Paramètres pour préserver au maximum la mise en page
+                      multi_processing=False)  # Éviter les problèmes de concurrence
             cv.close()
+            
+            logging.info(f"✅ Conversion pdf2docx terminée")
             
             # Lire le fichier Word généré
             with open(temp_docx_path, 'rb') as f:
@@ -511,7 +527,7 @@ def convert_pdf_to_word_enhanced(pdf_content: bytes) -> bytes:
 def convert_word_to_pdf_enhanced(docx_content: bytes) -> bytes:
     """
     Convertit un fichier Word en PDF en préservant la mise en page.
-    Utilise LibreOffice en mode headless ou reportlab selon la disponibilité.
+    Utilise plusieurs méthodes par ordre de préférence pour la préservation.
     
     Args:
         docx_content: Le contenu du fichier Word (.docx)
@@ -521,19 +537,66 @@ def convert_word_to_pdf_enhanced(docx_content: bytes) -> bytes:
     """
     logging.info("🔄 Début conversion Word → PDF avec préservation de mise en page")
     
+    # Méthode 1: docx2pdf (Windows, meilleure préservation)
+    if DOCX2PDF_AVAILABLE:
+        try:
+            logging.info("🔄 Tentative conversion avec docx2pdf...")
+            return _convert_word_to_pdf_docx2pdf(docx_content)
+        except Exception as e:
+            logging.warning(f"⚠️ docx2pdf échoué: {str(e)}")
+    
+    # Méthode 2: LibreOffice headless (cross-platform, bonne préservation)
     try:
-        # Méthode 1: Essayer LibreOffice headless (meilleure préservation)
+        logging.info("🔄 Tentative conversion avec LibreOffice...")
         return _convert_word_to_pdf_libreoffice(docx_content)
     except Exception as e:
         logging.warning(f"⚠️ LibreOffice non disponible: {str(e)}")
         
-        try:
-            # Méthode 2: Fallback avec extraction de texte + reportlab
-            logging.info("🔄 Fallback: conversion via extraction de texte + reportlab")
-            return _convert_word_to_pdf_reportlab(docx_content)
-        except Exception as e2:
-            logging.error(f"❌ Toutes les méthodes de conversion ont échoué: {str(e2)}")
-            raise Exception(f"Impossible de convertir Word → PDF: {str(e2)}")
+    # Méthode 3: Fallback amélioré avec reportlab (préservation partielle)
+    try:
+        logging.info("🔄 Fallback: conversion améliorée avec reportlab...")
+        return _convert_word_to_pdf_reportlab_enhanced(docx_content)
+    except Exception as e2:
+        logging.error(f"❌ Toutes les méthodes de conversion ont échoué: {str(e2)}")
+        raise Exception(f"Impossible de convertir Word → PDF: {str(e2)}")
+
+
+def _convert_word_to_pdf_docx2pdf(docx_content: bytes) -> bytes:
+    """
+    Convertit Word → PDF avec docx2pdf (Windows uniquement, excellente préservation).
+    """
+    if not DOCX2PDF_AVAILABLE:
+        raise ImportError("docx2pdf non disponible")
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_docx:
+        temp_docx.write(docx_content)
+        temp_docx_path = temp_docx.name
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
+        temp_pdf_path = temp_pdf.name
+    
+    try:
+        # Utiliser docx2pdf pour la conversion
+        logging.info(f"📄 Conversion docx2pdf: {temp_docx_path} → {temp_pdf_path}")
+        docx2pdf_convert(temp_docx_path, temp_pdf_path)
+        
+        # Vérifier que le fichier PDF a été créé
+        if not os.path.exists(temp_pdf_path):
+            raise Exception(f"Fichier PDF non généré par docx2pdf: {temp_pdf_path}")
+        
+        # Lire le PDF généré
+        with open(temp_pdf_path, 'rb') as f:
+            pdf_content = f.read()
+        
+        logging.info(f"✅ Conversion docx2pdf réussie. Taille PDF: {len(pdf_content)} bytes")
+        return pdf_content
+        
+    finally:
+        # Nettoyer les fichiers temporaires
+        if os.path.exists(temp_docx_path):
+            os.unlink(temp_docx_path)
+        if os.path.exists(temp_pdf_path):
+            os.unlink(temp_pdf_path)
 
 
 def _convert_word_to_pdf_libreoffice(docx_content: bytes) -> bytes:
@@ -651,6 +714,115 @@ def _convert_word_to_pdf_reportlab(docx_content: bytes) -> bytes:
     return create_pdf_from_text(text, "Document converti depuis Word")
 
 
+def _convert_word_to_pdf_reportlab_enhanced(docx_content: bytes) -> bytes:
+    """
+    Méthode de fallback améliorée: extrait le texte du Word avec préservation partielle de la structure.
+    """
+    if not PDF_SUPPORT:
+        raise ImportError("Support PDF non disponible. Installez reportlab: pip install reportlab")
+    
+    from docx import Document
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+    
+    # Ouvrir le document Word
+    doc = Document(BytesIO(docx_content))
+    
+    # Créer un buffer pour le PDF
+    buffer = BytesIO()
+    pdf_doc = SimpleDocTemplate(buffer, pagesize=A4, 
+                               rightMargin=72, leftMargin=72,
+                               topMargin=72, bottomMargin=72)
+    
+    # Styles
+    styles = getSampleStyleSheet()
+    normal_style = styles['Normal']
+    normal_style.alignment = TA_JUSTIFY
+    normal_style.fontSize = 11
+    normal_style.leading = 14
+    
+    # Titre style
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        spaceAfter=12,
+        alignment=TA_CENTER
+    )
+    
+    # Sous-titre style
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=8,
+        alignment=TA_LEFT
+    )
+    
+    story = []
+    
+    # Traiter chaque paragraphe
+    for para in doc.paragraphs:
+        if para.text.strip():
+            text = para.text.strip()
+            
+            # Échapper les caractères spéciaux
+            text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            
+            # Détecter les titres (heuristique simple)
+            if len(text) < 100 and (text.isupper() or text.startswith('TITRE') or text.startswith('CHAPITRE')):
+                story.append(Paragraph(text, title_style))
+            elif len(text) < 80 and text.endswith(':'):
+                story.append(Paragraph(text, subtitle_style))
+            else:
+                story.append(Paragraph(text, normal_style))
+            
+            story.append(Spacer(1, 6))
+    
+    # Traiter les tableaux
+    for table in doc.tables:
+        table_data = []
+        for row in table.rows:
+            row_data = []
+            for cell in row.cells:
+                cell_text = ""
+                for para in cell.paragraphs:
+                    if para.text.strip():
+                        cell_text += para.text.strip() + " "
+                row_data.append(cell_text.strip())
+            if any(row_data):  # Seulement si la ligne n'est pas vide
+                table_data.append(row_data)
+        
+        if table_data:
+            # Créer le tableau PDF
+            pdf_table = Table(table_data)
+            pdf_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            story.append(pdf_table)
+            story.append(Spacer(1, 12))
+    
+    # Construire le PDF
+    pdf_doc.build(story)
+    
+    # Récupérer le contenu
+    pdf_content = buffer.getvalue()
+    buffer.close()
+    
+    logging.info(f"✅ Conversion reportlab enhanced réussie. Taille PDF: {len(pdf_content)} bytes")
+    return pdf_content
+
+
 def anonymize_pdf_enhanced_pipeline(pdf_content: bytes, tiers: List[Dict[str, Any]] = []) -> Tuple[bytes, Dict[str, str]]:
     """
     Pipeline complet : PDF → Word → Anonymisation → PDF
@@ -664,23 +836,29 @@ def anonymize_pdf_enhanced_pipeline(pdf_content: bytes, tiers: List[Dict[str, An
         Tuple contenant (pdf_anonymisé, mapping_des_remplacements)
     """
     logging.info("🚀 Début du pipeline PDF enhanced: PDF → Word → Anonymisation → PDF")
+    logging.info(f"📊 Taille PDF d'entrée: {len(pdf_content)} bytes")
+    logging.info(f"👥 Nombre de tiers: {len(tiers)}")
     
     try:
         # Étape 1: PDF → Word avec préservation de mise en page
         logging.info("📄 Étape 1/3: Conversion PDF → Word")
         docx_content = convert_pdf_to_word_enhanced(pdf_content)
+        logging.info(f"✅ PDF → Word réussi. Taille DOCX: {len(docx_content)} bytes")
         
         # Étape 2: Anonymisation du fichier Word (préserve le formatage)
         logging.info("🔒 Étape 2/3: Anonymisation du document Word")
         from .main import anonymize_docx_file  # Import dynamique pour éviter la circularité
         anonymized_docx_content, mapping = anonymize_docx_file(docx_content, tiers)
+        logging.info(f"✅ Anonymisation Word réussie. Taille DOCX anonymisé: {len(anonymized_docx_content)} bytes")
+        logging.info(f"📊 Mapping généré: {len(mapping)} remplacements - {list(mapping.keys())}")
         
         # Étape 3: Word anonymisé → PDF final
         logging.info("📄 Étape 3/3: Conversion Word anonymisé → PDF")
         final_pdf_content = convert_word_to_pdf_enhanced(anonymized_docx_content)
+        logging.info(f"✅ Word → PDF réussi. Taille PDF final: {len(final_pdf_content)} bytes")
         
-        logging.info(f"✅ Pipeline PDF enhanced terminé avec succès")
-        logging.info(f"📊 Mapping généré: {len(mapping)} remplacements")
+        logging.info(f"🎉 Pipeline PDF enhanced terminé avec succès")
+        logging.info(f"📊 Résumé: PDF({len(pdf_content)}) → DOCX({len(docx_content)}) → DOCX_ANONYM({len(anonymized_docx_content)}) → PDF_FINAL({len(final_pdf_content)})")
         
         return final_pdf_content, mapping
         
