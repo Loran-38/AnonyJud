@@ -49,6 +49,7 @@ except ImportError as e:
 def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Dict[str, str]]:
     """
     Anonymise le texte en détectant les entités personnelles et en les remplaçant par des balises.
+    Étendu : anonymise aussi les dates, numéros de sécurité sociale, numéros de carte, références, etc.
     
     Args:
         text: Le texte à anonymiser
@@ -61,6 +62,68 @@ def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Di
     mapping = {}
     anonymized = text
     
+    # --- ANONYMISATION DES DATES ---
+    # Formats français courants : 15/12/2023, 15-12-2023, 15 décembre 2023, 2023-12-15, etc.
+    date_patterns = [
+        r'\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b',  # 15/12/2023 ou 15-12-2023
+        r'\b(\d{4}[/-]\d{1,2}[/-]\d{1,2})\b',    # 2023-12-15
+        r'\b(\d{1,2} [a-zA-Zéûî]+ \d{4})\b',      # 15 décembre 2023
+    ]
+    date_count = 1
+    for pattern in date_patterns:
+        for match in re.finditer(pattern, anonymized):
+            date = match.group(0)
+            if date not in mapping.values():
+                tag = f"DATE{date_count}"
+                mapping[tag] = date
+                anonymized = anonymized.replace(date, tag)
+                date_count += 1
+
+    # --- ANONYMISATION NUMÉROS DE SÉCURITÉ SOCIALE (NIR) ---
+    nir_pattern = r'\b(\d{2} ?\d{2} ?\d{2} ?\d{3} ?\d{3} ?\d{2})\b'
+    nir_count = 1
+    for match in re.finditer(nir_pattern, anonymized):
+        nir = match.group(0)
+        if nir not in mapping.values():
+            tag = f"NIR{nir_count}"
+            mapping[tag] = nir
+            anonymized = anonymized.replace(nir, tag)
+            nir_count += 1
+
+    # --- ANONYMISATION NUMÉROS DE CARTE BANCAIRE ---
+    cb_pattern = r'\b(\d{4} ?\d{4} ?\d{4} ?\d{4})\b'
+    cb_count = 1
+    for match in re.finditer(cb_pattern, anonymized):
+        cb = match.group(0)
+        if cb not in mapping.values():
+            tag = f"CB{cb_count}"
+            mapping[tag] = cb
+            anonymized = anonymized.replace(cb, tag)
+            cb_count += 1
+
+    # --- ANONYMISATION NUMÉROS DE DOSSIER/RÉFÉRENCE ---
+    ref_pattern = r'\b([A-Z]{2,5}\d{3,10})\b'
+    ref_count = 1
+    for match in re.finditer(ref_pattern, anonymized):
+        ref = match.group(0)
+        if ref not in mapping.values():
+            tag = f"REF{ref_count}"
+            mapping[tag] = ref
+            anonymized = anonymized.replace(ref, tag)
+            ref_count += 1
+
+    # --- ANONYMISATION NUMÉROS SIMPLES (hors téléphone déjà géré) ---
+    simple_num_pattern = r'\b(\d{6,})\b'
+    num_count = 1
+    for match in re.finditer(simple_num_pattern, anonymized):
+        num = match.group(0)
+        if num not in mapping.values():
+            tag = f"NUM{num_count}"
+            mapping[tag] = num
+            anonymized = anonymized.replace(num, tag)
+            num_count += 1
+
+    # --- ANONYMISATION CLASSIQUE (tiers, emails, etc.) ---
     # Si aucun tiers n'est fourni, on utilise une détection basique
     if not tiers or len(tiers) == 0:
         # Anonymisation basique (sans tiers)
@@ -1963,7 +2026,7 @@ def _deanonymize_text_block_perfect_alignment(page, block, mapping: Dict[str, st
 
 def _safe_replace_with_word_boundaries(text: str, old_value: str, new_value: str) -> str:
     """
-    Remplace une valeur dans le texte en utilisant des limites de mots pour éviter les remplacements partiels.
+    Remplace une valeur dans le texte de manière agressive pour l'anonymisation.
     
     Args:
         text: Texte dans lequel effectuer le remplacement
@@ -1976,12 +2039,24 @@ def _safe_replace_with_word_boundaries(text: str, old_value: str, new_value: str
     # Échapper les caractères spéciaux pour les expressions régulières
     escaped_old = re.escape(old_value)
     
-    # Créer un pattern avec des limites de mots
-    # \b assure que le remplacement ne se fait que sur des mots entiers
-    pattern = r'\b' + escaped_old + r'\b'
+    # CORRECTION: Utiliser un pattern plus agressif pour l'anonymisation
+    # Pattern 1: Avec limites de mots (pour les mots entiers)
+    pattern1 = r'\b' + escaped_old + r'\b'
+    result = re.sub(pattern1, new_value, text, flags=re.IGNORECASE)
     
-    # Effectuer le remplacement avec des expressions régulières
-    result = re.sub(pattern, new_value, text, flags=re.IGNORECASE)
+    # Pattern 2: Sans limites de mots (pour capturer les cas manqués)
+    # Utiliser des espaces ou ponctuation autour
+    pattern2 = r'(\s|^)' + escaped_old + r'(\s|$|[.,;:!?])'
+    result = re.sub(pattern2, r'\1' + new_value + r'\2', result, flags=re.IGNORECASE)
+    
+    # Pattern 3: Remplacement direct pour les cas restants
+    # Utiliser une recherche simple mais avec vérification de contexte
+    if old_value.lower() in result.lower():
+        # Remplacer toutes les occurrences restantes
+        result = result.replace(old_value, new_value)
+        result = result.replace(old_value.upper(), new_value.upper())
+        result = result.replace(old_value.lower(), new_value.lower())
+        result = result.replace(old_value.title(), new_value.title())
     
     return result
 
@@ -2144,22 +2219,18 @@ def _anonymize_text_block_comprehensive(page, block, mapping: Dict[str, str]):
     - Formatage gras/couleur préservé
     - Gestion robuste des erreurs MuPDF
     Le mapping contient: {valeur_originale: balise_anonymisée}
+    Ajout : logs détaillés pour chaque remplacement.
     """
     import fitz
-    
     for line in block["lines"]:
         # Traiter tous les spans d'une ligne ensemble pour maintenir l'alignement
         line_spans = []
-        
         for span in line["spans"]:
             original_text = span["text"]
-            
             if not original_text.strip():
                 continue
-                
             # Appliquer les remplacements du mapping avec remplacement sécurisé
             anonymized_text, text_changed = _safe_replace_in_span_text(original_text, mapping)
-            
             # Ajouter ce span à la liste des spans de la ligne
             line_spans.append({
                 'span': span,
@@ -2167,21 +2238,19 @@ def _anonymize_text_block_comprehensive(page, block, mapping: Dict[str, str]):
                 'anonymized_text': anonymized_text,
                 'text_changed': text_changed
             })
-        
         # Traiter tous les spans modifiés de la ligne
         for span_info in line_spans:
             if span_info['text_changed'] and span_info['anonymized_text'] != span_info['original_text']:
                 span = span_info['span']
                 original_text = span_info['original_text']
                 anonymized_text = span_info['anonymized_text']
-                
-                # Obtenir les propriétés du texte original
                 font_name = span["font"]
                 font_size = span["size"]
-                font_flags = span["flags"]  # Important pour le formatage
+                font_flags = span["flags"]
                 text_color = span["color"]
                 bbox = fitz.Rect(span["bbox"])
-                
+                # LOG DÉTAILLÉ
+                logging.info(f"🔄 Remplacement PDF: '{original_text}' → '{anonymized_text}' | Page: {page.number+1} | BBox: {bbox} | Police: {font_name} | Taille: {font_size} | Flags: {font_flags} | Couleur: {text_color}")
                 # CORRECTION 1: Vérifier et ajuster les marges droites de manière robuste
                 page_rect = page.rect
                 margin_right = 50  # Marge droite de 50 points
