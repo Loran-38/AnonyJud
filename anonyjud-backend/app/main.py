@@ -510,7 +510,7 @@ async def anonymize_file_download(
             
             # Logs de débogage pour le pipeline enhanced
             print(f"📊 Taille du fichier PDF d'entrée: {len(content)} bytes")
-            print(f"👥 Tiers fournis: {[f'{t.get(\"nom\", \"\")} {t.get(\"prenom\", \"\")}' for t in tiers]}")
+            print(f"👥 Tiers fournis: {[f'{t.get('nom', '')} {t.get('prenom', '')}' for t in tiers]}")
             
             try:
                 # Utiliser le nouveau pipeline enhanced qui préserve la mise en page
