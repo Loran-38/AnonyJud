@@ -9,3 +9,6 @@ odfpy==1.4.1
 reportlab==4.0.9
 pdf2docx==0.5.8
 docx2pdf==0.1.8
+# Nouvelles dépendances pour les optimisations de mise en page
+Pillow==10.4.0
+numpy==1.26.4
