@@ -1,0 +1,39 @@
+# Configuration Nixpacks pour Railway
+# Installation des packages système nécessaires
+
+[phases.install]
+aptPkgs = [
+    # LibreOffice complet
+    "libreoffice",
+    "libreoffice-writer", 
+    "libreoffice-calc",
+    "libreoffice-impress",
+    
+    # Polices pour compatibilité
+    "fonts-liberation",
+    "fonts-dejavu", 
+    "fonts-noto",
+    "fonts-opensymbol",
+    
+    # Outils de conversion alternatifs
+    "unoconv",
+    
+    # Dépendances système
+    "curl",
+    "wget"
+]
+
+[phases.setup]
+# Variables d'environnement pour LibreOffice
+[phases.setup.env]
+HOME = "/tmp"
+XDG_CONFIG_HOME = "/tmp/.config"
+XDG_DATA_HOME = "/tmp/.local/share" 
+XDG_CACHE_HOME = "/tmp/.cache"
+
+[phases.build]
+# Créer les répertoires nécessaires
+cmds = [
+    "mkdir -p /tmp/.config /tmp/.local/share /tmp/.cache",
+    "chmod 777 /tmp/.config /tmp/.local/share /tmp/.cache"
+] 

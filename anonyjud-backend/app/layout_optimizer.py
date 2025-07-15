@@ -141,9 +141,10 @@ class LayoutOptimizer:
         
         # Essayer plusieurs méthodes par ordre de préférence
         methods = [
-            self._convert_with_libreoffice_optimized,  # Priorité 1: LibreOffice (cross-platform)
-            self._convert_with_unoconv,                # Priorité 2: unoconv (plus stable)
-            self._convert_with_reportlab_enhanced      # Priorité 3: Fallback reportlab
+            self._convert_with_libreoffice_simple,     # Priorité 1: LibreOffice simple (nixpacks)
+            self._convert_with_libreoffice_optimized,  # Priorité 2: LibreOffice avancé 
+            self._convert_with_unoconv,                # Priorité 3: unoconv
+            self._convert_with_reportlab_enhanced      # Priorité 4: Fallback reportlab
         ]
         
         for method in methods:
@@ -554,6 +555,70 @@ class LayoutOptimizer:
             
         except Exception as e:
             raise Exception(f"Erreur conversion reportlab: {str(e)}")
+    
+    def _convert_with_libreoffice_simple(self, docx_content: bytes) -> bytes:
+        """Conversion simplifiée avec LibreOffice (approche nixpacks)"""
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_docx:
+            temp_docx.write(docx_content)
+            temp_docx_path = temp_docx.name
+        
+        try:
+            # Variables d'environnement optimisées
+            env = os.environ.copy()
+            env.update({
+                'HOME': '/tmp',
+                'XDG_CONFIG_HOME': '/tmp/.config',
+                'XDG_DATA_HOME': '/tmp/.local/share',
+                'XDG_CACHE_HOME': '/tmp/.cache'
+            })
+            
+            # Créer les répertoires si nécessaire
+            for dir_path in ['/tmp/.config', '/tmp/.local/share', '/tmp/.cache']:
+                os.makedirs(dir_path, exist_ok=True)
+            
+            # Répertoire de sortie
+            output_dir = os.path.dirname(temp_docx_path)
+            
+            logger.info("📄 Conversion LibreOffice simplifiée...")
+            
+            # Commande LibreOffice optimisée
+            result = subprocess.run([
+                "soffice", 
+                "--headless", 
+                "--invisible",
+                "--nodefault",
+                "--nolockcheck", 
+                "--nologo",
+                "--norestore",
+                "--convert-to", "pdf", 
+                "--outdir", output_dir,
+                temp_docx_path
+            ], capture_output=True, text=True, timeout=60, env=env, check=True)
+            
+            # Vérifier que le PDF a été généré
+            expected_pdf = temp_docx_path.replace('.docx', '.pdf')
+            if os.path.exists(expected_pdf):
+                with open(expected_pdf, 'rb') as f:
+                    pdf_content = f.read()
+                
+                # Nettoyer le PDF généré
+                os.unlink(expected_pdf)
+                
+                logger.info(f"✅ Conversion LibreOffice simplifiée réussie")
+                return pdf_content
+            else:
+                raise Exception(f"Fichier PDF non généré: {expected_pdf}")
+                
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ Erreur LibreOffice: {e.stderr}")
+            raise Exception(f"Échec conversion LibreOffice: {e.stderr}")
+        except subprocess.TimeoutExpired:
+            logger.error(f"❌ Timeout LibreOffice (60s)")
+            raise Exception("Timeout conversion LibreOffice")
+        finally:
+            # Nettoyer le fichier temporaire
+            if os.path.exists(temp_docx_path):
+                os.unlink(temp_docx_path)
     
     def compare_layouts(self, original_pdf: bytes, optimized_pdf: bytes) -> Dict[str, Any]:
         """
