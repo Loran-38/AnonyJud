@@ -32,16 +32,10 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   const fileInputRef = useRef(null);
   const fileInputDenonRef = useRef(null);
 
-  // ⚠️ DEBUG - Logging des états au chargement
+  // ⚠️ DEBUG - Logging des états au chargement (une seule fois)
   useEffect(() => {
     console.log('🔍 COMPONENT MOUNTED - AnonymizationPanel');
-    console.log('📋 État initial:', {
-      uploadedFile: !!uploadedFile,
-      processedFile: !!processedFile,
-      isProcessing,
-      selectedProject: !!selectedProject
-    });
-
+    
     // ⚠️ DEBUG - Intercepter TOUS les appels fetch
     const originalFetch = window.fetch;
     window.fetch = function(...args) {
@@ -58,9 +52,9 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
     return () => {
       window.fetch = originalFetch;
     };
-  }, []);
+  }, []); // Dépendances vides pour n'exécuter qu'une fois
 
-  // ⚠️ DEBUG - Surveiller les changements d'état
+  // ⚠️ DEBUG - Surveiller les changements d'état uploadedFile
   useEffect(() => {
     if (uploadedFile) {
       console.log('🚨 FICHIER DETECTÉ dans uploadedFile:', uploadedFile.name);
@@ -68,6 +62,7 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
     }
   }, [uploadedFile]);
 
+  // ⚠️ DEBUG - Surveiller les changements d'état processedFile
   useEffect(() => {
     if (processedFile) {
       console.log('🚨 FICHIER DETECTÉ dans processedFile:', processedFile.name);
