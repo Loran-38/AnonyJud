@@ -138,36 +138,111 @@ async def anonymize_file(
     Anonymise un fichier Word, PDF ou ODT en utilisant les tiers fournis.
     """
     try:
+        # Logs de diagnostic détaillés
+        print(f"🚀 ANONYMIZE_FILE - Début du traitement")
+        print(f"📁 Fichier reçu: {file.filename}")
+        print(f"📊 Type de contenu: {file.content_type}")
+        
         # Convertir la chaîne JSON en liste de tiers
-        tiers = json.loads(tiers_json)
+        try:
+            tiers = json.loads(tiers_json)
+            print(f"👥 Nombre de tiers: {len(tiers)}")
+        except json.JSONDecodeError as e:
+            print(f"❌ Erreur décodage JSON tiers: {e}")
+            raise HTTPException(status_code=400, detail=f"Format JSON invalide pour les tiers: {str(e)}")
         
         # Vérifier le type de fichier
         filename = file.filename or ""
         file_extension = os.path.splitext(filename)[1].lower()
+        print(f"📄 Extension détectée: {file_extension}")
+        
+        # Lire le contenu avec diagnostic de taille
+        try:
+            content = await file.read()
+            file_size_mb = len(content) / 1024 / 1024
+            print(f"📦 Taille du fichier: {len(content):,} bytes ({file_size_mb:.1f} MB)")
+            
+            # Avertissement pour gros fichiers
+            if file_size_mb > 100:
+                print(f"⚠️ GROS FICHIER DÉTECTÉ: {file_size_mb:.1f} MB - Traitement peut être lent")
+            if file_size_mb > 1000:
+                print(f"🚨 FICHIER TRÈS VOLUMINEUX: {file_size_mb:.1f} MB - Risque d'erreur mémoire")
+                
+        except Exception as e:
+            print(f"❌ Erreur lecture fichier: {e}")
+            raise HTTPException(status_code=400, detail=f"Impossible de lire le fichier: {str(e)}")
         
         if file_extension == ".pdf":
-            # Traitement sécurisé des fichiers PDF : pipeline PDF → Word → Anonymisation → PDF
-            content = await file.read()
-            anonymized_file, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
-            return {"text": "PDF anonymisé via pipeline sécurisé", "mapping": mapping}
+            print(f"📄 Traitement PDF avec pipeline sécurisé PDF → Word → PDF...")
+            try:
+                # Traitement sécurisé des fichiers PDF : pipeline PDF → Word → Anonymisation → PDF
+                start_time = time.time()
+                anonymized_file, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
+                processing_time = time.time() - start_time
+                
+                print(f"✅ Pipeline PDF terminé en {processing_time:.2f}s")
+                print(f"📊 Mapping généré: {len(mapping)} remplacements")
+                return {"text": "PDF anonymisé via pipeline sécurisé", "mapping": mapping}
+                
+            except Exception as e:
+                print(f"❌ Erreur pipeline PDF: {str(e)}")
+                # Log détaillé de l'erreur
+                import traceback
+                print(f"📄 Traceback complet:")
+                traceback.print_exc()
+                raise HTTPException(status_code=500, detail=f"Erreur traitement PDF: {str(e)}")
             
         elif file_extension in [".doc", ".docx"]:
-            # Traitement des fichiers Word
-            content = await file.read()
-            doc_text, mapping = extract_and_anonymize_docx(content, tiers)
-            return {"text": doc_text, "mapping": mapping}
+            print(f"📄 Traitement fichier Word...")
+            try:
+                # Traitement des fichiers Word
+                start_time = time.time()
+                doc_text, mapping = extract_and_anonymize_docx(content, tiers)
+                processing_time = time.time() - start_time
+                
+                print(f"✅ Traitement Word terminé en {processing_time:.2f}s")
+                print(f"📊 Mapping généré: {len(mapping)} remplacements")
+                return {"text": doc_text, "mapping": mapping}
+                
+            except Exception as e:
+                print(f"❌ Erreur traitement Word: {str(e)}")
+                import traceback
+                print(f"📄 Traceback complet:")
+                traceback.print_exc()
+                raise HTTPException(status_code=500, detail=f"Erreur traitement Word: {str(e)}")
             
         elif file_extension == ".odt":
-            # Traitement des fichiers ODT (OpenDocument Text)
-            content = await file.read()
-            odt_text, mapping = extract_and_anonymize_odt(content, tiers)
-            return {"text": odt_text, "mapping": mapping}
+            print(f"📄 Traitement fichier ODT...")
+            try:
+                # Traitement des fichiers ODT (OpenDocument Text)
+                start_time = time.time()
+                odt_text, mapping = extract_and_anonymize_odt(content, tiers)
+                processing_time = time.time() - start_time
+                
+                print(f"✅ Traitement ODT terminé en {processing_time:.2f}s")
+                print(f"📊 Mapping généré: {len(mapping)} remplacements")
+                return {"text": odt_text, "mapping": mapping}
+                
+            except Exception as e:
+                print(f"❌ Erreur traitement ODT: {str(e)}")
+                import traceback
+                print(f"📄 Traceback complet:")
+                traceback.print_exc()
+                raise HTTPException(status_code=500, detail=f"Erreur traitement ODT: {str(e)}")
             
         else:
+            print(f"❌ Format de fichier non supporté: {file_extension}")
             raise HTTPException(status_code=400, detail="Format de fichier non supporté. Utilisez PDF, DOCX ou ODT.")
             
+    except HTTPException:
+        # Re-lancer les exceptions HTTP sans les modifier
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ Erreur générale dans anonymize_file: {str(e)}")
+        import traceback
+        print(f"📄 Traceback complet de l'erreur générale:")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Erreur interne du serveur: {str(e)}")
 
 def detect_anonymized_patterns(text: str) -> Dict[str, str]:
     """
