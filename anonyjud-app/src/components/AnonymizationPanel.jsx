@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import config from '../config';
 
 const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
@@ -31,6 +31,48 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   
   const fileInputRef = useRef(null);
   const fileInputDenonRef = useRef(null);
+
+  // ⚠️ DEBUG - Logging des états au chargement
+  useEffect(() => {
+    console.log('🔍 COMPONENT MOUNTED - AnonymizationPanel');
+    console.log('📋 État initial:', {
+      uploadedFile: !!uploadedFile,
+      processedFile: !!processedFile,
+      isProcessing,
+      selectedProject: !!selectedProject
+    });
+
+    // ⚠️ DEBUG - Intercepter TOUS les appels fetch
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+      const url = args[0];
+      if (typeof url === 'string' && url.includes('/anonymize/file')) {
+        console.log('🚨 FETCH DÉTECTÉ vers /anonymize/file !');
+        console.log('📞 Stack trace fetch:', new Error().stack);
+        console.log('📤 Arguments:', args);
+      }
+      return originalFetch.apply(this, args);
+    };
+
+    // Nettoyer l'intercepteur au démontage
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, []);
+
+  // ⚠️ DEBUG - Surveiller les changements d'état
+  useEffect(() => {
+    if (uploadedFile) {
+      console.log('🚨 FICHIER DETECTÉ dans uploadedFile:', uploadedFile.name);
+      console.log('🚨 Cela peut déclencher une requête automatique !');
+    }
+  }, [uploadedFile]);
+
+  useEffect(() => {
+    if (processedFile) {
+      console.log('🚨 FICHIER DETECTÉ dans processedFile:', processedFile.name);
+    }
+  }, [processedFile]);
 
   // Fonction pour obtenir l'icône selon le type de fichier
   const getFileIcon = (fileName) => {
@@ -259,6 +301,11 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   };
 
   const handleFile = async (file) => {
+    // ⚠️ DEBUG - Tracer TOUS les appels à handleFile
+    console.log('🔥 HANDLEFILE APPELÉ !');
+    console.log('📞 Stack trace:', new Error().stack);
+    console.log('📁 Fichier reçu:', file?.name);
+    
     if (!selectedProject) {
       setError('Veuillez sélectionner un projet.');
       return;
