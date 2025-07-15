@@ -1,7 +1,0 @@
-# Ignorer les fichiers qui pourraient déclencher un buildpack automatique
-anonyjud-app/
-node_modules/
-package.json
-package-lock.json
-*.md
-.git/ 
