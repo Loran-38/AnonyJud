@@ -385,10 +385,10 @@ async def deanonymize_file(
                 print(f"🔍 Tentative de détection automatique...")
                 # Extraire d'abord le texte pour détecter les patterns
                 if file_extension == ".pdf":
-                    with fitz.open(stream=content, filetype="pdf") as pdf:
-                        text = ""
-                        for page in pdf:
-                            text += page.get_text()
+        with fitz.open(stream=content, filetype="pdf") as pdf:
+            text = ""
+            for page in pdf:
+                text += page.get_text()
                 elif file_extension in [".doc", ".docx"]:
                     doc = Document(io.BytesIO(content))
                     text = ""
@@ -517,7 +517,7 @@ async def anonymize_file_download(
         else:
             print(f"❌ Format de fichier non supporté: {file_extension}")
             raise HTTPException(status_code=400, detail="Seuls les fichiers Word (.docx), ODT (.odt) et PDF (.pdf) sont supportés pour le téléchargement.")
-            
+        
     except Exception as e:
         print(f"❌ Erreur dans anonymize_file_download: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

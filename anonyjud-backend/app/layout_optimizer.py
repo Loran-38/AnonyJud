@@ -12,7 +12,7 @@ import docx
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.shared import OxmlElement, qn
+from io import BytesIO
 
 # Configuration des logs
 logging.basicConfig(level=logging.INFO)
@@ -185,8 +185,7 @@ class LayoutOptimizer:
             doc.save(output_path, 
                     garbage=4,           # Nettoyage agressif
                     deflate=True,        # Compression
-                    clean=True,          # Nettoyage des objets
-                    linear=True)         # Optimisation pour le web
+                    clean=True)          # Nettoyage des objets
             
             doc.close()
             
@@ -445,11 +444,9 @@ class LayoutOptimizer:
         """Conversion avec Adobe PDF Services (si disponible)"""
         try:
             # Vérifier si Adobe PDF Services est disponible
-            import adobe_dc_pdf_services
             logger.info("📄 Conversion avec Adobe PDF Services...")
             
-            # Implémentation Adobe PDF Services
-            # (Nécessite une clé API Adobe)
+            # Adobe PDF Services nécessite une configuration API
             raise Exception("Adobe PDF Services nécessite une configuration API")
             
         except ImportError:
