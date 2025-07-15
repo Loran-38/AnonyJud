@@ -143,7 +143,6 @@ class LayoutOptimizer:
         methods = [
             self._convert_with_docx2pdf,
             self._convert_with_libreoffice_optimized,
-            self._convert_with_adobe_pdf_services,
             self._convert_with_reportlab_enhanced
         ]
         
@@ -343,34 +342,146 @@ class LayoutOptimizer:
             logger.warning(f"⚠️ Erreur ajustement tailles police: {str(e)}")
     
     def _convert_with_docx2pdf(self, docx_content: bytes) -> bytes:
-        """Conversion avec docx2pdf (Windows, excellente préservation)"""
+        """Conversion avec docx2pdf (Windows) ou alternative Linux"""
         try:
-            from docx2pdf import convert as docx2pdf_convert
-            
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_docx:
-                temp_docx.write(docx_content)
-                temp_docx_path = temp_docx.name
-            
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
-                temp_pdf_path = temp_pdf.name
-            
-            try:
-                logger.info("📄 Conversion avec docx2pdf...")
-                docx2pdf_convert(temp_docx_path, temp_pdf_path)
+            # Sur Windows, utiliser docx2pdf
+            if sys.platform == "win32":
+                from docx2pdf import convert as docx2pdf_convert
                 
-                with open(temp_pdf_path, 'rb') as f:
-                    pdf_content = f.read()
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp_docx:
+                    temp_docx.write(docx_content)
+                    temp_docx_path = temp_docx.name
                 
-                logger.info(f"✅ Conversion docx2pdf réussie")
-                return pdf_content
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
+                    temp_pdf_path = temp_pdf.name
                 
-            finally:
-                for path in [temp_docx_path, temp_pdf_path]:
-                    if os.path.exists(path):
-                        os.unlink(path)
-                        
+                try:
+                    logger.info("📄 Conversion avec docx2pdf (Windows)...")
+                    docx2pdf_convert(temp_docx_path, temp_pdf_path)
+                    
+                    with open(temp_pdf_path, 'rb') as f:
+                        pdf_content = f.read()
+                    
+                    logger.info(f"✅ Conversion docx2pdf réussie")
+                    return pdf_content
+                    
+                finally:
+                    for path in [temp_docx_path, temp_pdf_path]:
+                        if os.path.exists(path):
+                            os.unlink(path)
+            
+            # Sur Linux, utiliser une alternative avec python-docx2pdf
+            else:
+                logger.info("📄 Conversion avec alternative Linux...")
+                return self._convert_with_python_docx2pdf_alternative(docx_content)
+                
         except ImportError:
-            raise Exception("docx2pdf non disponible")
+            logger.warning("⚠️ docx2pdf non disponible, utilisation de l'alternative")
+            return self._convert_with_python_docx2pdf_alternative(docx_content)
+    
+    def _convert_with_python_docx2pdf_alternative(self, docx_content: bytes) -> bytes:
+        """Alternative à docx2pdf pour Linux utilisant python-docx et reportlab"""
+        try:
+            from docx import Document
+            from reportlab.pdfgen import canvas
+            from reportlab.lib.pagesizes import A4
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER
+            from reportlab.lib.units import inch
+            
+            logger.info("📄 Conversion avec alternative python-docx2pdf...")
+            
+            # Ouvrir le document Word
+            doc = Document(BytesIO(docx_content))
+            
+            # Créer un buffer pour le PDF
+            buffer = BytesIO()
+            pdf_doc = SimpleDocTemplate(buffer, pagesize=A4, 
+                                      rightMargin=72, leftMargin=72,
+                                      topMargin=72, bottomMargin=72)
+            
+            # Styles
+            styles = getSampleStyleSheet()
+            normal_style = styles['Normal']
+            normal_style.alignment = TA_JUSTIFY
+            normal_style.fontSize = 11
+            normal_style.leading = 14
+            
+            # Style titre
+            title_style = ParagraphStyle(
+                'CustomTitle',
+                parent=styles['Heading1'],
+                fontSize=16,
+                spaceAfter=12,
+                alignment=TA_CENTER
+            )
+            
+            story = []
+            
+            # Traiter chaque paragraphe
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    text = para.text.strip()
+                    
+                    # Échapper les caractères spéciaux
+                    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                    
+                    # Détecter les titres (heuristique simple)
+                    if len(text) < 100 and (text.isupper() or text.startswith('TITRE') or text.startswith('CHAPITRE')):
+                        story.append(Paragraph(text, title_style))
+                    else:
+                        story.append(Paragraph(text, normal_style))
+                    
+                    story.append(Spacer(1, 6))
+            
+            # Traiter les tableaux
+            for table in doc.tables:
+                table_data = []
+                for row in table.rows:
+                    row_data = []
+                    for cell in row.cells:
+                        cell_text = ""
+                        for para in cell.paragraphs:
+                            if para.text.strip():
+                                cell_text += para.text.strip() + " "
+                        row_data.append(cell_text.strip())
+                    if any(row_data):  # Seulement si la ligne n'est pas vide
+                        table_data.append(row_data)
+                
+                if table_data:
+                    from reportlab.platypus import Table, TableStyle
+                    from reportlab.lib import colors
+                    
+                    # Créer le tableau PDF
+                    pdf_table = Table(table_data)
+                    pdf_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 10),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('FONTNAME', (0, 1), (-1, -1), 'Times-Roman'),
+                        ('FONTSIZE', (0, 1), (-1, -1), 10)
+                    ]))
+                    story.append(pdf_table)
+                    story.append(Spacer(1, 12))
+            
+            # Construire le PDF
+            pdf_doc.build(story)
+            
+            # Récupérer le contenu
+            pdf_content = buffer.getvalue()
+            buffer.close()
+            
+            logger.info(f"✅ Conversion alternative réussie")
+            return pdf_content
+            
+        except Exception as e:
+            raise Exception(f"Erreur conversion alternative: {str(e)}")
     
     def _convert_with_libreoffice_optimized(self, docx_content: bytes) -> bytes:
         """Conversion avec LibreOffice optimisé"""
@@ -384,19 +495,25 @@ class LayoutOptimizer:
         try:
             # Déterminer la commande LibreOffice selon l'OS
             if sys.platform == "win32":
+                # Windows
                 libreoffice_commands = [
-                    "soffice", "libreoffice",
+                    "soffice",
+                    "libreoffice",
                     r"C:\Program Files\LibreOffice\program\soffice.exe",
                     r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"
                 ]
             elif sys.platform == "darwin":
+                # macOS
                 libreoffice_commands = [
                     "/Applications/LibreOffice.app/Contents/MacOS/soffice",
-                    "soffice", "libreoffice"
+                    "soffice",
+                    "libreoffice"
                 ]
             else:
+                # Linux
                 libreoffice_commands = [
-                    "soffice", "libreoffice",
+                    "soffice",
+                    "libreoffice",
                     "/usr/bin/soffice",
                     "/opt/libreoffice7.1/program/soffice"
                 ]
@@ -404,30 +521,43 @@ class LayoutOptimizer:
             # Essayer chaque commande
             for cmd in libreoffice_commands:
                 try:
-                    logger.info(f"📄 Conversion LibreOffice avec: {cmd}")
+                    logger.info(f"📄 Test de la commande LibreOffice: {cmd}")
                     
-                    # Paramètres optimisés pour LibreOffice
-                    result = subprocess.run([
-                        cmd,
-                        "--headless",
-                        "--convert-to", "pdf:writer_pdf_Export",  # Paramètres PDF optimisés
-                        "--outdir", os.path.dirname(temp_pdf_path),
-                        temp_docx_path
-                    ], capture_output=True, text=True, timeout=60)
+                    # D'abord tester si la commande existe
+                    test_result = subprocess.run([cmd, "--version"], 
+                                              capture_output=True, text=True, timeout=10)
                     
-                    if result.returncode == 0:
-                        expected_pdf_path = temp_docx_path.replace('.docx', '.pdf')
+                    if test_result.returncode == 0:
+                        logger.info(f"✅ LibreOffice trouvé: {cmd}")
+                        logger.info(f"📄 Version: {test_result.stdout.strip()}")
                         
-                        if os.path.exists(expected_pdf_path):
-                            with open(expected_pdf_path, 'rb') as f:
-                                pdf_content = f.read()
+                        # Maintenant faire la conversion
+                        logger.info(f"📄 Conversion LibreOffice avec: {cmd}")
+                        
+                        result = subprocess.run([
+                            cmd,
+                            "--headless",
+                            "--convert-to", "pdf:writer_pdf_Export",
+                            "--outdir", os.path.dirname(temp_pdf_path),
+                            temp_docx_path
+                        ], capture_output=True, text=True, timeout=60)
+                        
+                        if result.returncode == 0:
+                            expected_pdf_path = temp_docx_path.replace('.docx', '.pdf')
                             
-                            logger.info(f"✅ Conversion LibreOffice réussie")
-                            return pdf_content
+                            if os.path.exists(expected_pdf_path):
+                                with open(expected_pdf_path, 'rb') as f:
+                                    pdf_content = f.read()
+                                
+                                logger.info(f"✅ Conversion LibreOffice réussie")
+                                return pdf_content
+                            else:
+                                logger.warning(f"⚠️ Fichier PDF non généré par LibreOffice")
                         else:
-                            logger.warning(f"⚠️ Fichier PDF non généré par LibreOffice")
+                            logger.warning(f"❌ Commande {cmd} échouée: {result.stderr}")
+                            
                     else:
-                        logger.debug(f"❌ Commande {cmd} échouée: {result.stderr}")
+                        logger.debug(f"❌ Commande {cmd} non trouvée: {test_result.stderr}")
                         
                 except (subprocess.TimeoutExpired, FileNotFoundError) as e:
                     logger.debug(f"❌ Commande {cmd} non trouvée ou timeout: {str(e)}")
@@ -439,18 +569,11 @@ class LayoutOptimizer:
             for path in [temp_docx_path, temp_pdf_path]:
                 if os.path.exists(path):
                     os.unlink(path)
-    
-    def _convert_with_adobe_pdf_services(self, docx_content: bytes) -> bytes:
-        """Conversion avec Adobe PDF Services (si disponible)"""
-        try:
-            # Vérifier si Adobe PDF Services est disponible
-            logger.info("📄 Conversion avec Adobe PDF Services...")
             
-            # Adobe PDF Services nécessite une configuration API
-            raise Exception("Adobe PDF Services nécessite une configuration API")
-            
-        except ImportError:
-            raise Exception("Adobe PDF Services non disponible")
+            # Nettoyer le PDF généré par LibreOffice
+            expected_pdf_path = temp_docx_path.replace('.docx', '.pdf')
+            if os.path.exists(expected_pdf_path):
+                os.unlink(expected_pdf_path)
     
     def _convert_with_reportlab_enhanced(self, docx_content: bytes) -> bytes:
         """Conversion de fallback avec reportlab amélioré"""

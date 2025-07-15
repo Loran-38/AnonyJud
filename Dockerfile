@@ -40,8 +40,10 @@ COPY anonyjud-backend/ .
 # Créer un répertoire pour les fichiers temporaires
 RUN mkdir -p /tmp/anonyjud
 
-# Vérifier que LibreOffice est bien installé
+# Vérifier que LibreOffice est bien installé et accessible
 RUN soffice --version || echo "LibreOffice installé avec succès"
+RUN which soffice || echo "LibreOffice trouvé dans le PATH"
+RUN ls -la /usr/bin/soffice || echo "LibreOffice dans /usr/bin"
 
 # Exposer le port (à adapter selon ta configuration)
 EXPOSE 8000
