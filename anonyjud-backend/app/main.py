@@ -14,7 +14,7 @@ from odf import text as odf_text, teletype
 from odf.opendocument import load
 import re # Added for regex in deanonymize_docx_file
 
-from .anonymizer import anonymize_text, anonymize_pdf_file, deanonymize_pdf_file, anonymize_pdf_enhanced_pipeline, deanonymize_pdf_enhanced_pipeline, anonymize_pdf_direct, deanonymize_pdf_direct
+from .anonymizer import anonymize_text, anonymize_pdf_file, deanonymize_pdf_file, anonymize_pdf_enhanced_pipeline, deanonymize_pdf_enhanced_pipeline, anonymize_pdf_direct, deanonymize_pdf_direct, anonymize_pdf_with_redactor
 from .deanonymizer import deanonymize_text
 from .models import TextAnonymizationRequest, TextDeanonymizationRequest
 
@@ -385,10 +385,10 @@ async def deanonymize_file(
                 print(f"🔍 Tentative de détection automatique...")
                 # Extraire d'abord le texte pour détecter les patterns
                 if file_extension == ".pdf":
-        with fitz.open(stream=content, filetype="pdf") as pdf:
-            text = ""
-            for page in pdf:
-                text += page.get_text()
+                    with fitz.open(stream=content, filetype="pdf") as pdf:
+                        text = ""
+                        for page in pdf:
+                            text += page.get_text()
                 elif file_extension in [".doc", ".docx"]:
                     doc = Document(io.BytesIO(content))
                     text = ""
@@ -606,6 +606,60 @@ async def deanonymize_file_download(
             
     except Exception as e:
         print(f"❌ Erreur dans deanonymize_file_download: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/anonymize/pdf/redactor")
+async def anonymize_pdf_with_redactor_endpoint(
+    file: UploadFile = File(...),
+    tiers_json: str = Form(...)
+):
+    """
+    Anonymise un fichier PDF avec pdf-redactor pour une préservation optimale de la mise en page.
+    Cette méthode est spécialement conçue pour conserver parfaitement le formatage original.
+    """
+    try:
+        print(f"🚀 ANONYMIZE_PDF_REDACTOR - Début du traitement")
+        print(f"📁 Fichier reçu: {file.filename}")
+        
+        # Vérifier que c'est bien un PDF
+        filename = file.filename or ""
+        file_extension = os.path.splitext(filename)[1].lower()
+        
+        if file_extension != ".pdf":
+            raise HTTPException(status_code=400, detail="Cet endpoint ne supporte que les fichiers PDF (.pdf)")
+        
+        # Convertir la chaîne JSON en liste de tiers
+        tiers = json.loads(tiers_json)
+        print(f"👥 Nombre de tiers: {len(tiers)}")
+        
+        # Lire le contenu du fichier PDF
+        content = await file.read()
+        print(f"📦 Taille du fichier: {len(content)} bytes")
+        
+        # Anonymiser avec pdf-redactor
+        print(f"🔄 Anonymisation avec pdf-redactor...")
+        anonymized_pdf, mapping = anonymize_pdf_with_redactor(content, tiers)
+        
+        print(f"✅ Anonymisation pdf-redactor réussie!")
+        print(f"📊 Taille original: {len(content)} bytes")
+        print(f"📊 Taille anonymisé: {len(anonymized_pdf)} bytes")
+        print(f"📊 Mapping généré: {len(mapping)} remplacements")
+        
+        # Créer un nom de fichier pour le téléchargement
+        base_name = os.path.splitext(filename)[0]
+        anonymized_filename = f"{base_name}_REDACTOR_ANONYM.pdf"
+        
+        print(f"💾 Fichier prêt pour téléchargement: {anonymized_filename}")
+        
+        # Retourner le fichier anonymisé pour téléchargement
+        return StreamingResponse(
+            io.BytesIO(anonymized_pdf),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={anonymized_filename}"}
+        )
+        
+    except Exception as e:
+        print(f"❌ Erreur dans anonymize_pdf_with_redactor_endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 def extract_and_anonymize_docx(content: bytes, tiers: List[Dict[str, Any]]):
