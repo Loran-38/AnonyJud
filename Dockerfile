@@ -49,4 +49,4 @@ RUN ls -la /usr/bin/soffice || echo "LibreOffice dans /usr/bin"
 EXPOSE 8000
 
 # Commande de démarrage
-CMD ["python", "start_backend.py"] 
+CMD ["python", "anonyjud-backend/start_backend.py"] 
