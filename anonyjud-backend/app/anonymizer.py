@@ -54,6 +54,24 @@ except ImportError as e:
     PDF_REDACTOR_AVAILABLE = False
     print(f"⚠ pdf-redactor non disponible: {e}")
     print("Pour installer pdf-redactor: pip install pdf-redactor")
+except Exception as e:
+    PDF_REDACTOR_AVAILABLE = False
+    print(f"❌ Erreur lors de l'import de pdf-redactor: {e}")
+    print("pdf-redactor sera désactivé pour ce déploiement")
+
+# Import psutil pour monitoring mémoire
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+    print("✓ psutil disponible pour monitoring mémoire")
+except ImportError as e:
+    PSUTIL_AVAILABLE = False
+    print(f"⚠ psutil non disponible: {e}")
+    print("Le monitoring mémoire sera désactivé")
+except Exception as e:
+    PSUTIL_AVAILABLE = False
+    print(f"❌ Erreur lors de l'import de psutil: {e}")
+    print("Le monitoring mémoire sera désactivé")
 
 
 def anonymize_text(text: str, tiers: List[Dict[str, Any]] = []) -> Tuple[str, Dict[str, str]]:

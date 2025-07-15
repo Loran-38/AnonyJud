@@ -15,11 +15,41 @@ from odf.opendocument import load
 import re # Added for regex in deanonymize_docx_file
 import time
 
-from .anonymizer import anonymize_text, anonymize_pdf_file, deanonymize_pdf_file, anonymize_pdf_enhanced_pipeline, deanonymize_pdf_enhanced_pipeline, anonymize_pdf_direct, deanonymize_pdf_direct, anonymize_pdf_with_redactor
-from .deanonymizer import deanonymize_text
-from .models import TextAnonymizationRequest, TextDeanonymizationRequest
+# Logs de démarrage pour diagnostic
+print("🚀 Démarrage de l'application AnonyJud Backend...")
+print("📝 Chargement des modules d'anonymisation...")
 
-app = FastAPI()
+try:
+    from .anonymizer import anonymize_text, anonymize_pdf_file, deanonymize_pdf_file, anonymize_pdf_enhanced_pipeline, deanonymize_pdf_enhanced_pipeline, anonymize_pdf_direct, deanonymize_pdf_direct, PDF_REDACTOR_AVAILABLE
+    print("✓ Modules d'anonymisation de base chargés")
+    print(f"📊 PDF-Redactor dans anonymizer.py: {'✓ Disponible' if PDF_REDACTOR_AVAILABLE else '❌ Non disponible'}")
+except Exception as e:
+    print(f"❌ Erreur lors du chargement des modules d'anonymisation de base: {e}")
+    raise
+
+try:
+    from .anonymizer import anonymize_pdf_with_redactor
+    print("✓ Module pdf-redactor chargé")
+except Exception as e:
+    print(f"⚠ Module pdf-redactor non disponible: {e}")
+
+try:
+    from .deanonymizer import deanonymize_text
+    print("✓ Module de désanonymisation chargé")
+except Exception as e:
+    print(f"❌ Erreur lors du chargement du module de désanonymisation: {e}")
+    raise
+
+try:
+    from .models import TextAnonymizationRequest, TextDeanonymizationRequest
+    print("✓ Modèles Pydantic chargés")
+except Exception as e:
+    print(f"❌ Erreur lors du chargement des modèles: {e}")
+    raise
+
+print("🎯 Initialisation de FastAPI...")
+app = FastAPI(title="AnonyJud Backend", version="1.0.0")
+print("✓ FastAPI initialisé")
 
 # Configuration CORS pour permettre les requêtes depuis le frontend
 app.add_middleware(
@@ -30,9 +60,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+print("🌐 Configuration CORS appliquée")
+print("🚀 AnonyJud Backend démarré avec succès!")
+print("📊 État des modules:")
+print(f"   - pdf-redactor: {'✓ Disponible' if PDF_REDACTOR_AVAILABLE else '❌ Non disponible'}")
+print("🔗 API prête à recevoir les requêtes")
+
 @app.get("/")
 def read_root():
-    return {"message": "AnonyJud API is running"}
+    return {
+        "message": "AnonyJud API is running",
+        "pdf_redactor_available": PDF_REDACTOR_AVAILABLE,
+        "status": "healthy"
+    }
 
 @app.post("/anonymize/text")
 def anonymize_text_endpoint(request: TextAnonymizationRequest):
@@ -386,10 +426,10 @@ async def deanonymize_file(
                 print(f"🔍 Tentative de détection automatique...")
                 # Extraire d'abord le texte pour détecter les patterns
                 if file_extension == ".pdf":
-        with fitz.open(stream=content, filetype="pdf") as pdf:
-            text = ""
-            for page in pdf:
-                text += page.get_text()
+                    with fitz.open(stream=content, filetype="pdf") as pdf:
+                        text = ""
+                        for page in pdf:
+                            text += page.get_text()
                 elif file_extension in [".doc", ".docx"]:
                     doc = Document(io.BytesIO(content))
                     text = ""
@@ -620,6 +660,15 @@ async def anonymize_pdf_with_redactor_endpoint(
     """
     try:
         print(f"🚀 ANONYMIZE_PDF_REDACTOR - Début du traitement")
+        
+        # Vérifier que le module pdf-redactor est disponible
+        if not PDF_REDACTOR_AVAILABLE:
+            print(f"❌ Module pdf-redactor non disponible")
+            raise HTTPException(
+                status_code=503, 
+                detail="Le module pdf-redactor n'est pas disponible sur ce serveur. Utilisez l'endpoint /anonymize/pdf/auto à la place."
+            )
+        
         print(f"📁 Fichier reçu: {file.filename}")
         
         # Vérifier que c'est bien un PDF
@@ -710,17 +759,29 @@ async def anonymize_pdf_auto_method(
                     detail=f"Fichier trop volumineux: {file_size_mb:.1f}MB > 4GB. "
                            f"Segmentez le fichier en parties plus petites.")
             elif file_size_mb > 1000:  # > 1GB 
-                chosen_method = "redactor"
-                method_reason = "Fichier > 1GB: pdf-redactor recommandé (plus direct)"
+                if PDF_REDACTOR_AVAILABLE:
+                    chosen_method = "redactor"
+                    method_reason = "Fichier > 1GB: pdf-redactor recommandé (plus direct)"
+                else:
+                    chosen_method = "direct"
+                    method_reason = "Fichier > 1GB: PyMuPDF direct (pdf-redactor non disponible)"
             elif file_size_mb > 500:  # > 500MB
-                chosen_method = "redactor" 
-                method_reason = "Fichier > 500MB: pdf-redactor recommandé (évite conversions)"
+                if PDF_REDACTOR_AVAILABLE:
+                    chosen_method = "redactor" 
+                    method_reason = "Fichier > 500MB: pdf-redactor recommandé (évite conversions)"
+                else:
+                    chosen_method = "direct"
+                    method_reason = "Fichier > 500MB: PyMuPDF direct (pdf-redactor non disponible)"
             elif file_size_mb > 100:  # > 100MB
                 chosen_method = "pipeline"
                 method_reason = "Fichier > 100MB: pipeline Word recommandé (équilibre qualité/performance)"
             else:  # <= 100MB
-                chosen_method = "redactor"
-                method_reason = "Fichier petit: pdf-redactor recommandé (plus rapide et préserve mieux)"
+                if PDF_REDACTOR_AVAILABLE:
+                    chosen_method = "redactor"
+                    method_reason = "Fichier petit: pdf-redactor recommandé (plus rapide et préserve mieux)"
+                else:
+                    chosen_method = "pipeline"
+                    method_reason = "Fichier petit: pipeline Word (pdf-redactor non disponible)"
         else:
             method_reason = f"Méthode forcée par l'utilisateur: {force_method}"
         
@@ -732,9 +793,16 @@ async def anonymize_pdf_auto_method(
         
         try:
             if chosen_method == "redactor":
-                print(f"🔄 Anonymisation avec pdf-redactor...")
-                anonymized_pdf, mapping = anonymize_pdf_with_redactor(content, tiers)
-                method_suffix = "REDACTOR"
+                if not PDF_REDACTOR_AVAILABLE:
+                    print(f"⚠ pdf-redactor demandé mais non disponible, basculement vers pipeline")
+                    chosen_method = "pipeline"
+                    method_reason += " → Basculé vers pipeline (pdf-redactor non disponible)"
+                    anonymized_pdf, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
+                    method_suffix = "PIPELINE"
+                else:
+                    print(f"🔄 Anonymisation avec pdf-redactor...")
+                    anonymized_pdf, mapping = anonymize_pdf_with_redactor(content, tiers)
+                    method_suffix = "REDACTOR"
                 
             elif chosen_method == "pipeline":
                 print(f"🔄 Anonymisation avec pipeline PDF→Word→PDF...")
