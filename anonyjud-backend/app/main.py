@@ -13,6 +13,7 @@ import io
 from odf import text as odf_text, teletype
 from odf.opendocument import load
 import re # Added for regex in deanonymize_docx_file
+import time
 
 from .anonymizer import anonymize_text, anonymize_pdf_file, deanonymize_pdf_file, anonymize_pdf_enhanced_pipeline, deanonymize_pdf_enhanced_pipeline, anonymize_pdf_direct, deanonymize_pdf_direct, anonymize_pdf_with_redactor
 from .deanonymizer import deanonymize_text
@@ -385,10 +386,10 @@ async def deanonymize_file(
                 print(f"🔍 Tentative de détection automatique...")
                 # Extraire d'abord le texte pour détecter les patterns
                 if file_extension == ".pdf":
-                    with fitz.open(stream=content, filetype="pdf") as pdf:
-                        text = ""
-                        for page in pdf:
-                            text += page.get_text()
+        with fitz.open(stream=content, filetype="pdf") as pdf:
+            text = ""
+            for page in pdf:
+                text += page.get_text()
                 elif file_extension in [".doc", ".docx"]:
                     doc = Document(io.BytesIO(content))
                     text = ""
@@ -660,6 +661,164 @@ async def anonymize_pdf_with_redactor_endpoint(
         
     except Exception as e:
         print(f"❌ Erreur dans anonymize_pdf_with_redactor_endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/anonymize/pdf/auto")
+async def anonymize_pdf_auto_method(
+    file: UploadFile = File(...),
+    tiers_json: str = Form(...),
+    force_method: str = Form(default="auto")
+):
+    """
+    Anonymise un PDF en choisissant automatiquement la meilleure méthode selon la taille.
+    
+    force_method peut être: "auto", "redactor", "pipeline", "direct"
+    - auto: choix automatique selon la taille (recommandé)
+    - redactor: force l'utilisation de pdf-redactor
+    - pipeline: force l'utilisation du pipeline PDF→Word→PDF  
+    - direct: force l'utilisation de PyMuPDF direct
+    """
+    try:
+        print(f"🚀 ANONYMIZE_PDF_AUTO - Début du traitement")
+        print(f"📁 Fichier reçu: {file.filename}")
+        print(f"🔧 Méthode forcée: {force_method}")
+        
+        # Vérifier que c'est bien un PDF
+        filename = file.filename or ""
+        file_extension = os.path.splitext(filename)[1].lower()
+        
+        if file_extension != ".pdf":
+            raise HTTPException(status_code=400, detail="Cet endpoint ne supporte que les fichiers PDF (.pdf)")
+        
+        # Convertir la chaîne JSON en liste de tiers
+        tiers = json.loads(tiers_json)
+        print(f"👥 Nombre de tiers: {len(tiers)}")
+        
+        # Lire le contenu du fichier PDF
+        content = await file.read()
+        file_size_mb = len(content) / 1024 / 1024
+        
+        print(f"📦 Taille du fichier: {len(content):,} bytes ({file_size_mb:.1f} MB)")
+        
+        # === CHOIX AUTOMATIQUE DE LA MÉTHODE ===
+        chosen_method = force_method
+        method_reason = ""
+        
+        if force_method == "auto":
+            if file_size_mb > 4000:  # > 4GB
+                raise HTTPException(status_code=413, 
+                    detail=f"Fichier trop volumineux: {file_size_mb:.1f}MB > 4GB. "
+                           f"Segmentez le fichier en parties plus petites.")
+            elif file_size_mb > 1000:  # > 1GB 
+                chosen_method = "redactor"
+                method_reason = "Fichier > 1GB: pdf-redactor recommandé (plus direct)"
+            elif file_size_mb > 500:  # > 500MB
+                chosen_method = "redactor" 
+                method_reason = "Fichier > 500MB: pdf-redactor recommandé (évite conversions)"
+            elif file_size_mb > 100:  # > 100MB
+                chosen_method = "pipeline"
+                method_reason = "Fichier > 100MB: pipeline Word recommandé (équilibre qualité/performance)"
+            else:  # <= 100MB
+                chosen_method = "redactor"
+                method_reason = "Fichier petit: pdf-redactor recommandé (plus rapide et préserve mieux)"
+        else:
+            method_reason = f"Méthode forcée par l'utilisateur: {force_method}"
+        
+        print(f"🎯 Méthode choisie: {chosen_method}")
+        print(f"📝 Raison: {method_reason}")
+        
+        # === EXÉCUTION DE LA MÉTHODE CHOISIE ===
+        start_time = time.time()
+        
+        try:
+            if chosen_method == "redactor":
+                print(f"🔄 Anonymisation avec pdf-redactor...")
+                anonymized_pdf, mapping = anonymize_pdf_with_redactor(content, tiers)
+                method_suffix = "REDACTOR"
+                
+            elif chosen_method == "pipeline":
+                print(f"🔄 Anonymisation avec pipeline PDF→Word→PDF...")
+                anonymized_pdf, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
+                method_suffix = "PIPELINE"
+                
+            elif chosen_method == "direct":
+                print(f"🔄 Anonymisation directe avec PyMuPDF...")
+                anonymized_pdf, mapping = anonymize_pdf_direct(content, tiers)
+                method_suffix = "DIRECT"
+                
+            else:
+                raise HTTPException(status_code=400, 
+                    detail=f"Méthode inconnue: {chosen_method}. "
+                           f"Valeurs acceptées: auto, redactor, pipeline, direct")
+            
+            processing_time = time.time() - start_time
+            
+            print(f"✅ Anonymisation {chosen_method} réussie en {processing_time:.2f}s!")
+            print(f"📊 Taille original: {len(content):,} bytes ({file_size_mb:.1f} MB)")
+            print(f"📊 Taille anonymisé: {len(anonymized_pdf):,} bytes ({len(anonymized_pdf)/1024/1024:.1f} MB)")
+            print(f"📊 Mapping généré: {len(mapping)} remplacements")
+            print(f"🎯 Méthode utilisée: {chosen_method} - {method_reason}")
+            
+            # Créer un nom de fichier pour le téléchargement
+            base_name = os.path.splitext(filename)[0]
+            anonymized_filename = f"{base_name}_{method_suffix}_ANONYM.pdf"
+            
+            print(f"💾 Fichier prêt pour téléchargement: {anonymized_filename}")
+            
+            # Retourner le fichier anonymisé pour téléchargement
+            return StreamingResponse(
+                io.BytesIO(anonymized_pdf),
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f"attachment; filename={anonymized_filename}",
+                    "X-Method-Used": chosen_method,
+                    "X-Method-Reason": method_reason,
+                    "X-Processing-Time": f"{processing_time:.2f}s",
+                    "X-File-Size-MB": f"{file_size_mb:.1f}",
+                    "X-Mapping-Count": str(len(mapping))
+                }
+            )
+            
+        except Exception as method_error:
+            processing_time = time.time() - start_time
+            print(f"❌ Échec méthode {chosen_method} après {processing_time:.2f}s: {str(method_error)}")
+            
+            # Si méthode auto et échec, essayer une méthode alternative
+            if force_method == "auto" and chosen_method != "pipeline":
+                print(f"🔄 Tentative de fallback vers pipeline PDF→Word→PDF...")
+                try:
+                    fallback_start = time.time()
+                    anonymized_pdf, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
+                    fallback_time = time.time() - fallback_start
+                    
+                    print(f"✅ Fallback pipeline réussi en {fallback_time:.2f}s!")
+                    
+                    base_name = os.path.splitext(filename)[0]
+                    anonymized_filename = f"{base_name}_PIPELINE_FALLBACK_ANONYM.pdf"
+                    
+                    return StreamingResponse(
+                        io.BytesIO(anonymized_pdf),
+                        media_type="application/pdf",
+                        headers={
+                            "Content-Disposition": f"attachment; filename={anonymized_filename}",
+                            "X-Method-Used": "pipeline-fallback",
+                            "X-Method-Reason": f"Fallback après échec {chosen_method}",
+                            "X-Processing-Time": f"{fallback_time:.2f}s",
+                            "X-Original-Error": str(method_error)[:100]
+                        }
+                    )
+                except Exception as fallback_error:
+                    print(f"❌ Échec fallback pipeline: {str(fallback_error)}")
+                    raise HTTPException(status_code=500, 
+                        detail=f"Échec méthode {chosen_method}: {str(method_error)}. "
+                               f"Échec fallback pipeline: {str(fallback_error)}")
+            else:
+                raise HTTPException(status_code=500, detail=str(method_error))
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions
+    except Exception as e:
+        print(f"❌ Erreur générale dans anonymize_pdf_auto_method: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 def extract_and_anonymize_docx(content: bytes, tiers: List[Dict[str, Any]]):

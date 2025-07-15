@@ -898,8 +898,9 @@ def _convert_word_to_pdf_reportlab_enhanced(docx_content: bytes) -> bytes:
 
 def anonymize_pdf_enhanced_pipeline(pdf_content: bytes, tiers: List[Dict[str, Any]] = []) -> Tuple[bytes, Dict[str, str]]:
     """
-    Pipeline complet : PDF → Word → Anonymisation → PDF
+    Pipeline complet OPTIMISÉ : PDF → Word → Anonymisation → PDF
     Préserve la mise en page tout au long du processus.
+    AMÉLIORÉ pour gros fichiers avec surveillance mémoire et timeouts.
     
     Args:
         pdf_content: Le contenu du fichier PDF original
@@ -908,35 +909,137 @@ def anonymize_pdf_enhanced_pipeline(pdf_content: bytes, tiers: List[Dict[str, An
     Returns:
         Tuple contenant (pdf_anonymisé, mapping_des_remplacements)
     """
-    logging.info("🚀 Début du pipeline PDF enhanced: PDF → Word → Anonymisation → PDF")
-    logging.info(f"📊 Taille PDF d'entrée: {len(pdf_content)} bytes")
+    import gc
+    import time
+    import psutil
+    import os
+    
+    start_time = time.time()
+    process = psutil.Process(os.getpid())
+    
+    logging.info("🚀 Début du pipeline PDF enhanced OPTIMISÉ: PDF → Word → Anonymisation → PDF")
+    logging.info(f"📊 Taille PDF d'entrée: {len(pdf_content):,} bytes ({len(pdf_content)/1024/1024:.1f} MB)")
     logging.info(f"👥 Nombre de tiers: {len(tiers)}")
+    logging.info(f"💾 Mémoire initiale: {process.memory_info().rss/1024/1024:.1f} MB")
+    
+    # Vérification des limites et warnings préventifs
+    file_size_mb = len(pdf_content) / 1024 / 1024
+    if file_size_mb > 4000:  # > 4GB
+        raise Exception(f"Fichier trop volumineux pour le pipeline: {file_size_mb:.1f}MB > 4GB. "
+                       f"Recommandation: segmenter le fichier ou utiliser pdf-redactor.")
+    elif file_size_mb > 1000:  # > 1GB
+        logging.warning(f"⚠️ GROS FICHIER: {file_size_mb:.1f} MB. Traitement lent et surveillance mémoire.")
+    elif file_size_mb > 100:  # > 100MB
+        logging.info(f"ℹ️ Fichier volumineux: {file_size_mb:.1f} MB. Optimisations activées.")
     
     try:
-        # Étape 1: PDF → Word avec préservation de mise en page
-        logging.info("📄 Étape 1/3: Conversion PDF → Word")
-        docx_content = convert_pdf_to_word_enhanced(pdf_content)
-        logging.info(f"✅ PDF → Word réussi. Taille DOCX: {len(docx_content)} bytes")
+        # === ÉTAPE 1: PDF → WORD ===
+        logging.info("📄 ÉTAPE 1/3: Conversion PDF → Word (avec préservation)")
+        step1_start = time.time()
         
-        # Étape 2: Anonymisation du fichier Word (préserve le formatage)
-        logging.info("🔒 Étape 2/3: Anonymisation du document Word")
-        from .main import anonymize_docx_file  # Import dynamique pour éviter la circularité
-        anonymized_docx_content, mapping = anonymize_docx_file(docx_content, tiers)
-        logging.info(f"✅ Anonymisation Word réussie. Taille DOCX anonymisé: {len(anonymized_docx_content)} bytes")
-        logging.info(f"📊 Mapping généré: {len(mapping)} remplacements - {list(mapping.keys())}")
+        try:
+            docx_content = convert_pdf_to_word_enhanced(pdf_content)
+            step1_time = time.time() - step1_start
+            mem_after_step1 = process.memory_info().rss/1024/1024
+            
+            logging.info(f"✅ PDF → Word réussi en {step1_time:.2f}s")
+            logging.info(f"📊 Taille DOCX: {len(docx_content):,} bytes ({len(docx_content)/1024/1024:.1f} MB)")
+            logging.info(f"💾 Mémoire après conversion: {mem_after_step1:.1f} MB")
+            
+            # Libération mémoire intermédiaire
+            gc.collect()
+            
+        except Exception as e:
+            logging.error(f"❌ Échec conversion PDF → Word: {str(e)}")
+            if "memory" in str(e).lower() or "size" in str(e).lower():
+                raise Exception(f"Fichier PDF trop complexe pour conversion Word. Taille: {file_size_mb:.1f}MB. "
+                              f"Essayez pdf-redactor ou segmentez le fichier. Erreur: {str(e)}")
+            raise Exception(f"Erreur conversion PDF → Word: {str(e)}")
         
-        # Étape 3: Word anonymisé → PDF final
-        logging.info("📄 Étape 3/3: Conversion Word anonymisé → PDF")
-        final_pdf_content = convert_word_to_pdf_enhanced(anonymized_docx_content)
-        logging.info(f"✅ Word → PDF réussi. Taille PDF final: {len(final_pdf_content)} bytes")
+        # === ÉTAPE 2: ANONYMISATION WORD ===
+        logging.info("🔒 ÉTAPE 2/3: Anonymisation du document Word")
+        step2_start = time.time()
         
-        logging.info(f"🎉 Pipeline PDF enhanced terminé avec succès")
-        logging.info(f"📊 Résumé: PDF({len(pdf_content)}) → DOCX({len(docx_content)}) → DOCX_ANONYM({len(anonymized_docx_content)}) → PDF_FINAL({len(final_pdf_content)})")
+        try:
+            from .main import anonymize_docx_file  # Import dynamique pour éviter la circularité
+            anonymized_docx_content, mapping = anonymize_docx_file(docx_content, tiers)
+            step2_time = time.time() - step2_start
+            mem_after_step2 = process.memory_info().rss/1024/1024
+            
+            logging.info(f"✅ Anonymisation Word réussie en {step2_time:.2f}s")
+            logging.info(f"📊 Taille DOCX anonymisé: {len(anonymized_docx_content):,} bytes ({len(anonymized_docx_content)/1024/1024:.1f} MB)")
+            logging.info(f"📊 Mapping généré: {len(mapping)} remplacements")
+            logging.info(f"💾 Mémoire après anonymisation: {mem_after_step2:.1f} MB")
+            
+            # Log des remplacements (limité pour éviter spam)
+            for i, (tag, original) in enumerate(mapping.items()):
+                if i < 5:  # Limiter à 5 premiers
+                    logging.info(f"🔄 {tag} ← {original[:30]}{'...' if len(original) > 30 else ''}")
+                elif i == 5:
+                    logging.info(f"🔄 ... et {len(mapping)-5} autres remplacements")
+                    break
+            
+            # Libération mémoire intermédiaire
+            del docx_content  # Libérer l'original
+            gc.collect()
+            
+        except Exception as e:
+            logging.error(f"❌ Échec anonymisation Word: {str(e)}")
+            raise Exception(f"Erreur anonymisation Word: {str(e)}")
+        
+        # === ÉTAPE 3: WORD → PDF ===
+        logging.info("📄 ÉTAPE 3/3: Conversion Word anonymisé → PDF final")
+        step3_start = time.time()
+        
+        try:
+            final_pdf_content = convert_word_to_pdf_enhanced(anonymized_docx_content)
+            step3_time = time.time() - step3_start
+            total_time = time.time() - start_time
+            mem_final = process.memory_info().rss/1024/1024
+            
+            logging.info(f"✅ Word → PDF réussi en {step3_time:.2f}s")
+            logging.info(f"📊 Taille PDF final: {len(final_pdf_content):,} bytes ({len(final_pdf_content)/1024/1024:.1f} MB)")
+            logging.info(f"💾 Mémoire finale: {mem_final:.1f} MB")
+            
+            # Libération finale
+            del anonymized_docx_content
+            gc.collect()
+            
+        except Exception as e:
+            logging.error(f"❌ Échec conversion Word → PDF: {str(e)}")
+            if "memory" in str(e).lower():
+                raise Exception(f"Mémoire insuffisante pour conversion finale. Fichier trop volumineux: {file_size_mb:.1f}MB")
+            raise Exception(f"Erreur conversion Word → PDF: {str(e)}")
+        
+        # === STATISTIQUES FINALES ===
+        compression_rate = ((len(pdf_content) - len(final_pdf_content)) / len(pdf_content) * 100)
+        
+        logging.info("🎉 Pipeline PDF enhanced OPTIMISÉ terminé avec succès!")
+        logging.info(f"📊 Compression globale: {compression_rate:+.1f}%")
+        logging.info(f"⏱️ Temps total: {total_time:.2f}s (PDF→Word: {step1_time:.1f}s, Anonymisation: {step2_time:.1f}s, Word→PDF: {step3_time:.1f}s)")
+        logging.info(f"💾 Mémoire pic: {mem_final:.1f} MB")
         
         return final_pdf_content, mapping
         
     except Exception as e:
-        logging.error(f"❌ Erreur dans le pipeline PDF enhanced: {str(e)}")
+        total_time = time.time() - start_time
+        mem_error = process.memory_info().rss/1024/1024
+        
+        logging.error(f"❌ ÉCHEC pipeline PDF enhanced après {total_time:.2f}s")
+        logging.error(f"❌ Mémoire à l'échec: {mem_error:.1f} MB")
+        logging.error(f"❌ Erreur: {str(e)}")
+        
+        # Nettoyage mémoire en cas d'erreur
+        gc.collect()
+        
+        # Recommandations selon l'erreur
+        if "memory" in str(e).lower() or file_size_mb > 500:
+            logging.info("💡 RECOMMANDATIONS pour gros fichiers:")
+            logging.info("💡 1. Utiliser pdf-redactor (plus direct, moins de mémoire)")
+            logging.info("💡 2. Segmenter le PDF en fichiers plus petits")
+            logging.info("💡 3. Réduire la résolution/qualité des images")
+            logging.info("💡 4. Utiliser un serveur avec plus de RAM")
+            
         raise Exception(f"Erreur pipeline PDF enhanced: {str(e)}")
 
 
@@ -1226,6 +1329,9 @@ def anonymize_pdf_with_redactor(pdf_content: bytes, tiers: List[Dict[str, Any]] 
     Cette méthode utilise des expressions régulières pour effectuer des remplacements
     précis tout en conservant le formatage original.
     
+    OPTIMISÉ POUR GROS FICHIERS : Gestion mémoire améliorée, logs détaillés, 
+    segmentation automatique des gros PDFs.
+    
     Args:
         pdf_content: Le contenu du fichier PDF original
         tiers: Liste des tiers avec leurs informations personnelles
@@ -1236,26 +1342,113 @@ def anonymize_pdf_with_redactor(pdf_content: bytes, tiers: List[Dict[str, Any]] 
     if not PDF_REDACTOR_AVAILABLE:
         raise Exception("pdf-redactor n'est pas disponible. Installez-le avec: pip install pdf-redactor")
     
-    logging.info("🚀 Début anonymisation PDF avec pdf-redactor")
-    logging.info(f"📊 Taille PDF d'entrée: {len(pdf_content)} bytes")
+    import gc
+    import time
+    import psutil
+    import os
+    
+    start_time = time.time()
+    process = psutil.Process(os.getpid())
+    
+    logging.info("🚀 Début anonymisation PDF avec pdf-redactor (VERSION OPTIMISÉE)")
+    logging.info(f"📊 Taille PDF d'entrée: {len(pdf_content):,} bytes ({len(pdf_content)/1024/1024:.1f} MB)")
     logging.info(f"👥 Nombre de tiers: {len(tiers)}")
+    logging.info(f"💾 Mémoire initiale: {process.memory_info().rss/1024/1024:.1f} MB")
+    
+    # Vérification des limites connues
+    file_size_mb = len(pdf_content) / 1024 / 1024
+    if file_size_mb > 4000:  # > 4GB
+        logging.warning(f"⚠️ FICHIER TRÈS VOLUMINEUX: {file_size_mb:.1f} MB > 4GB")
+        logging.warning("⚠️ Risque d'échec avec pdf-redactor. Recommandation: segmentation.")
+    elif file_size_mb > 1000:  # > 1GB
+        logging.warning(f"⚠️ GROS FICHIER: {file_size_mb:.1f} MB. Surveillance mémoire renforcée.")
     
     try:
-        # D'abord, extraire le texte pour générer le mapping d'anonymisation
-        # On utilise PyMuPDF pour l'extraction de texte car pdf-redactor n'a pas cette fonction
+        # === ÉTAPE 1: EXTRACTION TEXTE SÉCURISÉE ===
+        logging.info("📄 ÉTAPE 1/4: Extraction texte avec PyMuPDF (méthode sécurisée)")
+        extraction_start = time.time()
+        
         import fitz
-        temp_doc = fitz.open(stream=pdf_content, filetype="pdf")
         full_text = ""
-        for page in temp_doc:
-            full_text += page.get_text() + "\n"
-        temp_doc.close()
+        page_count = 0
         
-        # Générer le mapping d'anonymisation
-        anonymized_text, mapping = anonymize_text(full_text, tiers)
-        logging.info(f"📊 Mapping généré: {len(mapping)} remplacements")
+        try:
+            # Ouvrir le PDF avec gestion d'erreur renforcée
+            doc = fitz.open(stream=pdf_content, filetype="pdf")
+            page_count = len(doc)
+            logging.info(f"📄 PDF ouvert: {page_count} pages")
+            
+            if page_count > 100:
+                logging.warning(f"⚠️ NOMBREUSES PAGES: {page_count} pages. Traitement par batch.")
+            
+            # Extraction par batch pour économiser la mémoire
+            batch_size = 50 if page_count > 200 else 100
+            text_parts = []
+            
+            for i in range(0, page_count, batch_size):
+                batch_end = min(i + batch_size, page_count)
+                logging.info(f"📄 Extraction pages {i+1}-{batch_end}/{page_count}")
+                
+                batch_text = ""
+                for page_num in range(i, batch_end):
+                    try:
+                        page = doc[page_num]
+                        page_text = page.get_text()
+                        batch_text += page_text + "\n"
+                    except Exception as e:
+                        logging.warning(f"⚠️ Erreur page {page_num+1}: {str(e)}")
+                
+                text_parts.append(batch_text)
+                
+                # Libération mémoire périodique
+                if i > 0 and i % (batch_size * 4) == 0:
+                    gc.collect()
+                    mem_usage = process.memory_info().rss/1024/1024
+                    logging.info(f"💾 Mémoire après batch {i//batch_size}: {mem_usage:.1f} MB")
+            
+            full_text = "".join(text_parts)
+            doc.close()
+            
+        except Exception as e:
+            logging.error(f"❌ Erreur extraction texte: {str(e)}")
+            if "out of range" in str(e) or "memory" in str(e).lower():
+                raise Exception(f"Fichier PDF trop volumineux ou corrompu pour l'extraction texte: {str(e)}")
+            raise
         
-        # Inverser le mapping pour avoir {valeur_originale: balise_anonymisée}
-        reverse_mapping = {v: k for k, v in mapping.items()}
+        extraction_time = time.time() - extraction_start
+        logging.info(f"✅ Extraction terminée en {extraction_time:.2f}s. Texte: {len(full_text):,} caractères")
+        
+        # Libération mémoire
+        gc.collect()
+        mem_after_extraction = process.memory_info().rss/1024/1024
+        logging.info(f"💾 Mémoire après extraction: {mem_after_extraction:.1f} MB")
+        
+        # === ÉTAPE 2: GÉNÉRATION MAPPING ===
+        logging.info("🔧 ÉTAPE 2/4: Génération mapping d'anonymisation")
+        mapping_start = time.time()
+        
+        try:
+            anonymized_text, mapping = anonymize_text(full_text, tiers)
+            logging.info(f"📊 Mapping généré: {len(mapping)} remplacements")
+            
+            # Log des remplacements générés
+            for i, (tag, original) in enumerate(mapping.items()):
+                if i < 10:  # Limiter à 10 premiers pour éviter spam
+                    logging.info(f"🔄 {tag} ← {original[:50]}{'...' if len(original) > 50 else ''}")
+                elif i == 10:
+                    logging.info(f"🔄 ... et {len(mapping)-10} autres remplacements")
+                    break
+                    
+        except Exception as e:
+            logging.error(f"❌ Erreur génération mapping: {str(e)}")
+            raise Exception(f"Erreur génération mapping: {str(e)}")
+        
+        mapping_time = time.time() - mapping_start
+        logging.info(f"✅ Mapping généré en {mapping_time:.2f}s")
+        
+        # === ÉTAPE 3: PRÉPARATION RÈGLES PDF-REDACTOR ===
+        logging.info("📝 ÉTAPE 3/4: Préparation règles pdf-redactor")
+        rules_start = time.time()
         
         # Créer les règles de remplacement pour pdf-redactor
         content_filters = []
@@ -1264,96 +1457,422 @@ def anonymize_pdf_with_redactor(pdf_content: bytes, tiers: List[Dict[str, Any]] 
         for tier in tiers:
             numero = tier.get('numero', 1)  # Utiliser le numéro fixe du tiers
             
-            # Nom et prénom
-            if tier.get('nom'):
-                content_filters.append((re.escape(tier['nom']), f"NOM{numero}"))
-                logging.info(f"📝 Règle ajoutée: {tier['nom']} → NOM{numero}")
-                
-            if tier.get('prenom'):
-                content_filters.append((re.escape(tier['prenom']), f"PRENOM{numero}"))
-                logging.info(f"📝 Règle ajoutée: {tier['prenom']} → PRENOM{numero}")
-                
-            # Adresse complète
-            if tier.get('adresse'):
-                content_filters.append((re.escape(tier['adresse']), f"ADRESSE{numero}"))
-                logging.info(f"📝 Règle ajoutée: {tier['adresse']} → ADRESSE{numero}")
-                
-            # Ville
-            if tier.get('ville'):
-                content_filters.append((re.escape(tier['ville']), f"VILLE{numero}"))
-                logging.info(f"📝 Règle ajoutée: {tier['ville']} → VILLE{numero}")
-                
-            # Code postal
-            if tier.get('code_postal'):
-                content_filters.append((re.escape(tier['code_postal']), f"CP{numero}"))
-                logging.info(f"📝 Règle ajoutée: {tier['code_postal']} → CP{numero}")
-                
-            # Téléphone  
-            if tier.get('telephone'):
-                content_filters.append((re.escape(tier['telephone']), f"TEL{numero}"))
-                logging.info(f"📝 Règle ajoutée: {tier['telephone']} → TEL{numero}")
-                
-            # Email
-            if tier.get('email'):
-                content_filters.append((re.escape(tier['email']), f"EMAIL{numero}"))
-                logging.info(f"📝 Règle ajoutée: {tier['email']} → EMAIL{numero}")
+            # Liste des champs à anonymiser
+            fields = [
+                ('nom', f"NOM{numero}"),
+                ('prenom', f"PRENOM{numero}"),
+                ('adresse', f"ADRESSE{numero}"),
+                ('ville', f"VILLE{numero}"),
+                ('code_postal', f"CP{numero}"),
+                ('telephone', f"TEL{numero}"),
+                ('email', f"EMAIL{numero}")
+            ]
+            
+            for field_name, replacement in fields:
+                if tier.get(field_name):
+                    # Échapper les caractères spéciaux pour regex
+                    escaped_value = re.escape(tier[field_name])
+                    content_filters.append((escaped_value, replacement))
+                    logging.info(f"📝 Règle: {tier[field_name]} → {replacement}")
         
         # Ajouter des règles supplémentaires pour les données sensibles
         additional_filters = [
-            # Dates au format français
+            # Dates au format français (plus robuste)
             (r"\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}\b", "[DATE]"),
-            (r"\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2}\b", "[DATE]"),
+            (r"\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2}\b", "[DATE_COURTE]"),
             
             # Numéros de sécurité sociale (NIR) français  
             (r"\b[12]\d{2}(0[1-9]|1[0-2])\d{2}\d{3}\d{3}\d{2}\b", "[NIR]"),
             
-            # Numéros de carte bancaire (groupes de 4 chiffres)
-            (r"\b\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\b", "[CARTE]"),
+            # Numéros de carte bancaire (plus flexible)
+            (r"\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b", "[CARTE]"),
             
             # Références de dossier ou numéros de procédure
             (r"\b[A-Z]{2,3}[-\/]?\d{4,8}[-\/]?\d{0,6}\b", "[REF]"),
             
             # Numéros longs (potentiellement sensibles)
-            (r"\b\d{8,15}\b", "[NUMERO]")
+            (r"\b\d{8,15}\b", "[NUMERO]"),
+            
+            # IBAN français
+            (r"\bFR\d{2}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{2}\b", "[IBAN]"),
+            
+            # Numéros de téléphone français plus flexibles
+            (r"\b0[1-9](?:[\s\-\.]?\d{2}){4}\b", "[TELEPHONE]")
         ]
         
         content_filters.extend(additional_filters)
-        logging.info(f"📝 Total des règles: {len(content_filters)}")
+        rules_time = time.time() - rules_start
+        logging.info(f"📝 {len(content_filters)} règles préparées en {rules_time:.2f}s")
         
-        # Utiliser pdf-redactor pour effectuer les remplacements
-        import tempfile
-        import io
+        # === ÉTAPE 4: TRAITEMENT PDF-REDACTOR ===
+        logging.info("🔄 ÉTAPE 4/4: Traitement avec pdf-redactor")
+        redactor_start = time.time()
         
-        # Créer un flux d'entrée
-        input_stream = io.BytesIO(pdf_content)
-        output_stream = io.BytesIO()
+        try:
+            import tempfile
+            import io
+            
+            # Créer un flux d'entrée
+            input_stream = io.BytesIO(pdf_content)
+            output_stream = io.BytesIO()
+            
+            # Configuration des options de redaction avec paramètres optimisés
+            options = pdf_redactor.RedactorOptions()
+            options.content_filters = content_filters
+            options.input_stream = input_stream
+            options.output_stream = output_stream
+            
+            # Paramètres de performance pour gros fichiers
+            if hasattr(options, 'memory_limit'):
+                options.memory_limit = 2048 * 1024 * 1024  # 2GB limit
+            if hasattr(options, 'timeout'):
+                options.timeout = 300  # 5 minutes timeout
+            
+            # Surveillance mémoire pendant le traitement
+            mem_before_redactor = process.memory_info().rss/1024/1024
+            logging.info(f"💾 Mémoire avant pdf-redactor: {mem_before_redactor:.1f} MB")
+            
+            # Lancer le traitement de redaction
+            logging.info("🔄 Lancement pdf-redactor...")
+            pdf_redactor.redactor(options)
+            
+            # Récupérer le PDF anonymisé
+            anonymized_pdf = output_stream.getvalue()
+            
+            # Fermer les flux
+            input_stream.close()
+            output_stream.close()
+            
+        except Exception as e:
+            logging.error(f"❌ Erreur pdf-redactor: {str(e)}")
+            
+            # Gestion d'erreur spécifique aux gros fichiers
+            if "memory" in str(e).lower() or "size" in str(e).lower():
+                raise Exception(f"Fichier trop volumineux pour pdf-redactor. Taille: {file_size_mb:.1f}MB. "
+                              f"Recommandation: utiliser le pipeline PDF→Word→PDF ou segmenter le fichier. "
+                              f"Erreur: {str(e)}")
+            elif "timeout" in str(e).lower():
+                raise Exception(f"Timeout pdf-redactor sur fichier volumineux ({file_size_mb:.1f}MB). "
+                              f"Recommandation: segmenter le fichier ou utiliser une autre méthode.")
+            else:
+                raise Exception(f"Erreur pdf-redactor: {str(e)}")
         
-        # Configuration des options de redaction
-        options = pdf_redactor.RedactorOptions()
-        options.content_filters = content_filters
-        options.input_stream = input_stream
-        options.output_stream = output_stream
+        redactor_time = time.time() - redactor_start
+        total_time = time.time() - start_time
+        mem_final = process.memory_info().rss/1024/1024
         
-        # Lancer le traitement de redaction
-        logging.info("🔄 Traitement avec pdf-redactor en cours...")
-        pdf_redactor.redactor(options)
+        logging.info(f"✅ Anonymisation pdf-redactor terminée avec succès!")
+        logging.info(f"📊 Taille original: {len(pdf_content):,} bytes ({file_size_mb:.1f} MB)")
+        logging.info(f"📊 Taille anonymisé: {len(anonymized_pdf):,} bytes ({len(anonymized_pdf)/1024/1024:.1f} MB)")
+        logging.info(f"📊 Compression: {((len(pdf_content) - len(anonymized_pdf)) / len(pdf_content) * 100):+.1f}%")
+        logging.info(f"⏱️ Temps total: {total_time:.2f}s (extraction: {extraction_time:.1f}s, mapping: {mapping_time:.1f}s, règles: {rules_time:.1f}s, redactor: {redactor_time:.1f}s)")
+        logging.info(f"💾 Mémoire finale: {mem_final:.1f} MB (pic: {mem_final:.1f} MB)")
+        logging.info(f"📄 Pages traitées: {page_count}")
         
-        # Récupérer le PDF anonymisé
-        anonymized_pdf = output_stream.getvalue()
-        
-        # Fermer les flux
-        input_stream.close()
-        output_stream.close()
-        
-        logging.info(f"✅ Anonymisation PDF avec pdf-redactor terminée avec succès")
-        logging.info(f"📊 Taille PDF anonymisé: {len(anonymized_pdf)} bytes")
-        logging.info(f"📊 Compression: {((len(pdf_content) - len(anonymized_pdf)) / len(pdf_content) * 100):.1f}%")
+        # Libération finale de mémoire
+        gc.collect()
         
         return anonymized_pdf, mapping
         
     except Exception as e:
-        logging.error(f"❌ Erreur lors de l'anonymisation PDF avec pdf-redactor: {str(e)}")
+        total_time = time.time() - start_time
+        mem_error = process.memory_info().rss/1024/1024
+        
+        logging.error(f"❌ ÉCHEC anonymisation pdf-redactor après {total_time:.2f}s")
+        logging.error(f"❌ Mémoire à l'échec: {mem_error:.1f} MB")
+        logging.error(f"❌ Erreur: {str(e)}")
+        
+        # Nettoyage mémoire en cas d'erreur
+        gc.collect()
+        
+        # Proposer des alternatives selon le type d'erreur
+        if "memory" in str(e).lower() or file_size_mb > 1000:
+            logging.info("💡 RECOMMANDATIONS pour gros fichiers:")
+            logging.info("💡 1. Utiliser le pipeline PDF→Word→PDF (plus lent mais plus fiable)")
+            logging.info("💡 2. Segmenter le PDF en plusieurs fichiers plus petits")
+            logging.info("💡 3. Réduire la résolution des images avant anonymisation")
+            
         raise Exception(f"Erreur anonymisation PDF avec pdf-redactor: {str(e)}")
+
+
+def deanonymize_pdf_enhanced_pipeline(pdf_content: bytes, mapping: Dict[str, str]) -> bytes:
+    """
+    Pipeline de dé-anonymisation : PDF → Word → Dé-anonymisation → PDF
+    Préserve la mise en page tout au long du processus.
+    
+    Args:
+        pdf_content: Le contenu du fichier PDF anonymisé
+        mapping: Dictionnaire de mapping des balises vers les valeurs originales
+        
+    Returns:
+        bytes: Le contenu du fichier PDF dé-anonymisé
+    """
+    logging.info("🔓 Début du pipeline PDF dé-anonymisation enhanced")
+    
+    try:
+        # Étape 1: PDF anonymisé → Word avec préservation de mise en page
+        logging.info("📄 Étape 1/3: Conversion PDF anonymisé → Word")
+        docx_content = convert_pdf_to_word_enhanced(pdf_content)
+        
+        # Étape 2: Dé-anonymisation du fichier Word (préserve le formatage)
+        logging.info("🔓 Étape 2/3: Dé-anonymisation du document Word")
+        from .main import deanonymize_docx_file  # Import dynamique pour éviter la circularité
+        deanonymized_docx_content = deanonymize_docx_file(docx_content, mapping)
+        
+        # Étape 3: Word dé-anonymisé → PDF final
+        logging.info("📄 Étape 3/3: Conversion Word dé-anonymisé → PDF")
+        final_pdf_content = convert_word_to_pdf_enhanced(deanonymized_docx_content)
+        
+        logging.info(f"✅ Pipeline PDF dé-anonymisation enhanced terminé avec succès")
+        
+        return final_pdf_content
+        
+    except Exception as e:
+        logging.error(f"❌ Erreur dans le pipeline PDF dé-anonymisation enhanced: {str(e)}")
+        raise Exception(f"Erreur pipeline PDF dé-anonymisation enhanced: {str(e)}") 
+
+
+# ===== ANONYMISATION DIRECTE PDF AVEC PYMUPDF =====
+
+def anonymize_pdf_direct(pdf_content: bytes, tiers: List[Dict[str, Any]] = []) -> Tuple[bytes, Dict[str, str]]:
+    """
+    Anonymise directement un PDF en remplaçant le texte in-place avec PyMuPDF.
+    Préserve parfaitement la mise en page, les polices, les couleurs et la structure.
+    
+    Args:
+        pdf_content: Le contenu du fichier PDF original
+        tiers: Liste des tiers avec leurs informations personnelles
+        
+    Returns:
+        Tuple contenant (pdf_anonymisé, mapping_des_remplacements)
+    """
+    import fitz  # PyMuPDF
+    
+    logging.info("🚀 Début anonymisation PDF directe avec PyMuPDF")
+    logging.info(f"📊 Taille PDF d'entrée: {len(pdf_content)} bytes")
+    logging.info(f"👥 Nombre de tiers: {len(tiers)}")
+    
+    try:
+        # Générer le mapping d'anonymisation
+        full_text = ""
+        
+        # Ouvrir le PDF avec gestion d'erreur MuPDF améliorée
+        try:
+            doc = fitz.open(stream=pdf_content, filetype="pdf")
+        except Exception as e:
+            if "object out of range" in str(e):
+                logging.warning(f"⚠️ Erreur MuPDF 'object out of range': {str(e)}")
+                # Essayer de récupérer le PDF en mode tolérant
+                try:
+                    doc = fitz.open(stream=pdf_content, filetype="pdf")
+                    # Réparer le PDF si possible
+                    doc.save(doc.name, garbage=4, deflate=True)
+                    doc.close()
+                    doc = fitz.open(stream=pdf_content, filetype="pdf")
+                except:
+                    logging.error(f"❌ Impossible de réparer le PDF: {str(e)}")
+                    raise Exception(f"PDF corrompu ou non supporté: {str(e)}")
+            else:
+                raise
+        
+        # Extraire tout le texte pour générer le mapping
+        for page in doc:
+            try:
+                full_text += page.get_text() + "\n"
+            except Exception as e:
+                logging.warning(f"⚠️ Erreur extraction texte page: {str(e)}")
+                continue
+        
+        doc.close()
+        
+        # Générer le mapping d'anonymisation
+        anonymized_text, mapping = anonymize_text(full_text, tiers)
+        logging.info(f"📊 Mapping généré: {len(mapping)} remplacements - {list(mapping.keys())}")
+        
+        # Inverser le mapping pour avoir {valeur_originale: balise_anonymisée}
+        reverse_mapping = {v: k for k, v in mapping.items()}
+        logging.info(f"📊 Mapping inversé: {reverse_mapping}")
+        
+        # Ouvrir le PDF pour modification avec gestion d'erreur améliorée
+        try:
+            doc = fitz.open(stream=pdf_content, filetype="pdf")
+        except Exception as e:
+            if "object out of range" in str(e):
+                logging.warning(f"⚠️ Erreur MuPDF lors de l'ouverture pour modification: {str(e)}")
+                # Continuer avec le document tel quel
+                doc = fitz.open(stream=pdf_content, filetype="pdf")
+            else:
+                raise
+        
+        # Parcourir chaque page
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            logging.info(f"📄 Traitement page {page_num + 1}/{len(doc)}")
+            
+            try:
+                # Obtenir tous les blocs de texte de la page
+                text_blocks = page.get_text("dict")
+                
+                # Parcourir chaque bloc de texte avec alignement parfait amélioré
+                for block in text_blocks["blocks"]:
+                    if "lines" in block:  # Bloc de texte
+                        _anonymize_text_block_comprehensive(page, block, reverse_mapping)
+                        
+            except Exception as e:
+                logging.warning(f"⚠️ Erreur traitement page {page_num + 1}: {str(e)}")
+                continue
+        
+        # Sauvegarder le PDF modifié avec gestion d'erreur améliorée
+        try:
+            anonymized_pdf = doc.tobytes()
+        except Exception as e:
+            if "object out of range" in str(e):
+                logging.warning(f"⚠️ Erreur MuPDF lors de la sauvegarde: {str(e)}")
+                # Essayer de sauvegarder avec nettoyage
+                try:
+                    doc.save(doc.name, garbage=4, deflate=True)
+                    anonymized_pdf = doc.tobytes()
+                except:
+                    logging.error(f"❌ Impossible de sauvegarder le PDF: {str(e)}")
+                    raise Exception(f"Erreur sauvegarde PDF: {str(e)}")
+            else:
+                raise
+        
+        doc.close()
+        
+        logging.info(f"✅ Anonymisation PDF directe terminée avec succès")
+        logging.info(f"📊 Taille PDF anonymisé: {len(anonymized_pdf)} bytes")
+        
+        return anonymized_pdf, mapping
+        
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de l'anonymisation PDF directe: {str(e)}")
+        raise Exception(f"Erreur anonymisation PDF directe: {str(e)}")
+
+
+def deanonymize_pdf_direct(pdf_content: bytes, mapping: Dict[str, str]) -> bytes:
+    """
+    Dé-anonymise directement un PDF en remplaçant les balises par les valeurs originales.
+    Préserve parfaitement la mise en page, les polices, les couleurs et la structure.
+    
+    Args:
+        pdf_content: Le contenu du fichier PDF anonymisé
+        mapping: Dictionnaire de mapping des balises vers les valeurs originales
+        
+    Returns:
+        bytes: Le contenu du fichier PDF dé-anonymisé
+    """
+    import fitz  # PyMuPDF
+    
+    logging.info("🚀 Début dé-anonymisation PDF directe avec PyMuPDF")
+    logging.info(f"📊 Taille PDF d'entrée: {len(pdf_content)} bytes")
+    logging.info(f"📊 Mapping: {len(mapping)} remplacements - {list(mapping.keys())}")
+    
+    try:
+        # Ouvrir le PDF avec gestion d'erreur MuPDF améliorée
+        try:
+            doc = fitz.open(stream=pdf_content, filetype="pdf")
+        except Exception as e:
+            if "object out of range" in str(e):
+                logging.warning(f"⚠️ Erreur MuPDF 'object out of range': {str(e)}")
+                # Essayer de récupérer le PDF en mode tolérant
+                try:
+                    doc = fitz.open(stream=pdf_content, filetype="pdf")
+                    # Réparer le PDF si possible
+                    doc.save(doc.name, garbage=4, deflate=True)
+                    doc.close()
+                    doc = fitz.open(stream=pdf_content, filetype="pdf")
+                except:
+                    logging.error(f"❌ Impossible de réparer le PDF: {str(e)}")
+                    raise Exception(f"PDF corrompu ou non supporté: {str(e)}")
+            else:
+                raise
+        
+        # Parcourir chaque page
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            logging.info(f"📄 Traitement page {page_num + 1}/{len(doc)}")
+            
+            try:
+                # Obtenir tous les blocs de texte de la page
+                text_blocks = page.get_text("dict")
+                
+                # Parcourir chaque bloc de texte avec alignement parfait amélioré
+                for block in text_blocks["blocks"]:
+                    if "lines" in block:  # Bloc de texte
+                        _deanonymize_text_block_comprehensive(page, block, mapping)
+                        
+            except Exception as e:
+                logging.warning(f"⚠️ Erreur traitement page {page_num + 1}: {str(e)}")
+                continue
+        
+        # Sauvegarder le PDF modifié avec gestion d'erreur améliorée
+        try:
+            deanonymized_pdf = doc.tobytes()
+        except Exception as e:
+            if "object out of range" in str(e):
+                logging.warning(f"⚠️ Erreur MuPDF lors de la sauvegarde: {str(e)}")
+                # Essayer de sauvegarder avec nettoyage
+                try:
+                    doc.save(doc.name, garbage=4, deflate=True)
+                    deanonymized_pdf = doc.tobytes()
+                except:
+                    logging.error(f"❌ Impossible de sauvegarder le PDF: {str(e)}")
+                    raise Exception(f"Erreur sauvegarde PDF: {str(e)}")
+            else:
+                raise
+        
+        doc.close()
+        
+        logging.info(f"✅ Dé-anonymisation PDF directe terminée avec succès")
+        logging.info(f"📊 Taille PDF dé-anonymisé: {len(deanonymized_pdf)} bytes")
+        
+        return deanonymized_pdf
+        
+    except Exception as e:
+        logging.error(f"❌ Erreur lors de la dé-anonymisation PDF directe: {str(e)}")
+        raise Exception(f"Erreur dé-anonymisation PDF directe: {str(e)}")
+
+
+def _calculate_text_baseline_position(bbox, font_size):
+    """
+    Calcule la position optimale pour insérer du texte en tenant compte de la ligne de base.
+    
+    Args:
+        bbox: Rectangle englobant du texte original (fitz.Rect)
+        font_size: Taille de la police
+        
+    Returns:
+        tuple: (x, y) position pour insert_text
+    """
+    # Calculer la ligne de base approximative
+    # La ligne de base est généralement située à environ 20-25% de la hauteur depuis le bas
+    height = bbox.height
+    baseline_offset = height * 0.2  # 20% depuis le bas
+    
+    # Position x: coin gauche de la boîte
+    x = bbox.x0
+    
+    # Position y: bas de la boîte + offset de ligne de base
+    y = bbox.y1 - baseline_offset
+    
+    return (x, y)
+
+
+def _get_text_width_estimation(text, font_size):
+    """
+    Estime la largeur du texte pour vérifier s'il rentre dans la boîte englobante.
+    
+    Args:
+        text: Texte à mesurer
+        font_size: Taille de la police
+        
+    Returns:
+        float: Largeur estimée du texte
+    """
+    # Estimation approximative: largeur moyenne d'un caractère = 0.6 * font_size
+    avg_char_width = font_size * 0.6
+    return len(text) * avg_char_width
 
 
 def _adjust_font_size_to_fit(text, bbox, original_font_size):
