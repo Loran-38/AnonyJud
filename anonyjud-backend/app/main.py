@@ -1395,19 +1395,82 @@ def extract_pdf_elements(doc):
         
         # Extraire les images
         image_list = page.get_images()
+        print(f"🖼️ Page {page_num + 1}: {len(image_list)} images détectées")
+        
         for img_index, img in enumerate(image_list):
             try:
+                print(f"📸 Traitement image {img_index + 1}")
+                
+                # Vérifier que l'image a suffisamment d'éléments
+                if len(img) < 1:
+                    print(f"⚠️ Image {img_index + 1}: structure invalide")
+                    continue
+                
                 xref = img[0]
-                pix = fitz.Pixmap(doc, xref)
-                if pix.n < 5:  # GRAY or RGB
-                    img_data = pix.tobytes("png")
-                else:  # CMYK: convert first
-                    pix1 = fitz.Pixmap(fitz.csRGB, pix)
-                    img_data = pix1.tobytes("png")
-                    pix1 = None
+                print(f"🔍 Image {img_index + 1}: xref={xref}")
+                
+                # Vérifier que le xref est valide
+                if not isinstance(xref, int) or xref <= 0:
+                    print(f"⚠️ Image {img_index + 1}: xref invalide ({xref})")
+                    continue
+                
+                # Essayer de créer le pixmap
+                try:
+                    pix = fitz.Pixmap(doc, xref)
+                    if pix is None:
+                        print(f"⚠️ Image {img_index + 1}: pixmap null")
+                        continue
+                        
+                    print(f"✅ Image {img_index + 1}: {pix.width}x{pix.height}, {pix.n} channels")
+                    
+                except Exception as pix_error:
+                    print(f"⚠️ Image {img_index + 1}: erreur pixmap - {pix_error}")
+                    continue
+                
+                # Convertir en PNG
+                try:
+                    if pix.n < 5:  # GRAY or RGB
+                        img_data = pix.tobytes("png")
+                    else:  # CMYK: convert first
+                        pix1 = fitz.Pixmap(fitz.csRGB, pix)
+                        img_data = pix1.tobytes("png")
+                        pix1 = None
+                    
+                    print(f"✅ Image {img_index + 1}: conversion PNG réussie ({len(img_data)} bytes)")
+                    
+                except Exception as convert_error:
+                    print(f"⚠️ Image {img_index + 1}: erreur conversion - {convert_error}")
+                    pix = None
+                    continue
                 
                 # Obtenir la position de l'image sur la page
-                img_rect = page.get_image_bbox(img)
+                try:
+                    # Méthode alternative plus robuste pour obtenir la bbox
+                    img_rect = None
+                    
+                    # Essayer d'abord la méthode standard
+                    try:
+                        img_rect = page.get_image_bbox(img)
+                    except:
+                        # Méthode alternative : utiliser les transformations
+                        if len(img) >= 7:  # Vérifier qu'on a assez d'éléments
+                            transform = img[1:7] if len(img) > 6 else None
+                            if transform:
+                                # Créer une bbox basique basée sur la taille de l'image
+                                img_rect = fitz.Rect(0, 0, pix.width, pix.height)
+                                print(f"📐 Image {img_index + 1}: bbox alternative utilisée")
+                    
+                    if img_rect is None:
+                        # Bbox par défaut basée sur la taille de l'image
+                        img_rect = fitz.Rect(0, 0, pix.width, pix.height)
+                        print(f"📐 Image {img_index + 1}: bbox par défaut utilisée")
+                    
+                    print(f"📐 Image {img_index + 1}: bbox = {img_rect}")
+                    
+                except Exception as bbox_error:
+                    print(f"⚠️ Image {img_index + 1}: erreur bbox - {bbox_error}")
+                    # Utiliser une bbox par défaut
+                    img_rect = fitz.Rect(0, 0, 100, 100)
                 
                 image_element = {
                     "data": img_data,
@@ -1415,9 +1478,15 @@ def extract_pdf_elements(doc):
                     "xref": xref
                 }
                 page_elements["images"].append(image_element)
+                print(f"✅ Image {img_index + 1}: ajoutée avec succès")
+                
+                # Libérer la mémoire
                 pix = None
+                
             except Exception as e:
-                print(f"⚠️ Erreur lors de l'extraction d'image: {e}")
+                print(f"❌ Erreur générale image {img_index + 1}: {e}")
+                print(f"🔍 Structure de l'image: {img}")
+                continue
         
         # Extraire les dessins/graphiques vectoriels
         try:
@@ -1477,24 +1546,54 @@ def anonymize_pdf_secure_with_graphics(pdf_content: bytes, tiers: List[Any]) -> 
         
         print(f"🔄 {len(replacements)} remplacements à effectuer")
         
+        # Afficher les remplacements prévus
+        print("📝 MAPPINGS CRÉÉS:")
+        for original, anonymized in replacements.items():
+            print(f"  '{original}' → '{anonymized}'")
+        
         # Extraire tous les éléments du PDF
         pdf_elements = extract_pdf_elements(doc)
         doc.close()  # Fermer le document original
         
         # Anonymiser le texte dans les éléments extraits
-        for page_data in pdf_elements:
-            for text_element in page_data["text_elements"]:
+        total_replacements_made = 0
+        for page_idx, page_data in enumerate(pdf_elements):
+            page_replacements = 0
+            print(f"📖 Anonymisation page {page_idx + 1}: {len(page_data['text_elements'])} éléments de texte")
+            
+            for text_idx, text_element in enumerate(page_data["text_elements"]):
                 original_text = text_element["text"]
                 anonymized_text = original_text
+                element_changed = False
                 
-                # Appliquer tous les remplacements
+                # Appliquer tous les remplacements (sensible à la casse)
                 for original, anonymized in replacements.items():
-                    if original.lower() in anonymized_text.lower():
+                    if original in anonymized_text:  # Remplacement exact (sensible à la casse)
+                        old_text = anonymized_text
                         anonymized_text = anonymized_text.replace(original, anonymized)
-                        print(f"🔄 Remplacement sécurisé: '{original}' → '{anonymized}'")
+                        if old_text != anonymized_text:
+                            print(f"🔄 Page {page_idx + 1}, Élément {text_idx + 1}: '{original}' → '{anonymized}'")
+                            print(f"   Avant: '{old_text}'")
+                            print(f"   Après: '{anonymized_text}'")
+                            element_changed = True
+                            page_replacements += 1
+                            total_replacements_made += 1
                 
                 # Remplacer DÉFINITIVEMENT le texte
                 text_element["text"] = anonymized_text
+                
+                # Log pour les éléments non modifiés (pour debug)
+                if not element_changed and original_text.strip():
+                    print(f"📝 Page {page_idx + 1}, Élément {text_idx + 1}: '{original_text[:50]}...' (non modifié)")
+            
+            print(f"✅ Page {page_idx + 1}: {page_replacements} remplacements effectués")
+        
+        print(f"🎯 TOTAL: {total_replacements_made} remplacements effectués dans le document")
+        
+        # Sauvegarder le mapping final avec plus d'infos
+        print("🗂️ MAPPING FINAL POUR DÉ-ANONYMISATION:")
+        for anonymized, original in mapping.items():
+            print(f"  '{anonymized}' → '{original}'")
         
         # Reconstituer le PDF avec reportlab
         buffer = io.BytesIO()
@@ -1599,29 +1698,74 @@ def deanonymize_pdf_secure_with_graphics(pdf_content: bytes, mapping: Dict[str, 
     try:
         print(f"🔒 DEANONYMIZE_PDF_SECURE_WITH_GRAPHICS - Début du traitement")
         
+        # Afficher le mapping reçu pour debug
+        print(f"🗂️ MAPPING REÇU ({len(mapping)} entrées):")
+        for anonymized, original in mapping.items():
+            print(f"  '{anonymized}' → '{original}'")
+        
         # Créer les remplacements inverses
         reverse_replacements = {anonymized: original for anonymized, original in mapping.items()}
+        print(f"🔄 REMPLACEMENTS INVERSES CRÉÉS ({len(reverse_replacements)} entrées):")
+        for anonymized, original in reverse_replacements.items():
+            print(f"  '{anonymized}' → '{original}'")
         
         # Même processus que l'anonymisation mais avec les remplacements inversés
         doc = fitz.open(stream=pdf_content, filetype="pdf")
+        print(f"📄 PDF dé-anonymisation ouvert: {doc.page_count} pages")
         
         # Extraire tous les éléments
         pdf_elements = extract_pdf_elements(doc)
         doc.close()
         
         # Dé-anonymiser le texte
-        for page_data in pdf_elements:
-            for text_element in page_data["text_elements"]:
+        total_restorations_made = 0
+        for page_idx, page_data in enumerate(pdf_elements):
+            page_restorations = 0
+            print(f"📖 Dé-anonymisation page {page_idx + 1}: {len(page_data['text_elements'])} éléments de texte")
+            
+            for text_idx, text_element in enumerate(page_data["text_elements"]):
                 anonymized_text = text_element["text"]
                 restored_text = anonymized_text
+                element_changed = False
                 
                 # Appliquer les remplacements inverses
                 for anonymized, original in reverse_replacements.items():
                     if anonymized in restored_text:
+                        old_text = restored_text
                         restored_text = restored_text.replace(anonymized, original)
-                        print(f"🔄 Restauration: '{anonymized}' → '{original}'")
+                        if old_text != restored_text:
+                            print(f"🔄 Page {page_idx + 1}, Élément {text_idx + 1}: '{anonymized}' → '{original}'")
+                            print(f"   Avant: '{old_text}'")
+                            print(f"   Après: '{restored_text}'")
+                            element_changed = True
+                            page_restorations += 1
+                            total_restorations_made += 1
                 
+                # Remplacer le texte
                 text_element["text"] = restored_text
+                
+                # Log pour les éléments contenant potentiellement des balises anonymisées
+                if not element_changed and anonymized_text.strip():
+                    # Vérifier si l'élément contient des patterns qui ressemblent à nos balises
+                    contains_pattern = False
+                    for anonymized in reverse_replacements.keys():
+                        if anonymized.lower() in anonymized_text.lower():
+                            contains_pattern = True
+                            break
+                    
+                    if contains_pattern:
+                        print(f"🔍 Page {page_idx + 1}, Élément {text_idx + 1}: POTENTIEL NON TRAITÉ")
+                        print(f"   Texte: '{anonymized_text}'")
+                        print(f"   Balises recherchées: {list(reverse_replacements.keys())}")
+                    else:
+                        print(f"📝 Page {page_idx + 1}, Élément {text_idx + 1}: '{anonymized_text[:50]}...' (pas de balise)")
+            
+            print(f"✅ Page {page_idx + 1}: {page_restorations} restaurations effectuées")
+        
+        print(f"🎯 TOTAL DEANONYMISATION: {total_restorations_made} restaurations effectuées")
+        
+        if total_restorations_made == 0:
+            print("⚠️ ALERTE: Aucune restauration effectuée ! Vérifiez que les balises sont présentes dans le PDF.")
         
         # Reconstituer le PDF (même logique que l'anonymisation)
         buffer = io.BytesIO()
