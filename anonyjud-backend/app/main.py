@@ -1393,9 +1393,20 @@ def extract_pdf_elements(doc):
                         }
                         page_elements["text_elements"].append(text_element)
         
-        # Extraire les images
+        # Extraire les images avec leurs vraies positions
         image_list = page.get_images()
         print(f"🖼️ Page {page_num + 1}: {len(image_list)} images détectées")
+        
+        # Obtenir les positions réelles des images sur la page
+        image_rects = []
+        try:
+            # Méthode moderne pour obtenir les rectangles des images
+            image_rects = page.get_image_rects(image_list)
+            print(f"📐 Page {page_num + 1}: {len(image_rects)} positions d'images obtenues")
+        except Exception as e:
+            print(f"⚠️ Impossible d'obtenir les positions d'images avec get_image_rects: {e}")
+            # Fallback: créer des rectangles par défaut
+            image_rects = [fitz.Rect(0, 0, 100, 100) for _ in image_list]
         
         for img_index, img in enumerate(image_list):
             try:
@@ -1443,34 +1454,15 @@ def extract_pdf_elements(doc):
                     pix = None
                     continue
                 
-                # Obtenir la position de l'image sur la page
-                try:
-                    # Méthode alternative plus robuste pour obtenir la bbox
-                    img_rect = None
-                    
-                    # Essayer d'abord la méthode standard
-                    try:
-                        img_rect = page.get_image_bbox(img)
-                    except:
-                        # Méthode alternative : utiliser les transformations
-                        if len(img) >= 7:  # Vérifier qu'on a assez d'éléments
-                            transform = img[1:7] if len(img) > 6 else None
-                            if transform:
-                                # Créer une bbox basique basée sur la taille de l'image
-                                img_rect = fitz.Rect(0, 0, pix.width, pix.height)
-                                print(f"📐 Image {img_index + 1}: bbox alternative utilisée")
-                    
-                    if img_rect is None:
-                        # Bbox par défaut basée sur la taille de l'image
-                        img_rect = fitz.Rect(0, 0, pix.width, pix.height)
-                        print(f"📐 Image {img_index + 1}: bbox par défaut utilisée")
-                    
-                    print(f"📐 Image {img_index + 1}: bbox = {img_rect}")
-                    
-                except Exception as bbox_error:
-                    print(f"⚠️ Image {img_index + 1}: erreur bbox - {bbox_error}")
-                    # Utiliser une bbox par défaut
-                    img_rect = fitz.Rect(0, 0, 100, 100)
+                # Obtenir la position réelle de l'image
+                img_rect = None
+                if img_index < len(image_rects):
+                    img_rect = image_rects[img_index]
+                    print(f"📐 Image {img_index + 1}: position réelle = {img_rect}")
+                else:
+                    # Fallback: utiliser les dimensions du pixmap
+                    img_rect = fitz.Rect(0, 0, pix.width * 0.75, pix.height * 0.75)  # Conversion points/pixels approximative
+                    print(f"📐 Image {img_index + 1}: position approximative = {img_rect}")
                 
                 image_element = {
                     "data": img_data,
@@ -1513,6 +1505,15 @@ def anonymize_pdf_secure_with_graphics(pdf_content: bytes, tiers: List[Any]) -> 
     try:
         print(f"🔒 ANONYMIZE_PDF_SECURE_WITH_GRAPHICS - Début du traitement sécurisé")
         
+        # DEBUG: Afficher les données des tiers reçues
+        print(f"👥 DONNÉES TIERS REÇUES:")
+        for i, tiers_data in enumerate(tiers):
+            print(f"  Tiers {i+1}: {tiers_data}")
+            print(f"    - nom: '{tiers_data.get('nom', 'NON_DEFINI')}'")
+            print(f"    - prenom: '{tiers_data.get('prenom', 'NON_DEFINI')}'")  
+            print(f"    - adresse: '{tiers_data.get('adresse', 'NON_DEFINI')}'")
+            print(f"    - numero: {tiers_data.get('numero', 'NON_DEFINI')}")
+        
         # Ouvrir le PDF original
         doc = fitz.open(stream=pdf_content, filetype="pdf")
         mapping = {}
@@ -1524,23 +1525,28 @@ def anonymize_pdf_secure_with_graphics(pdf_content: bytes, tiers: List[Any]) -> 
         replacements = {}
         for tiers_data in tiers:
             numero = tiers_data.get('numero', replacement_counter) 
+            print(f"🔧 Traitement tiers numéro {numero}")
+            
             if tiers_data.get('nom'):
                 original_nom = tiers_data['nom'].strip()
                 anonymized_nom = f"NOM{numero}"  # MAJUSCULES pour cohérence
                 replacements[original_nom] = anonymized_nom
                 mapping[anonymized_nom] = original_nom
+                print(f"  📝 NOM: '{original_nom}' → '{anonymized_nom}'")
                 
             if tiers_data.get('prenom'):
                 original_prenom = tiers_data['prenom'].strip()
                 anonymized_prenom = f"PRENOM{numero}"  # MAJUSCULES pour cohérence
                 replacements[original_prenom] = anonymized_prenom
                 mapping[anonymized_prenom] = original_prenom
+                print(f"  📝 PRENOM: '{original_prenom}' → '{anonymized_prenom}'")
                 
             if tiers_data.get('adresse'):
                 original_adresse = tiers_data['adresse'].strip()
                 anonymized_adresse = f"ADRESSE{numero}"  # MAJUSCULES pour cohérence
                 replacements[original_adresse] = anonymized_adresse
                 mapping[anonymized_adresse] = original_adresse
+                print(f"  📝 ADRESSE: '{original_adresse}' → '{anonymized_adresse}'")
                 
             replacement_counter += 1
         
@@ -1627,26 +1633,31 @@ def anonymize_pdf_secure_with_graphics(pdf_content: bytes, tiers: List[Any]) -> 
                     img_reader = ImageReader(io.BytesIO(img_data))
                     
                     # Correction des coordonnées : PyMuPDF vs reportlab
-                    # PyMuPDF: origine en haut-gauche, Y vers le bas
-                    # Reportlab: origine en bas-gauche, Y vers le haut
+                    # PyMuPDF: origine en haut-gauche, Y vers le bas (0,0 = coin haut-gauche)
+                    # Reportlab: origine en bas-gauche, Y vers le haut (0,0 = coin bas-gauche)
                     
-                    # Position corrigée
-                    x = bbox.x0
-                    y = page_size[1] - bbox.y1  # Inverser Y et utiliser y1 (bas de l'image)
-                    width = bbox.width
-                    height = bbox.height
-                    
-                    # Vérifications de cohérence
-                    if width <= 0 or height <= 0:
-                        print(f"⚠️ Image ignorée: dimensions invalides ({width}x{height})")
+                    # Vérifier que la bbox est valide
+                    if not bbox or bbox.width <= 0 or bbox.height <= 0:
+                        print(f"⚠️ Image ignorée: bbox invalide ({bbox})")
                         continue
                     
-                    if x < 0 or y < 0 or x > page_size[0] or y > page_size[1]:
-                        print(f"⚠️ Image repositionnée: position hors page ({x}, {y})")
-                        x = max(0, min(x, page_size[0] - width))
-                        y = max(0, min(y, page_size[1] - height))
+                    # Position corrigée avec validation
+                    x = max(0, bbox.x0)  # Position X (même référentiel)
+                    y = max(0, page_size[1] - bbox.y1)  # Conversion Y: haut-gauche → bas-gauche
+                    width = min(bbox.width, page_size[0] - x)  # Largeur limitée
+                    height = min(bbox.height, page_size[1] - y)  # Hauteur limitée
+                    
+                    # Vérifications finales
+                    if width <= 0 or height <= 0:
+                        print(f"⚠️ Image ignorée: dimensions finales invalides (w={width}, h={height})")
+                        continue
+                    
+                    if x >= page_size[0] or y >= page_size[1]:
+                        print(f"⚠️ Image ignorée: position hors page (x={x}, y={y}, page={page_size})")
+                        continue
                     
                     print(f"✅ Image placée à: x={x:.1f}, y={y:.1f}, w={width:.1f}, h={height:.1f}")
+                    print(f"📏 Conversion: PyMuPDF({bbox.x0:.1f},{bbox.y0:.1f},{bbox.x1:.1f},{bbox.y1:.1f}) → Reportlab({x:.1f},{y:.1f},{width:.1f},{height:.1f})")
                     
                     # Dessiner l'image à sa position corrigée
                     c.drawImage(
