@@ -1526,19 +1526,19 @@ def anonymize_pdf_secure_with_graphics(pdf_content: bytes, tiers: List[Any]) -> 
             numero = tiers_data.get('numero', replacement_counter) 
             if tiers_data.get('nom'):
                 original_nom = tiers_data['nom'].strip()
-                anonymized_nom = f"nom{numero}"
+                anonymized_nom = f"NOM{numero}"  # MAJUSCULES pour cohérence
                 replacements[original_nom] = anonymized_nom
                 mapping[anonymized_nom] = original_nom
                 
             if tiers_data.get('prenom'):
                 original_prenom = tiers_data['prenom'].strip()
-                anonymized_prenom = f"prenom{numero}"
+                anonymized_prenom = f"PRENOM{numero}"  # MAJUSCULES pour cohérence
                 replacements[original_prenom] = anonymized_prenom
                 mapping[anonymized_prenom] = original_prenom
                 
             if tiers_data.get('adresse'):
                 original_adresse = tiers_data['adresse'].strip()
-                anonymized_adresse = f"adresse{numero}"
+                anonymized_adresse = f"ADRESSE{numero}"  # MAJUSCULES pour cohérence
                 replacements[original_adresse] = anonymized_adresse
                 mapping[anonymized_adresse] = original_adresse
                 
@@ -1621,18 +1621,46 @@ def anonymize_pdf_secure_with_graphics(pdf_content: bytes, tiers: List[Any]) -> 
                     img_data = image_element["data"]
                     bbox = image_element["bbox"]
                     
+                    print(f"🖼️ Placement image: bbox={bbox}, page_size={page_size}")
+                    
                     # Créer un ImageReader à partir des données PNG
                     img_reader = ImageReader(io.BytesIO(img_data))
                     
-                    # Dessiner l'image à sa position exacte
+                    # Correction des coordonnées : PyMuPDF vs reportlab
+                    # PyMuPDF: origine en haut-gauche, Y vers le bas
+                    # Reportlab: origine en bas-gauche, Y vers le haut
+                    
+                    # Position corrigée
+                    x = bbox.x0
+                    y = page_size[1] - bbox.y1  # Inverser Y et utiliser y1 (bas de l'image)
+                    width = bbox.width
+                    height = bbox.height
+                    
+                    # Vérifications de cohérence
+                    if width <= 0 or height <= 0:
+                        print(f"⚠️ Image ignorée: dimensions invalides ({width}x{height})")
+                        continue
+                    
+                    if x < 0 or y < 0 or x > page_size[0] or y > page_size[1]:
+                        print(f"⚠️ Image repositionnée: position hors page ({x}, {y})")
+                        x = max(0, min(x, page_size[0] - width))
+                        y = max(0, min(y, page_size[1] - height))
+                    
+                    print(f"✅ Image placée à: x={x:.1f}, y={y:.1f}, w={width:.1f}, h={height:.1f}")
+                    
+                    # Dessiner l'image à sa position corrigée
                     c.drawImage(
                         img_reader,
-                        bbox.x0, page_size[1] - bbox.y1,  # Conversion coordonnées
-                        width=bbox.width,
-                        height=bbox.height
+                        x, y,
+                        width=width,
+                        height=height,
+                        preserveAspectRatio=True,  # Préserver les proportions
+                        anchor='sw'  # Ancrage en bas-gauche (south-west)
                     )
                 except Exception as e:
                     print(f"⚠️ Erreur lors de l'ajout d'image: {e}")
+                    import traceback
+                    traceback.print_exc()
             
             # Ajouter les dessins vectoriels
             for drawing in page_data["drawings"]:
@@ -1789,15 +1817,41 @@ def deanonymize_pdf_secure_with_graphics(pdf_content: bytes, mapping: Dict[str, 
                 try:
                     img_data = image_element["data"]
                     bbox = image_element["bbox"]
+                    
+                    print(f"🖼️ Dé-anonymisation - Placement image: bbox={bbox}")
+                    
                     img_reader = ImageReader(io.BytesIO(img_data))
+                    
+                    # Correction des coordonnées (même logique que l'anonymisation)
+                    x = bbox.x0
+                    y = page_size[1] - bbox.y1
+                    width = bbox.width
+                    height = bbox.height
+                    
+                    # Vérifications de cohérence
+                    if width <= 0 or height <= 0:
+                        print(f"⚠️ Image ignorée: dimensions invalides ({width}x{height})")
+                        continue
+                    
+                    if x < 0 or y < 0 or x > page_size[0] or y > page_size[1]:
+                        print(f"⚠️ Image repositionnée: position hors page ({x}, {y})")
+                        x = max(0, min(x, page_size[0] - width))
+                        y = max(0, min(y, page_size[1] - height))
+                    
+                    print(f"✅ Image dé-anonymisation placée à: x={x:.1f}, y={y:.1f}, w={width:.1f}, h={height:.1f}")
+                    
                     c.drawImage(
                         img_reader,
-                        bbox.x0, page_size[1] - bbox.y1,
-                        width=bbox.width,
-                        height=bbox.height
+                        x, y,
+                        width=width,
+                        height=height,
+                        preserveAspectRatio=True,
+                        anchor='sw'
                     )
                 except Exception as e:
                     print(f"⚠️ Erreur image: {e}")
+                    import traceback
+                    traceback.print_exc()
             
             # Dessins
             for drawing in page_data["drawings"]:
