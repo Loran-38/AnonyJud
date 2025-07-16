@@ -1454,24 +1454,58 @@ def anonymize_pdf_secure_with_graphics(pdf_content: bytes, tiers: List[Any]) -> 
         # Créer les remplacements basés sur les tiers
         replacements = {}
         for tiers_data in tiers:
-            numero = tiers_data.get('numero', replacement_counter) 
+            numero = tiers_data.get('numero', replacement_counter)
+            print(f"🔍 DEBUG - Traitement tiers numéro {numero}: {tiers_data}")
+            
             if tiers_data.get('nom'):
                 original_nom = tiers_data['nom'].strip()
-                anonymized_nom = f"nom{numero}"
+                anonymized_nom = f"NOM{numero}"  # ✅ CORRIGÉ: MAJUSCULES comme le reste du système
                 replacements[original_nom] = anonymized_nom
                 mapping[anonymized_nom] = original_nom
+                print(f"📝 DEBUG - Nom: '{original_nom}' -> '{anonymized_nom}' (CORRIGÉ: majuscules!)")
                 
             if tiers_data.get('prenom'):
                 original_prenom = tiers_data['prenom'].strip()
-                anonymized_prenom = f"prenom{numero}"
+                anonymized_prenom = f"PRENOM{numero}"  # ✅ CORRIGÉ: MAJUSCULES comme le reste du système
                 replacements[original_prenom] = anonymized_prenom
                 mapping[anonymized_prenom] = original_prenom
+                print(f"📝 DEBUG - Prénom: '{original_prenom}' -> '{anonymized_prenom}' (CORRIGÉ: majuscules!)")
                 
             if tiers_data.get('adresse'):
                 original_adresse = tiers_data['adresse'].strip()
-                anonymized_adresse = f"adresse{numero}"
+                anonymized_adresse = f"ADRESSE{numero}"  # ✅ CORRIGÉ: MAJUSCULES comme le reste du système
                 replacements[original_adresse] = anonymized_adresse
                 mapping[anonymized_adresse] = original_adresse
+                print(f"📝 DEBUG - Adresse: '{original_adresse}' -> '{anonymized_adresse}' (CORRIGÉ: majuscules!)")
+            
+            # Ajouter support pour les autres champs pour être cohérent avec anonymize_text()
+            if tiers_data.get('telephone'):
+                original_tel = tiers_data['telephone'].strip()
+                anonymized_tel = f"TEL{numero}"
+                replacements[original_tel] = anonymized_tel
+                mapping[anonymized_tel] = original_tel
+                print(f"📝 DEBUG - Téléphone: '{original_tel}' -> '{anonymized_tel}'")
+            
+            if tiers_data.get('portable'):
+                original_portable = tiers_data['portable'].strip()
+                anonymized_portable = f"PORTABLE{numero}"
+                replacements[original_portable] = anonymized_portable
+                mapping[anonymized_portable] = original_portable
+                print(f"📝 DEBUG - Portable: '{original_portable}' -> '{anonymized_portable}'")
+            
+            if tiers_data.get('email'):
+                original_email = tiers_data['email'].strip()
+                anonymized_email = f"EMAIL{numero}"
+                replacements[original_email] = anonymized_email
+                mapping[anonymized_email] = original_email
+                print(f"📝 DEBUG - Email: '{original_email}' -> '{anonymized_email}'")
+            
+            if tiers_data.get('societe'):
+                original_societe = tiers_data['societe'].strip()
+                anonymized_societe = f"SOCIETE{numero}"
+                replacements[original_societe] = anonymized_societe
+                mapping[anonymized_societe] = original_societe
+                print(f"📝 DEBUG - Société: '{original_societe}' -> '{anonymized_societe}'")
                 
             replacement_counter += 1
         
@@ -1598,9 +1632,19 @@ def deanonymize_pdf_secure_with_graphics(pdf_content: bytes, mapping: Dict[str, 
     """
     try:
         print(f"🔒 DEANONYMIZE_PDF_SECURE_WITH_GRAPHICS - Début du traitement")
+        print(f"📊 DEBUG - Mapping reçu: {mapping}")
+        print(f"📊 DEBUG - Nombre de balises dans le mapping: {len(mapping)}")
+        
+        # Analyser le mapping pour identifier le problème de casse
+        for tag, original in mapping.items():
+            if tag.islower():
+                print(f"❌ DEBUG - PROBLÈME DE CASSE DÉTECTÉ: balise '{tag}' en minuscules (devrait être en majuscules)")
+            else:
+                print(f"✅ DEBUG - Balise correcte: '{tag}' en majuscules")
         
         # Créer les remplacements inverses
         reverse_replacements = {anonymized: original for anonymized, original in mapping.items()}
+        print(f"🔄 DEBUG - Remplacements inverses créés: {reverse_replacements}")
         
         # Même processus que l'anonymisation mais avec les remplacements inversés
         doc = fitz.open(stream=pdf_content, filetype="pdf")
