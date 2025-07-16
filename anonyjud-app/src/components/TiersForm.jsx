@@ -878,7 +878,7 @@ function TiersForm({ projectId, tiers = [], updateProject, projects, setProjects
         </div>
       )}
 
-      <style>{`
+      <style jsx>{`
         @keyframes fade-in {
           from {
             opacity: 0;

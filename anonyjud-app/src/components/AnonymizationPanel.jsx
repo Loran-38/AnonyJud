@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import config from '../config';
 
 const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
@@ -31,43 +31,6 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   
   const fileInputRef = useRef(null);
   const fileInputDenonRef = useRef(null);
-
-  // ⚠️ DEBUG - Logging des états au chargement (une seule fois)
-  useEffect(() => {
-    console.log('🔍 COMPONENT MOUNTED - AnonymizationPanel');
-    
-    // ⚠️ DEBUG - Intercepter TOUS les appels fetch
-    const originalFetch = window.fetch;
-    window.fetch = function(...args) {
-      const url = args[0];
-      if (typeof url === 'string' && url.includes('/anonymize/file')) {
-        console.log('🚨 FETCH DÉTECTÉ vers /anonymize/file !');
-        console.log('📞 Stack trace fetch:', new Error().stack);
-        console.log('📤 Arguments:', args);
-      }
-      return originalFetch.apply(this, args);
-    };
-
-    // Nettoyer l'intercepteur au démontage
-    return () => {
-      window.fetch = originalFetch;
-    };
-  }, []); // Dépendances vides pour n'exécuter qu'une fois
-
-  // ⚠️ DEBUG - Surveiller les changements d'état uploadedFile
-  useEffect(() => {
-    if (uploadedFile) {
-      console.log('🚨 FICHIER DETECTÉ dans uploadedFile:', uploadedFile.name);
-      console.log('🚨 Cela peut déclencher une requête automatique !');
-    }
-  }, [uploadedFile]);
-
-  // ⚠️ DEBUG - Surveiller les changements d'état processedFile
-  useEffect(() => {
-    if (processedFile) {
-      console.log('🚨 FICHIER DETECTÉ dans processedFile:', processedFile.name);
-    }
-  }, [processedFile]);
 
   // Fonction pour obtenir l'icône selon le type de fichier
   const getFileIcon = (fileName) => {
@@ -296,40 +259,16 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
   };
 
   const handleFile = async (file) => {
-    // ⚠️ DEBUG - Tracer TOUS les appels à handleFile
-    console.log('🔥 HANDLEFILE APPELÉ !');
-    console.log('📞 Stack trace:', new Error().stack);
-    console.log('📁 Fichier reçu:', file?.name);
-    
     if (!selectedProject) {
       setError('Veuillez sélectionner un projet.');
       return;
     }
 
-    // Logs détaillés côté frontend
-    console.log('🚀 FRONTEND - Début traitement fichier');
-    console.log('📁 Fichier:', file.name);
-    console.log('📊 Taille:', file.size, 'bytes', `(${(file.size/1024/1024).toFixed(1)} MB)`);
-    console.log('📄 Type:', file.type);
-    console.log('👥 Nombre de tiers:', selectedProject.tiers?.length || 0);
-
     // Vérifier le type de fichier
     const fileType = file.name.split('.').pop().toLowerCase();
-    console.log('📄 Extension détectée:', fileType);
-    
     if (fileType !== 'pdf' && fileType !== 'doc' && fileType !== 'docx' && fileType !== 'odt') {
-      console.error('❌ Format de fichier non supporté:', fileType);
       setError('Format de fichier non supporté. Utilisez PDF, DOCX ou ODT.');
       return;
-    }
-
-    // Avertissement pour gros fichiers
-    const fileSizeMB = file.size / 1024 / 1024;
-    if (fileSizeMB > 100) {
-      console.warn('⚠️ GROS FICHIER DÉTECTÉ:', fileSizeMB.toFixed(1), 'MB');
-    }
-    if (fileSizeMB > 1000) {
-      console.warn('🚨 FICHIER TRÈS VOLUMINEUX:', fileSizeMB.toFixed(1), 'MB');
     }
 
     setError('');
@@ -340,7 +279,6 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
     try {
       // Sauvegarder le fichier uploadé
       setUploadedFile(file);
-      console.log('✅ Fichier sauvegardé dans l\'état');
       
       // Simuler une progression
       const progressInterval = setInterval(() => {
@@ -353,58 +291,20 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
         });
       }, 200);
       
-      console.log('📤 Création FormData...');
       const formData = new FormData();
       formData.append('file', file);
       formData.append('tiers_json', JSON.stringify(selectedProject.tiers || []));
-      console.log('✅ FormData créé avec tiers:', selectedProject.tiers?.length || 0);
 
-      console.log('📡 Envoi requête vers backend...');
-      const startTime = performance.now();
-      
       const response = await fetch(`${config.API_BASE_URL}/anonymize/file`, {
         method: 'POST',
         body: formData,
       });
 
-      const endTime = performance.now();
-      const requestTime = (endTime - startTime) / 1000;
-      console.log(`📡 Requête terminée en ${requestTime.toFixed(2)}s`);
-      console.log('📊 Statut réponse:', response.status);
-      console.log('📊 Headers réponse:', Object.fromEntries(response.headers.entries()));
-
       if (!response.ok) {
-        console.error('❌ Erreur HTTP:', response.status, response.statusText);
-        
-        // Essayer de lire le message d'erreur détaillé
-        let errorMessage = `Erreur HTTP: ${response.status}`;
-        try {
-          const errorData = await response.text();
-          console.error('📄 Corps de l\'erreur:', errorData);
-          
-          // Essayer de parser en JSON si possible
-          try {
-            const errorJson = JSON.parse(errorData);
-            errorMessage = errorJson.detail || errorMessage;
-          } catch {
-            // Si ce n'est pas du JSON, utiliser le texte brut
-            errorMessage = errorData || errorMessage;
-          }
-        } catch (readError) {
-          console.error('❌ Impossible de lire le corps de l\'erreur:', readError);
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error(`Erreur HTTP: ${response.status}`);
       }
 
-      console.log('📋 Lecture réponse...');
       const data = await response.json();
-      console.log('✅ Réponse parsée:', {
-        textLength: data.text?.length || 0,
-        mappingSize: Object.keys(data.mapping || {}).length,
-        mapping: data.mapping
-      });
-      
       // NE PAS afficher le texte automatiquement - juste stocker pour le téléchargement
       setAnonymizedText(data.text);
       setMapping(data.mapping);
@@ -415,27 +315,10 @@ const AnonymizationPanel = ({ selectedProject, projects, setProjects }) => {
       setFileProgress(100);
       setIsFileReady(true);
       
-      console.log('✅ Traitement fichier réussi');
-      
     } catch (err) {
-      console.error('❌ Erreur lors de l\'anonymisation:', err);
-      console.error('❌ Stack trace:', err.stack);
-      
-      // Message d'erreur plus informatif selon le type d'erreur
-      let userErrorMessage = `Erreur lors de l'anonymisation: ${err.message}`;
-      
-      if (err.message.includes('500')) {
-        userErrorMessage = `Erreur serveur (500): Le fichier est peut-être trop volumineux ou complexe. Taille: ${fileSizeMB.toFixed(1)} MB. Essayez avec un fichier plus petit ou contactez le support.`;
-      } else if (err.message.includes('timeout')) {
-        userErrorMessage = `Timeout: Le traitement du fichier prend trop de temps. Fichier trop volumineux (${fileSizeMB.toFixed(1)} MB). Essayez de le segmenter.`;
-      } else if (err.message.includes('network') || err.message.includes('fetch')) {
-        userErrorMessage = `Erreur réseau: Vérifiez votre connexion internet. Taille fichier: ${fileSizeMB.toFixed(1)} MB.`;
-      }
-      
-      setError(userErrorMessage);
+      setError(`Erreur lors de l'anonymisation: ${err.message}`);
     } finally {
       setIsProcessing(false);
-      console.log('🏁 Fin traitement fichier');
     }
   };
 

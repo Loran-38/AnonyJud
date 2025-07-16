@@ -13,43 +13,17 @@ import io
 from odf import text as odf_text, teletype
 from odf.opendocument import load
 import re # Added for regex in deanonymize_docx_file
-import time
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.units import inch
 
-# Logs de démarrage pour diagnostic
-print("🚀 Démarrage de l'application AnonyJud Backend...")
-print("📝 Chargement des modules d'anonymisation...")
+from .anonymizer import anonymize_text
+from .deanonymizer import deanonymize_text
+from .models import TextAnonymizationRequest, TextDeanonymizationRequest
 
-try:
-    from .anonymizer import anonymize_text, anonymize_pdf_file, deanonymize_pdf_file, anonymize_pdf_enhanced_pipeline, deanonymize_pdf_enhanced_pipeline, anonymize_pdf_direct, deanonymize_pdf_direct, PDF_REDACTOR_AVAILABLE
-    print("✓ Modules d'anonymisation de base chargés")
-    print(f"📊 PDF-Redactor dans anonymizer.py: {'✓ Disponible' if PDF_REDACTOR_AVAILABLE else '❌ Non disponible'}")
-except Exception as e:
-    print(f"❌ Erreur lors du chargement des modules d'anonymisation de base: {e}")
-    raise
-
-try:
-    from .anonymizer import anonymize_pdf_with_redactor
-    print("✓ Module pdf-redactor chargé")
-except Exception as e:
-    print(f"⚠ Module pdf-redactor non disponible: {e}")
-
-try:
-    from .deanonymizer import deanonymize_text
-    print("✓ Module de désanonymisation chargé")
-except Exception as e:
-    print(f"❌ Erreur lors du chargement du module de désanonymisation: {e}")
-    raise
-
-try:
-    from .models import TextAnonymizationRequest, TextDeanonymizationRequest
-    print("✓ Modèles Pydantic chargés")
-except Exception as e:
-    print(f"❌ Erreur lors du chargement des modèles: {e}")
-    raise
-
-print("🎯 Initialisation de FastAPI...")
-app = FastAPI(title="AnonyJud Backend", version="1.0.0")
-print("✓ FastAPI initialisé")
+app = FastAPI()
 
 # Configuration CORS pour permettre les requêtes depuis le frontend
 app.add_middleware(
@@ -60,19 +34,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-print("🌐 Configuration CORS appliquée")
-print("🚀 AnonyJud Backend démarré avec succès!")
-print("📊 État des modules:")
-print(f"   - pdf-redactor: {'✓ Disponible' if PDF_REDACTOR_AVAILABLE else '❌ Non disponible'}")
-print("🔗 API prête à recevoir les requêtes")
-
 @app.get("/")
 def read_root():
-    return {
-        "message": "AnonyJud API is running",
-        "pdf_redactor_available": PDF_REDACTOR_AVAILABLE,
-        "status": "healthy"
-    }
+    return {"message": "AnonyJud API is running"}
 
 @app.post("/anonymize/text")
 def anonymize_text_endpoint(request: TextAnonymizationRequest):
@@ -138,111 +102,36 @@ async def anonymize_file(
     Anonymise un fichier Word, PDF ou ODT en utilisant les tiers fournis.
     """
     try:
-        # Logs de diagnostic détaillés
-        print(f"🚀 ANONYMIZE_FILE - Début du traitement")
-        print(f"📁 Fichier reçu: {file.filename}")
-        print(f"📊 Type de contenu: {file.content_type}")
-        
         # Convertir la chaîne JSON en liste de tiers
-        try:
-            tiers = json.loads(tiers_json)
-            print(f"👥 Nombre de tiers: {len(tiers)}")
-        except json.JSONDecodeError as e:
-            print(f"❌ Erreur décodage JSON tiers: {e}")
-            raise HTTPException(status_code=400, detail=f"Format JSON invalide pour les tiers: {str(e)}")
+        tiers = json.loads(tiers_json)
         
         # Vérifier le type de fichier
         filename = file.filename or ""
         file_extension = os.path.splitext(filename)[1].lower()
-        print(f"📄 Extension détectée: {file_extension}")
-        
-        # Lire le contenu avec diagnostic de taille
-        try:
-            content = await file.read()
-            file_size_mb = len(content) / 1024 / 1024
-            print(f"📦 Taille du fichier: {len(content):,} bytes ({file_size_mb:.1f} MB)")
-            
-            # Avertissement pour gros fichiers
-            if file_size_mb > 100:
-                print(f"⚠️ GROS FICHIER DÉTECTÉ: {file_size_mb:.1f} MB - Traitement peut être lent")
-            if file_size_mb > 1000:
-                print(f"🚨 FICHIER TRÈS VOLUMINEUX: {file_size_mb:.1f} MB - Risque d'erreur mémoire")
-                
-        except Exception as e:
-            print(f"❌ Erreur lecture fichier: {e}")
-            raise HTTPException(status_code=400, detail=f"Impossible de lire le fichier: {str(e)}")
         
         if file_extension == ".pdf":
-            print(f"📄 Traitement PDF avec pipeline sécurisé PDF → Word → PDF...")
-            try:
-                # Traitement sécurisé des fichiers PDF : pipeline PDF → Word → Anonymisation → PDF
-                start_time = time.time()
-                anonymized_file, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
-                processing_time = time.time() - start_time
-                
-                print(f"✅ Pipeline PDF terminé en {processing_time:.2f}s")
-                print(f"📊 Mapping généré: {len(mapping)} remplacements")
-                return {"text": "PDF anonymisé via pipeline sécurisé", "mapping": mapping}
-                
-            except Exception as e:
-                print(f"❌ Erreur pipeline PDF: {str(e)}")
-                # Log détaillé de l'erreur
-                import traceback
-                print(f"📄 Traceback complet:")
-                traceback.print_exc()
-                raise HTTPException(status_code=500, detail=f"Erreur traitement PDF: {str(e)}")
+            # Traitement des fichiers PDF
+            content = await file.read()
+            pdf_text, mapping = extract_and_anonymize_pdf(content, tiers)
+            return {"text": pdf_text, "mapping": mapping}
             
         elif file_extension in [".doc", ".docx"]:
-            print(f"📄 Traitement fichier Word...")
-            try:
-                # Traitement des fichiers Word
-                start_time = time.time()
-                doc_text, mapping = extract_and_anonymize_docx(content, tiers)
-                processing_time = time.time() - start_time
-                
-                print(f"✅ Traitement Word terminé en {processing_time:.2f}s")
-                print(f"📊 Mapping généré: {len(mapping)} remplacements")
-                return {"text": doc_text, "mapping": mapping}
-                
-            except Exception as e:
-                print(f"❌ Erreur traitement Word: {str(e)}")
-                import traceback
-                print(f"📄 Traceback complet:")
-                traceback.print_exc()
-                raise HTTPException(status_code=500, detail=f"Erreur traitement Word: {str(e)}")
+            # Traitement des fichiers Word
+            content = await file.read()
+            doc_text, mapping = extract_and_anonymize_docx(content, tiers)
+            return {"text": doc_text, "mapping": mapping}
             
         elif file_extension == ".odt":
-            print(f"📄 Traitement fichier ODT...")
-            try:
-                # Traitement des fichiers ODT (OpenDocument Text)
-                start_time = time.time()
-                odt_text, mapping = extract_and_anonymize_odt(content, tiers)
-                processing_time = time.time() - start_time
-                
-                print(f"✅ Traitement ODT terminé en {processing_time:.2f}s")
-                print(f"📊 Mapping généré: {len(mapping)} remplacements")
-                return {"text": odt_text, "mapping": mapping}
-                
-            except Exception as e:
-                print(f"❌ Erreur traitement ODT: {str(e)}")
-                import traceback
-                print(f"📄 Traceback complet:")
-                traceback.print_exc()
-                raise HTTPException(status_code=500, detail=f"Erreur traitement ODT: {str(e)}")
+            # Traitement des fichiers ODT (OpenDocument Text)
+            content = await file.read()
+            odt_text, mapping = extract_and_anonymize_odt(content, tiers)
+            return {"text": odt_text, "mapping": mapping}
             
         else:
-            print(f"❌ Format de fichier non supporté: {file_extension}")
             raise HTTPException(status_code=400, detail="Format de fichier non supporté. Utilisez PDF, DOCX ou ODT.")
             
-    except HTTPException:
-        # Re-lancer les exceptions HTTP sans les modifier
-        raise
     except Exception as e:
-        print(f"❌ Erreur générale dans anonymize_file: {str(e)}")
-        import traceback
-        print(f"📄 Traceback complet de l'erreur générale:")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Erreur interne du serveur: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 def detect_anonymized_patterns(text: str) -> Dict[str, str]:
     """
@@ -538,7 +427,7 @@ async def deanonymize_file(
         # Procéder à la dé-anonymisation
         if file_extension == ".pdf":
             print(f"📄 Traitement PDF...")
-            pdf_text = extract_and_deanonymize_docx(content, mapping) # Changed to docx as per new_code
+            pdf_text = extract_and_deanonymize_pdf(content, mapping)
             print(f"✅ PDF désanonymisé avec succès")
             return {"text": pdf_text, "mapping": mapping}
             
@@ -567,7 +456,7 @@ async def anonymize_file_download(
     tiers_json: str = Form(...)
 ):
     """
-    Anonymise un fichier Word, ODT ou PDF et retourne le fichier modifié pour téléchargement.
+    Anonymise un fichier Word ou ODT et retourne le fichier modifié pour téléchargement.
     """
     try:
         print(f"🚀 ANONYMIZE_FILE_DOWNLOAD - Début du traitement")
@@ -582,7 +471,25 @@ async def anonymize_file_download(
         file_extension = os.path.splitext(filename)[1].lower()
         print(f"📄 Extension du fichier: {file_extension}")
         
-        if file_extension in [".doc", ".docx"]:
+        if file_extension == ".pdf":
+            print(f"📄 Traitement fichier PDF...")
+            # Traitement des fichiers PDF
+            content = await file.read()
+            anonymized_file, mapping = anonymize_pdf_file(content, tiers)
+            
+            # Créer un nom de fichier pour le téléchargement
+            base_name = os.path.splitext(filename)[0]
+            anonymized_filename = f"{base_name}_ANONYM.pdf"
+            
+            print(f"✅ Fichier PDF anonymisé: {anonymized_filename}")
+            
+            # Retourner le fichier modifié
+            return StreamingResponse(
+                io.BytesIO(anonymized_file),
+                media_type="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename={anonymized_filename}"}
+            )
+        elif file_extension in [".doc", ".docx"]:
             print(f"📄 Traitement fichier Word...")
             # Traitement des fichiers Word
             content = await file.read()
@@ -618,22 +525,10 @@ async def anonymize_file_download(
                 media_type="application/vnd.oasis.opendocument.text",
                 headers={"Content-Disposition": f"attachment; filename={anonymized_filename}"}
             )
-        elif file_extension == ".pdf":
-            print(f"📄 Traitement fichier PDF avec pipeline sécurisé PDF → Word → PDF...")
-            content = await file.read()
-            anonymized_file, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
-            base_name = os.path.splitext(filename)[0]
-            anonymized_filename = f"{base_name}_ANONYM.pdf"
-            print(f"✅ Fichier PDF anonymisé: {anonymized_filename}")
-            return StreamingResponse(
-                io.BytesIO(anonymized_file),
-                media_type="application/pdf",
-                headers={"Content-Disposition": f"attachment; filename={anonymized_filename}"}
-            )
         else:
             print(f"❌ Format de fichier non supporté: {file_extension}")
-            raise HTTPException(status_code=400, detail="Seuls les fichiers Word (.docx), ODT (.odt) et PDF (.pdf) sont supportés pour le téléchargement.")
-        
+            raise HTTPException(status_code=400, detail="Seuls les fichiers PDF (.pdf), Word (.docx) et ODT (.odt) sont supportés pour le téléchargement.")
+            
     except Exception as e:
         print(f"❌ Erreur dans anonymize_file_download: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -644,7 +539,7 @@ async def deanonymize_file_download(
     mapping_json: str = Form(...)
 ):
     """
-    Dé-anonymise un fichier Word, ODT ou PDF et retourne le fichier modifié pour téléchargement.
+    Dé-anonymise un fichier Word ou ODT et retourne le fichier modifié pour téléchargement.
     """
     try:
         print(f"🚀 DEANONYMIZE_FILE_DOWNLOAD - Début du traitement")
@@ -660,7 +555,28 @@ async def deanonymize_file_download(
         file_extension = os.path.splitext(filename)[1].lower()
         print(f"📄 Extension du fichier: {file_extension}")
         
-        if file_extension in [".doc", ".docx"]:
+        if file_extension == ".pdf":
+            print(f"📄 Traitement fichier PDF...")
+            # Traitement des fichiers PDF
+            content = await file.read()
+            deanonymized_file = deanonymize_pdf_file(content, mapping)
+            
+            # Créer un nom de fichier pour le téléchargement
+            base_name = os.path.splitext(filename)[0]
+            # Retirer "_ANONYM" du nom si présent
+            if base_name.endswith("_ANONYM"):
+                base_name = base_name[:-7]
+            deanonymized_filename = f"{base_name}_DESANONYM.pdf"
+            
+            print(f"✅ Fichier PDF dé-anonymisé: {deanonymized_filename}")
+            
+            # Retourner le fichier modifié
+            return StreamingResponse(
+                io.BytesIO(deanonymized_file),
+                media_type="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename={deanonymized_filename}"}
+            )
+        elif file_extension in [".doc", ".docx"]:
             print(f"📄 Traitement fichier Word...")
             # Traitement des fichiers Word
             content = await file.read()
@@ -702,267 +618,32 @@ async def deanonymize_file_download(
                 media_type="application/vnd.oasis.opendocument.text",
                 headers={"Content-Disposition": f"attachment; filename={deanonymized_filename}"}
             )
-        elif file_extension == ".pdf":
-            print(f"📄 Traitement fichier PDF avec pipeline sécurisé PDF → Word → PDF...")
-            content = await file.read()
-            deanonymized_file = deanonymize_pdf_enhanced_pipeline(content, mapping)
-            base_name = os.path.splitext(filename)[0]
-            if base_name.endswith("_ANONYM"):
-                base_name = base_name[:-7]
-            deanonymized_filename = f"{base_name}_DESANONYM.pdf"
-            print(f"✅ Fichier PDF dé-anonymisé: {deanonymized_filename}")
-            return StreamingResponse(
-                io.BytesIO(deanonymized_file),
-                media_type="application/pdf",
-                headers={"Content-Disposition": f"attachment; filename={deanonymized_filename}"}
-            )
         else:
             print(f"❌ Format de fichier non supporté: {file_extension}")
-            raise HTTPException(status_code=400, detail="Seuls les fichiers Word (.docx), ODT (.odt) et PDF (.pdf) sont supportés pour le téléchargement.")
+            raise HTTPException(status_code=400, detail="Seuls les fichiers PDF (.pdf), Word (.docx) et ODT (.odt) sont supportés pour le téléchargement.")
             
     except Exception as e:
         print(f"❌ Erreur dans deanonymize_file_download: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/anonymize/pdf/redactor")
-async def anonymize_pdf_with_redactor_endpoint(
-    file: UploadFile = File(...),
-    tiers_json: str = Form(...)
-):
+def extract_and_anonymize_pdf(content: bytes, tiers: List[Dict[str, Any]]):
     """
-    Anonymise un fichier PDF avec pdf-redactor pour une préservation optimale de la mise en page.
-    Cette méthode est spécialement conçue pour conserver parfaitement le formatage original.
+    Extrait le texte d'un PDF et l'anonymise.
     """
     try:
-        print(f"🚀 ANONYMIZE_PDF_REDACTOR - Début du traitement")
+        # Ouvrir le PDF depuis les bytes
+        with fitz.open(stream=content, filetype="pdf") as pdf:
+            text = ""
+            # Extraire le texte de chaque page
+            for page in pdf:
+                text += page.get_text()
         
-        # Vérifier que le module pdf-redactor est disponible
-        if not PDF_REDACTOR_AVAILABLE:
-            print(f"❌ Module pdf-redactor non disponible")
-            raise HTTPException(
-                status_code=503, 
-                detail="Le module pdf-redactor n'est pas disponible sur ce serveur. Utilisez l'endpoint /anonymize/pdf/auto à la place."
-            )
-        
-        print(f"📁 Fichier reçu: {file.filename}")
-        
-        # Vérifier que c'est bien un PDF
-        filename = file.filename or ""
-        file_extension = os.path.splitext(filename)[1].lower()
-        
-        if file_extension != ".pdf":
-            raise HTTPException(status_code=400, detail="Cet endpoint ne supporte que les fichiers PDF (.pdf)")
-        
-        # Convertir la chaîne JSON en liste de tiers
-        tiers = json.loads(tiers_json)
-        print(f"👥 Nombre de tiers: {len(tiers)}")
-        
-        # Lire le contenu du fichier PDF
-        content = await file.read()
-        print(f"📦 Taille du fichier: {len(content)} bytes")
-        
-        # Anonymiser avec pdf-redactor
-        print(f"🔄 Anonymisation avec pdf-redactor...")
-        anonymized_pdf, mapping = anonymize_pdf_with_redactor(content, tiers)
-        
-        print(f"✅ Anonymisation pdf-redactor réussie!")
-        print(f"📊 Taille original: {len(content)} bytes")
-        print(f"📊 Taille anonymisé: {len(anonymized_pdf)} bytes")
-        print(f"📊 Mapping généré: {len(mapping)} remplacements")
-        
-        # Créer un nom de fichier pour le téléchargement
-        base_name = os.path.splitext(filename)[0]
-        anonymized_filename = f"{base_name}_REDACTOR_ANONYM.pdf"
-        
-        print(f"💾 Fichier prêt pour téléchargement: {anonymized_filename}")
-        
-        # Retourner le fichier anonymisé pour téléchargement
-        return StreamingResponse(
-            io.BytesIO(anonymized_pdf),
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename={anonymized_filename}"}
-        )
+        # Anonymiser le texte extrait
+        anonymized, mapping = anonymize_text(text, tiers)
+        return anonymized, mapping
         
     except Exception as e:
-        print(f"❌ Erreur dans anonymize_pdf_with_redactor_endpoint: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/anonymize/pdf/auto")
-async def anonymize_pdf_auto_method(
-    file: UploadFile = File(...),
-    tiers_json: str = Form(...),
-    force_method: str = Form(default="auto")
-):
-    """
-    Anonymise un PDF en choisissant automatiquement la meilleure méthode selon la taille.
-    
-    force_method peut être: "auto", "redactor", "pipeline", "direct"
-    - auto: choix automatique selon la taille (recommandé)
-    - redactor: force l'utilisation de pdf-redactor
-    - pipeline: force l'utilisation du pipeline PDF→Word→PDF  
-    - direct: force l'utilisation de PyMuPDF direct
-    """
-    try:
-        print(f"🚀 ANONYMIZE_PDF_AUTO - Début du traitement")
-        print(f"📁 Fichier reçu: {file.filename}")
-        print(f"🔧 Méthode forcée: {force_method}")
-        
-        # Vérifier que c'est bien un PDF
-        filename = file.filename or ""
-        file_extension = os.path.splitext(filename)[1].lower()
-        
-        if file_extension != ".pdf":
-            raise HTTPException(status_code=400, detail="Cet endpoint ne supporte que les fichiers PDF (.pdf)")
-        
-        # Convertir la chaîne JSON en liste de tiers
-        tiers = json.loads(tiers_json)
-        print(f"👥 Nombre de tiers: {len(tiers)}")
-        
-        # Lire le contenu du fichier PDF
-        content = await file.read()
-        file_size_mb = len(content) / 1024 / 1024
-        
-        print(f"📦 Taille du fichier: {len(content):,} bytes ({file_size_mb:.1f} MB)")
-        
-        # === CHOIX AUTOMATIQUE DE LA MÉTHODE ===
-        chosen_method = force_method
-        method_reason = ""
-        
-        if force_method == "auto":
-            if file_size_mb > 4000:  # > 4GB
-                raise HTTPException(status_code=413, 
-                    detail=f"Fichier trop volumineux: {file_size_mb:.1f}MB > 4GB. "
-                           f"Segmentez le fichier en parties plus petites.")
-            elif file_size_mb > 1000:  # > 1GB 
-                if PDF_REDACTOR_AVAILABLE:
-                    chosen_method = "redactor"
-                    method_reason = "Fichier > 1GB: pdf-redactor recommandé (plus direct)"
-                else:
-                    chosen_method = "direct"
-                    method_reason = "Fichier > 1GB: PyMuPDF direct (pdf-redactor non disponible)"
-            elif file_size_mb > 500:  # > 500MB
-                if PDF_REDACTOR_AVAILABLE:
-                    chosen_method = "redactor" 
-                    method_reason = "Fichier > 500MB: pdf-redactor recommandé (évite conversions)"
-                else:
-                    chosen_method = "direct"
-                    method_reason = "Fichier > 500MB: PyMuPDF direct (pdf-redactor non disponible)"
-            elif file_size_mb > 100:  # > 100MB
-                chosen_method = "pipeline"
-                method_reason = "Fichier > 100MB: pipeline Word recommandé (équilibre qualité/performance)"
-            else:  # <= 100MB
-                if PDF_REDACTOR_AVAILABLE:
-                    chosen_method = "redactor"
-                    method_reason = "Fichier petit: pdf-redactor recommandé (plus rapide et préserve mieux)"
-                else:
-                    chosen_method = "pipeline"
-                    method_reason = "Fichier petit: pipeline Word (pdf-redactor non disponible)"
-        else:
-            method_reason = f"Méthode forcée par l'utilisateur: {force_method}"
-        
-        print(f"🎯 Méthode choisie: {chosen_method}")
-        print(f"📝 Raison: {method_reason}")
-        
-        # === EXÉCUTION DE LA MÉTHODE CHOISIE ===
-        start_time = time.time()
-        
-        try:
-            if chosen_method == "redactor":
-                if not PDF_REDACTOR_AVAILABLE:
-                    print(f"⚠ pdf-redactor demandé mais non disponible, basculement vers pipeline")
-                    chosen_method = "pipeline"
-                    method_reason += " → Basculé vers pipeline (pdf-redactor non disponible)"
-                    anonymized_pdf, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
-                    method_suffix = "PIPELINE"
-                else:
-                    print(f"🔄 Anonymisation avec pdf-redactor...")
-                    anonymized_pdf, mapping = anonymize_pdf_with_redactor(content, tiers)
-                    method_suffix = "REDACTOR"
-                
-            elif chosen_method == "pipeline":
-                print(f"🔄 Anonymisation avec pipeline PDF→Word→PDF...")
-                anonymized_pdf, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
-                method_suffix = "PIPELINE"
-                
-            elif chosen_method == "direct":
-                print(f"🔄 Anonymisation directe avec PyMuPDF...")
-                anonymized_pdf, mapping = anonymize_pdf_direct(content, tiers)
-                method_suffix = "DIRECT"
-                
-            else:
-                raise HTTPException(status_code=400, 
-                    detail=f"Méthode inconnue: {chosen_method}. "
-                           f"Valeurs acceptées: auto, redactor, pipeline, direct")
-            
-            processing_time = time.time() - start_time
-            
-            print(f"✅ Anonymisation {chosen_method} réussie en {processing_time:.2f}s!")
-            print(f"📊 Taille original: {len(content):,} bytes ({file_size_mb:.1f} MB)")
-            print(f"📊 Taille anonymisé: {len(anonymized_pdf):,} bytes ({len(anonymized_pdf)/1024/1024:.1f} MB)")
-            print(f"📊 Mapping généré: {len(mapping)} remplacements")
-            print(f"🎯 Méthode utilisée: {chosen_method} - {method_reason}")
-            
-            # Créer un nom de fichier pour le téléchargement
-            base_name = os.path.splitext(filename)[0]
-            anonymized_filename = f"{base_name}_{method_suffix}_ANONYM.pdf"
-            
-            print(f"💾 Fichier prêt pour téléchargement: {anonymized_filename}")
-            
-            # Retourner le fichier anonymisé pour téléchargement
-            return StreamingResponse(
-                io.BytesIO(anonymized_pdf),
-                media_type="application/pdf",
-                headers={
-                    "Content-Disposition": f"attachment; filename={anonymized_filename}",
-                    "X-Method-Used": chosen_method,
-                    "X-Method-Reason": method_reason,
-                    "X-Processing-Time": f"{processing_time:.2f}s",
-                    "X-File-Size-MB": f"{file_size_mb:.1f}",
-                    "X-Mapping-Count": str(len(mapping))
-                }
-            )
-            
-        except Exception as method_error:
-            processing_time = time.time() - start_time
-            print(f"❌ Échec méthode {chosen_method} après {processing_time:.2f}s: {str(method_error)}")
-            
-            # Si méthode auto et échec, essayer une méthode alternative
-            if force_method == "auto" and chosen_method != "pipeline":
-                print(f"🔄 Tentative de fallback vers pipeline PDF→Word→PDF...")
-                try:
-                    fallback_start = time.time()
-                    anonymized_pdf, mapping = anonymize_pdf_enhanced_pipeline(content, tiers)
-                    fallback_time = time.time() - fallback_start
-                    
-                    print(f"✅ Fallback pipeline réussi en {fallback_time:.2f}s!")
-                    
-                    base_name = os.path.splitext(filename)[0]
-                    anonymized_filename = f"{base_name}_PIPELINE_FALLBACK_ANONYM.pdf"
-                    
-                    return StreamingResponse(
-                        io.BytesIO(anonymized_pdf),
-                        media_type="application/pdf",
-                        headers={
-                            "Content-Disposition": f"attachment; filename={anonymized_filename}",
-                            "X-Method-Used": "pipeline-fallback",
-                            "X-Method-Reason": f"Fallback après échec {chosen_method}",
-                            "X-Processing-Time": f"{fallback_time:.2f}s",
-                            "X-Original-Error": str(method_error)[:100]
-                        }
-                    )
-                except Exception as fallback_error:
-                    print(f"❌ Échec fallback pipeline: {str(fallback_error)}")
-                    raise HTTPException(status_code=500, 
-                        detail=f"Échec méthode {chosen_method}: {str(method_error)}. "
-                               f"Échec fallback pipeline: {str(fallback_error)}")
-            else:
-                raise HTTPException(status_code=500, detail=str(method_error))
-        
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions
-    except Exception as e:
-        print(f"❌ Erreur générale dans anonymize_pdf_auto_method: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise Exception(f"Erreur lors du traitement du PDF: {str(e)}")
 
 def extract_and_anonymize_docx(content: bytes, tiers: List[Dict[str, Any]]):
     """
@@ -1262,6 +943,25 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
         print(f"❌ Erreur dans deanonymize_docx_file: {str(e)}")
         raise Exception(f"Erreur lors de la dé-anonymisation du fichier Word: {str(e)}")
 
+def extract_and_deanonymize_pdf(content: bytes, mapping: Dict[str, str]):
+    """
+    Extrait le texte d'un PDF et le dé-anonymise.
+    """
+    try:
+        # Ouvrir le PDF depuis les bytes
+        with fitz.open(stream=content, filetype="pdf") as pdf:
+            text = ""
+            # Extraire le texte de chaque page
+            for page in pdf:
+                text += page.get_text()
+        
+        # Dé-anonymiser le texte extrait
+        deanonymized = deanonymize_text(text, mapping)
+        return deanonymized
+        
+    except Exception as e:
+        raise Exception(f"Erreur lors du traitement du PDF: {str(e)}")
+
 def extract_and_deanonymize_docx(content: bytes, mapping: Dict[str, str]):
     """
     Extrait le texte d'un document Word et le dé-anonymise.
@@ -1499,3 +1199,161 @@ def deanonymize_odt_file(content: bytes, mapping: Dict[str, str]):
     except Exception as e:
         print(f"❌ DEBUG: Erreur dans deanonymize_odt_file: {str(e)}")
         raise Exception(f"Erreur lors de la dé-anonymisation du fichier ODT: {str(e)}") 
+
+def create_pdf_from_text(text: str, filename: str) -> bytes:
+    """
+    Crée un nouveau PDF à partir du texte fourni en utilisant reportlab.
+    Préserve les sauts de ligne et la mise en forme basique.
+    """
+    try:
+        print(f"🚀 CREATE_PDF_FROM_TEXT - Début de la génération PDF")
+        print(f"📄 Nom du fichier: {filename}")
+        print(f"📝 Longueur du texte: {len(text)} caractères")
+        
+        # Créer un buffer en mémoire pour le PDF
+        buffer = io.BytesIO()
+        
+        # Créer le document PDF
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=72,  # 1 inch
+            leftMargin=72,   # 1 inch
+            topMargin=72,    # 1 inch
+            bottomMargin=72  # 1 inch
+        )
+        
+        # Définir les styles
+        styles = getSampleStyleSheet()
+        
+        # Style pour le titre
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Title'],
+            fontSize=16,
+            spaceAfter=30,
+            alignment=1  # Centré
+        )
+        
+        # Style pour le texte normal
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=11,
+            leading=14,  # Espacement entre les lignes
+            spaceAfter=12,
+            alignment=0  # Justifié à gauche
+        )
+        
+        # Construire le contenu du PDF
+        story = []
+        
+        # Ajouter le titre
+        title = f"Document traité - {filename}"
+        story.append(Paragraph(title, title_style))
+        story.append(Spacer(1, 20))
+        
+        # Diviser le texte en paragraphes
+        paragraphs = text.split('\n')
+        
+        paragraph_count = 0
+        for para_text in paragraphs:
+            para_text = para_text.strip()
+            if para_text:  # Ignorer les lignes vides
+                # Échapper les caractères spéciaux pour reportlab
+                para_text = para_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                
+                # Ajouter le paragraphe
+                story.append(Paragraph(para_text, normal_style))
+                paragraph_count += 1
+            else:
+                # Ajouter un espacement pour les lignes vides
+                story.append(Spacer(1, 6))
+        
+        print(f"📊 Nombre de paragraphes traités: {paragraph_count}")
+        
+        # Générer le PDF
+        doc.build(story)
+        
+        # Récupérer les bytes du PDF
+        buffer.seek(0)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        
+        print(f"✅ PDF généré avec succès, taille: {len(pdf_bytes)} bytes")
+        return pdf_bytes
+        
+    except Exception as e:
+        print(f"❌ Erreur lors de la génération du PDF: {str(e)}")
+        raise Exception(f"Erreur lors de la génération du PDF: {str(e)}")
+
+def anonymize_pdf_file(content: bytes, tiers: List[Dict[str, Any]]):
+    """
+    Anonymise un fichier PDF en extrayant le texte, l'anonymisant, 
+    puis générant un nouveau PDF avec le texte anonymisé.
+    """
+    try:
+        print(f"🚀 ANONYMIZE_PDF_FILE - Début du traitement")
+        print(f"👥 Nombre de tiers: {len(tiers)}")
+        
+        # Extraire le texte du PDF original
+        with fitz.open(stream=content, filetype="pdf") as pdf:
+            text = ""
+            page_count = 0
+            for page in pdf:
+                text += page.get_text()
+                page_count += 1
+        
+        print(f"📄 Texte extrait de {page_count} pages")
+        print(f"📝 Longueur du texte extrait: {len(text)} caractères")
+        
+        # Anonymiser le texte
+        anonymized_text, mapping = anonymize_text(text, tiers)
+        
+        print(f"🔒 Texte anonymisé, {len(mapping)} remplacements")
+        
+        # Générer le nouveau PDF avec le texte anonymisé
+        pdf_bytes = create_pdf_from_text(anonymized_text, "document_anonymise.pdf")
+        
+        print(f"✅ PDF anonymisé généré avec succès")
+        return pdf_bytes, mapping
+        
+    except Exception as e:
+        print(f"❌ Erreur dans anonymize_pdf_file: {str(e)}")
+        raise Exception(f"Erreur lors de l'anonymisation du fichier PDF: {str(e)}")
+
+def deanonymize_pdf_file(content: bytes, mapping: Dict[str, str]):
+    """
+    Dé-anonymise un fichier PDF en extrayant le texte, le dé-anonymisant,
+    puis générant un nouveau PDF avec le texte dé-anonymisé.
+    """
+    try:
+        print(f"🚀 DEANONYMIZE_PDF_FILE - Début du traitement")
+        print(f"🗂️ Mapping reçu: {mapping}")
+        print(f"📊 Nombre de balises dans le mapping: {len(mapping)}")
+        
+        # Extraire le texte du PDF anonymisé
+        with fitz.open(stream=content, filetype="pdf") as pdf:
+            text = ""
+            page_count = 0
+            for page in pdf:
+                text += page.get_text()
+                page_count += 1
+        
+        print(f"📄 Texte extrait de {page_count} pages")
+        print(f"📝 Longueur du texte extrait: {len(text)} caractères")
+        
+        # Dé-anonymiser le texte
+        deanonymized_text = deanonymize_text(text, mapping)
+        
+        print(f"🔓 Texte dé-anonymisé")
+        
+        # Générer le nouveau PDF avec le texte dé-anonymisé
+        pdf_bytes = create_pdf_from_text(deanonymized_text, "document_desanonymise.pdf")
+        
+        print(f"✅ PDF dé-anonymisé généré avec succès")
+        return pdf_bytes
+        
+    except Exception as e:
+        print(f"❌ Erreur dans deanonymize_pdf_file: {str(e)}")
+        raise Exception(f"Erreur lors de la dé-anonymisation du fichier PDF: {str(e)}") 
