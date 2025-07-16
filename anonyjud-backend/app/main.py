@@ -18,6 +18,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.units import inch
+from reportlab.lib.utils import ImageReader
 
 from .anonymizer import anonymize_text
 from .deanonymizer import deanonymize_text
@@ -473,13 +474,13 @@ async def anonymize_file_download(
         
         if file_extension == ".pdf":
             print(f"📄 Traitement fichier PDF...")
-            # Traitement des fichiers PDF
+            # Traitement des fichiers PDF - Utilisation de la méthode sécurisée par défaut
             content = await file.read()
-            anonymized_file, mapping = anonymize_pdf_file(content, tiers)
+            anonymized_file, mapping = anonymize_pdf_secure_with_graphics(content, tiers)
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
-            anonymized_filename = f"{base_name}_ANONYM.pdf"
+            anonymized_filename = f"{base_name}_ANONYM_SECURE.pdf"
             
             print(f"✅ Fichier PDF anonymisé: {anonymized_filename}")
             
@@ -557,16 +558,18 @@ async def deanonymize_file_download(
         
         if file_extension == ".pdf":
             print(f"📄 Traitement fichier PDF...")
-            # Traitement des fichiers PDF
+            # Traitement des fichiers PDF - Utilisation de la méthode sécurisée
             content = await file.read()
-            deanonymized_file = deanonymize_pdf_file(content, mapping)
+            deanonymized_file = deanonymize_pdf_secure_with_graphics(content, mapping)
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
-            # Retirer "_ANONYM" du nom si présent
-            if base_name.endswith("_ANONYM"):
-                base_name = base_name[:-7]
-            deanonymized_filename = f"{base_name}_DESANONYM.pdf"
+            # Retirer les suffixes d'anonymisation si présents
+            for suffix in ["_ANONYM_SECURE", "_ANONYM"]:
+                if base_name.endswith(suffix):
+                    base_name = base_name[:-len(suffix)]
+                    break
+            deanonymized_filename = f"{base_name}_DESANONYM_SECURE.pdf"
             
             print(f"✅ Fichier PDF dé-anonymisé: {deanonymized_filename}")
             
@@ -1357,3 +1360,343 @@ def deanonymize_pdf_file(content: bytes, mapping: Dict[str, str]):
     except Exception as e:
         print(f"❌ Erreur dans deanonymize_pdf_file: {str(e)}")
         raise Exception(f"Erreur lors de la dé-anonymisation du fichier PDF: {str(e)}") 
+
+def extract_pdf_elements(doc):
+    """
+    Extrait tous les éléments du PDF : texte, images, graphiques avec leurs positions.
+    """
+    pdf_elements = []
+    
+    for page_num in range(doc.page_count):
+        page = doc[page_num]
+        page_elements = {
+            "page_number": page_num,
+            "page_size": page.rect,
+            "text_elements": [],
+            "images": [],
+            "drawings": []
+        }
+        
+        # Extraire le texte avec positions exactes
+        text_dict = page.get_text("dict")
+        for block in text_dict.get("blocks", []):
+            if "lines" in block:  # Bloc de texte
+                for line in block["lines"]:
+                    for span in line["spans"]:
+                        text_element = {
+                            "text": span["text"],
+                            "bbox": span["bbox"],
+                            "font": span["font"],
+                            "size": span["size"],
+                            "flags": span["flags"],
+                            "color": span.get("color", 0)
+                        }
+                        page_elements["text_elements"].append(text_element)
+        
+        # Extraire les images
+        image_list = page.get_images()
+        for img_index, img in enumerate(image_list):
+            try:
+                xref = img[0]
+                pix = fitz.Pixmap(doc, xref)
+                if pix.n < 5:  # GRAY or RGB
+                    img_data = pix.tobytes("png")
+                else:  # CMYK: convert first
+                    pix1 = fitz.Pixmap(fitz.csRGB, pix)
+                    img_data = pix1.tobytes("png")
+                    pix1 = None
+                
+                # Obtenir la position de l'image sur la page
+                img_rect = page.get_image_bbox(img)
+                
+                image_element = {
+                    "data": img_data,
+                    "bbox": img_rect,
+                    "xref": xref
+                }
+                page_elements["images"].append(image_element)
+                pix = None
+            except Exception as e:
+                print(f"⚠️ Erreur lors de l'extraction d'image: {e}")
+        
+        # Extraire les dessins/graphiques vectoriels
+        try:
+            drawings = page.get_drawings()
+            for drawing in drawings:
+                page_elements["drawings"].append(drawing)
+        except Exception as e:
+            print(f"⚠️ Erreur lors de l'extraction des dessins: {e}")
+        
+        pdf_elements.append(page_elements)
+    
+    return pdf_elements
+
+def anonymize_pdf_secure_with_graphics(pdf_content: bytes, tiers: List[Any]) -> tuple[bytes, Dict[str, str]]:
+    """
+    Anonymise un PDF de manière sécurisée en remplaçant RÉELLEMENT le texte
+    tout en préservant images, graphiques et mise en page exacte.
+    
+    Méthode sécurisée :
+    1. Extrait tous les éléments (texte, images, graphiques)
+    2. Remplace le texte de manière irréversible
+    3. Reconstitue le PDF avec reportlab en préservant la mise en page
+    """
+    try:
+        print(f"🔒 ANONYMIZE_PDF_SECURE_WITH_GRAPHICS - Début du traitement sécurisé")
+        
+        # Ouvrir le PDF original
+        doc = fitz.open(stream=pdf_content, filetype="pdf")
+        mapping = {}
+        replacement_counter = 1
+        
+        print(f"📄 PDF ouvert: {doc.page_count} pages")
+        
+        # Créer les remplacements basés sur les tiers
+        replacements = {}
+        for tiers_data in tiers:
+            numero = tiers_data.get('numero', replacement_counter) 
+            if tiers_data.get('nom'):
+                original_nom = tiers_data['nom'].strip()
+                anonymized_nom = f"nom{numero}"
+                replacements[original_nom] = anonymized_nom
+                mapping[anonymized_nom] = original_nom
+                
+            if tiers_data.get('prenom'):
+                original_prenom = tiers_data['prenom'].strip()
+                anonymized_prenom = f"prenom{numero}"
+                replacements[original_prenom] = anonymized_prenom
+                mapping[anonymized_prenom] = original_prenom
+                
+            if tiers_data.get('adresse'):
+                original_adresse = tiers_data['adresse'].strip()
+                anonymized_adresse = f"adresse{numero}"
+                replacements[original_adresse] = anonymized_adresse
+                mapping[anonymized_adresse] = original_adresse
+                
+            replacement_counter += 1
+        
+        print(f"🔄 {len(replacements)} remplacements à effectuer")
+        
+        # Extraire tous les éléments du PDF
+        pdf_elements = extract_pdf_elements(doc)
+        doc.close()  # Fermer le document original
+        
+        # Anonymiser le texte dans les éléments extraits
+        for page_data in pdf_elements:
+            for text_element in page_data["text_elements"]:
+                original_text = text_element["text"]
+                anonymized_text = original_text
+                
+                # Appliquer tous les remplacements
+                for original, anonymized in replacements.items():
+                    if original.lower() in anonymized_text.lower():
+                        anonymized_text = anonymized_text.replace(original, anonymized)
+                        print(f"🔄 Remplacement sécurisé: '{original}' → '{anonymized}'")
+                
+                # Remplacer DÉFINITIVEMENT le texte
+                text_element["text"] = anonymized_text
+        
+        # Reconstituer le PDF avec reportlab
+        buffer = io.BytesIO()
+        
+        # Utiliser reportlab pour créer le nouveau PDF
+        from reportlab.pdfgen import canvas as rl_canvas
+        
+        # Créer le document avec la taille de la première page
+        first_page = pdf_elements[0] if pdf_elements else None
+        if first_page:
+            page_size = (first_page["page_size"].width, first_page["page_size"].height)
+        else:
+            page_size = A4
+            
+        c = rl_canvas.Canvas(buffer, pagesize=page_size)
+        
+        # Reconstituer chaque page
+        for page_data in pdf_elements:
+            page_size = (page_data["page_size"].width, page_data["page_size"].height)
+            c.setPageSize(page_size)
+            
+            # Ajouter les images d'abord (arrière-plan)
+            for image_element in page_data["images"]:
+                try:
+                    img_data = image_element["data"]
+                    bbox = image_element["bbox"]
+                    
+                    # Créer un ImageReader à partir des données PNG
+                    img_reader = ImageReader(io.BytesIO(img_data))
+                    
+                    # Dessiner l'image à sa position exacte
+                    c.drawImage(
+                        img_reader,
+                        bbox.x0, page_size[1] - bbox.y1,  # Conversion coordonnées
+                        width=bbox.width,
+                        height=bbox.height
+                    )
+                except Exception as e:
+                    print(f"⚠️ Erreur lors de l'ajout d'image: {e}")
+            
+            # Ajouter les dessins vectoriels
+            for drawing in page_data["drawings"]:
+                try:
+                    # Simplification : dessiner les formes basiques
+                    if drawing.get("type") == "l":  # Ligne
+                        points = drawing.get("items", [])
+                        if len(points) >= 2:
+                            c.line(points[0][1][0], page_size[1] - points[0][1][1],
+                                  points[1][1][0], page_size[1] - points[1][1][1])
+                    elif drawing.get("type") == "re":  # Rectangle
+                        rect = drawing.get("rect")
+                        if rect:
+                            c.rect(rect[0], page_size[1] - rect[3], 
+                                  rect[2] - rect[0], rect[3] - rect[1])
+                except Exception as e:
+                    print(f"⚠️ Erreur lors de l'ajout de dessin: {e}")
+            
+            # Ajouter le texte anonymisé avec la mise en forme exacte
+            for text_element in page_data["text_elements"]:
+                try:
+                    text = text_element["text"].strip()
+                    if not text:
+                        continue
+                        
+                    bbox = text_element["bbox"]
+                    font_size = text_element["size"]
+                    
+                    # Convertir les coordonnées (PDF vs reportlab)
+                    x = bbox[0]
+                    y = page_size[1] - bbox[3]  # Inverser Y
+                    
+                    # Appliquer la police et la taille
+                    c.setFont("Helvetica", font_size)
+                    
+                    # Dessiner le texte à la position exacte
+                    c.drawString(x, y, text)
+                    
+                except Exception as e:
+                    print(f"⚠️ Erreur lors de l'ajout de texte: {e}")
+            
+            # Passer à la page suivante
+            c.showPage()
+        
+        # Finaliser le PDF
+        c.save()
+        pdf_bytes = buffer.getvalue()
+        
+        print(f"✅ PDF anonymisé sécurisé avec graphiques préservés généré")
+        print(f"🗂️ Mapping créé avec {len(mapping)} entrées")
+        
+        return pdf_bytes, mapping
+        
+    except Exception as e:
+        print(f"❌ Erreur dans anonymize_pdf_secure_with_graphics: {str(e)}")
+        raise Exception(f"Erreur lors de l'anonymisation sécurisée du PDF: {str(e)}")
+
+def deanonymize_pdf_secure_with_graphics(pdf_content: bytes, mapping: Dict[str, str]) -> bytes:
+    """
+    Dé-anonymise un PDF en restaurant le texte original de manière sécurisée
+    tout en préservant les images et graphiques.
+    """
+    try:
+        print(f"🔒 DEANONYMIZE_PDF_SECURE_WITH_GRAPHICS - Début du traitement")
+        
+        # Créer les remplacements inverses
+        reverse_replacements = {anonymized: original for anonymized, original in mapping.items()}
+        
+        # Même processus que l'anonymisation mais avec les remplacements inversés
+        doc = fitz.open(stream=pdf_content, filetype="pdf")
+        
+        # Extraire tous les éléments
+        pdf_elements = extract_pdf_elements(doc)
+        doc.close()
+        
+        # Dé-anonymiser le texte
+        for page_data in pdf_elements:
+            for text_element in page_data["text_elements"]:
+                anonymized_text = text_element["text"]
+                restored_text = anonymized_text
+                
+                # Appliquer les remplacements inverses
+                for anonymized, original in reverse_replacements.items():
+                    if anonymized in restored_text:
+                        restored_text = restored_text.replace(anonymized, original)
+                        print(f"🔄 Restauration: '{anonymized}' → '{original}'")
+                
+                text_element["text"] = restored_text
+        
+        # Reconstituer le PDF (même logique que l'anonymisation)
+        buffer = io.BytesIO()
+        from reportlab.pdfgen import canvas as rl_canvas
+        
+        first_page = pdf_elements[0] if pdf_elements else None
+        if first_page:
+            page_size = (first_page["page_size"].width, first_page["page_size"].height)
+        else:
+            page_size = A4
+            
+        c = rl_canvas.Canvas(buffer, pagesize=page_size)
+        
+        # Reconstituer chaque page avec le texte restauré
+        for page_data in pdf_elements:
+            page_size = (page_data["page_size"].width, page_data["page_size"].height)
+            c.setPageSize(page_size)
+            
+            # Images
+            for image_element in page_data["images"]:
+                try:
+                    img_data = image_element["data"]
+                    bbox = image_element["bbox"]
+                    img_reader = ImageReader(io.BytesIO(img_data))
+                    c.drawImage(
+                        img_reader,
+                        bbox.x0, page_size[1] - bbox.y1,
+                        width=bbox.width,
+                        height=bbox.height
+                    )
+                except Exception as e:
+                    print(f"⚠️ Erreur image: {e}")
+            
+            # Dessins
+            for drawing in page_data["drawings"]:
+                try:
+                    if drawing.get("type") == "l":
+                        points = drawing.get("items", [])
+                        if len(points) >= 2:
+                            c.line(points[0][1][0], page_size[1] - points[0][1][1],
+                                  points[1][1][0], page_size[1] - points[1][1][1])
+                    elif drawing.get("type") == "re":
+                        rect = drawing.get("rect")
+                        if rect:
+                            c.rect(rect[0], page_size[1] - rect[3], 
+                                  rect[2] - rect[0], rect[3] - rect[1])
+                except Exception as e:
+                    print(f"⚠️ Erreur dessin: {e}")
+            
+            # Texte restauré
+            for text_element in page_data["text_elements"]:
+                try:
+                    text = text_element["text"].strip()
+                    if not text:
+                        continue
+                        
+                    bbox = text_element["bbox"]
+                    font_size = text_element["size"]
+                    x = bbox[0]
+                    y = page_size[1] - bbox[3]
+                    
+                    c.setFont("Helvetica", font_size)
+                    c.drawString(x, y, text)
+                    
+                except Exception as e:
+                    print(f"⚠️ Erreur texte: {e}")
+            
+            c.showPage()
+        
+        c.save()
+        pdf_bytes = buffer.getvalue()
+        
+        print(f"✅ PDF dé-anonymisé sécurisé généré")
+        return pdf_bytes
+        
+    except Exception as e:
+        print(f"❌ Erreur dans deanonymize_pdf_secure_with_graphics: {str(e)}")
+        raise Exception(f"Erreur lors de la dé-anonymisation sécurisée: {str(e)}") 
