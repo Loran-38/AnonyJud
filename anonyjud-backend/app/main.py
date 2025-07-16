@@ -1289,60 +1289,33 @@ def create_pdf_from_text(text: str, filename: str) -> bytes:
 
 def anonymize_pdf_file(content: bytes, tiers: List[Dict[str, Any]]):
     """
-    Anonymise un fichier PDF en modifiant directement le texte dans le PDF original.
-    PRESERVE les images, graphiques, mise en forme et disposition originales.
-    Utilise la technique de redaction de PyMuPDF pour remplacer le texte in-situ.
+    Anonymise un fichier PDF en extrayant le texte, l'anonymisant, 
+    puis générant un nouveau PDF avec le texte anonymisé.
     """
     try:
-        print(f"🚀 ANONYMIZE_PDF_FILE - Début du traitement avec préservation d'images")
+        print(f"🚀 ANONYMIZE_PDF_FILE - Début du traitement")
         print(f"👥 Nombre de tiers: {len(tiers)}")
         
-        # Ouvrir le PDF depuis les bytes
-        pdf_doc = fitz.open(stream=content, filetype="pdf")
+        # Extraire le texte du PDF original
+        with fitz.open(stream=content, filetype="pdf") as pdf:
+            text = ""
+            page_count = 0
+            for page in pdf:
+                text += page.get_text()
+                page_count += 1
         
-        # Extraire d'abord tout le texte pour générer le mapping
-        full_text = ""
-        for page in pdf_doc:
-            full_text += page.get_text()
+        print(f"📄 Texte extrait de {page_count} pages")
+        print(f"📝 Longueur du texte extrait: {len(text)} caractères")
         
-        print(f"📄 Texte extrait de {pdf_doc.page_count} pages")
-        print(f"📝 Longueur du texte extrait: {len(full_text)} caractères")
+        # Anonymiser le texte
+        anonymized_text, mapping = anonymize_text(text, tiers)
         
-        # Générer le mapping d'anonymisation
-        anonymized_text, mapping = anonymize_text(full_text, tiers)
-        print(f"🔒 Mapping généré avec {len(mapping)} remplacements")
+        print(f"🔒 Texte anonymisé, {len(mapping)} remplacements")
         
-        # Parcourir chaque page pour appliquer les remplacements
-        total_replacements = 0
-        for page_num in range(pdf_doc.page_count):
-            page = pdf_doc[page_num]
-            print(f"📄 Traitement de la page {page_num + 1}...")
-            
-            # Pour chaque terme à remplacer dans le mapping
-            page_replacements = 0
-            for original_value, anonymized_tag in mapping.items():
-                # Chercher toutes les occurrences du terme original
-                text_instances = page.search_for(original_value)
-                
-                for inst in text_instances:
-                    # Créer une annotation de redaction pour masquer le texte original
-                    redact = page.add_redact_annot(inst, text=anonymized_tag, fill=(1, 1, 1))
-                    page_replacements += 1
-                    total_replacements += 1
-                    print(f"   🔄 '{original_value}' -> '{anonymized_tag}' (position: {inst})")
-            
-            # Appliquer toutes les redactions sur cette page
-            if page_replacements > 0:
-                page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)  # Préserver les images
-                print(f"   ✅ Page {page_num + 1}: {page_replacements} remplacements appliqués")
+        # Générer le nouveau PDF avec le texte anonymisé
+        pdf_bytes = create_pdf_from_text(anonymized_text, "document_anonymise.pdf")
         
-        print(f"🎯 Total: {total_replacements} remplacements effectués sur {pdf_doc.page_count} pages")
-        
-        # Sauvegarder le PDF modifié en mémoire
-        pdf_bytes = pdf_doc.tobytes()
-        pdf_doc.close()
-        
-        print(f"✅ PDF anonymisé généré avec préservation des images/graphiques")
+        print(f"✅ PDF anonymisé généré avec succès")
         return pdf_bytes, mapping
         
     except Exception as e:
@@ -1351,49 +1324,34 @@ def anonymize_pdf_file(content: bytes, tiers: List[Dict[str, Any]]):
 
 def deanonymize_pdf_file(content: bytes, mapping: Dict[str, str]):
     """
-    Dé-anonymise un fichier PDF en modifiant directement le texte dans le PDF.
-    PRESERVE les images, graphiques, mise en forme et disposition originales.
-    Utilise la technique de redaction de PyMuPDF pour remplacer le texte in-situ.
+    Dé-anonymise un fichier PDF en extrayant le texte, le dé-anonymisant,
+    puis générant un nouveau PDF avec le texte dé-anonymisé.
     """
     try:
-        print(f"🚀 DEANONYMIZE_PDF_FILE - Début du traitement avec préservation d'images")
+        print(f"🚀 DEANONYMIZE_PDF_FILE - Début du traitement")
         print(f"🗂️ Mapping reçu: {mapping}")
         print(f"📊 Nombre de balises dans le mapping: {len(mapping)}")
         
-        # Ouvrir le PDF depuis les bytes
-        pdf_doc = fitz.open(stream=content, filetype="pdf")
+        # Extraire le texte du PDF anonymisé
+        with fitz.open(stream=content, filetype="pdf") as pdf:
+            text = ""
+            page_count = 0
+            for page in pdf:
+                text += page.get_text()
+                page_count += 1
         
-        # Parcourir chaque page pour appliquer les remplacements
-        total_replacements = 0
-        for page_num in range(pdf_doc.page_count):
-            page = pdf_doc[page_num]
-            print(f"📄 Traitement de la page {page_num + 1}...")
-            
-            # Pour chaque balise à remplacer dans le mapping
-            page_replacements = 0
-            for anonymized_tag, original_value in mapping.items():
-                # Chercher toutes les occurrences de la balise anonymisée
-                text_instances = page.search_for(anonymized_tag)
-                
-                for inst in text_instances:
-                    # Créer une annotation de redaction pour remplacer par la valeur originale
-                    redact = page.add_redact_annot(inst, text=original_value, fill=(1, 1, 1))
-                    page_replacements += 1
-                    total_replacements += 1
-                    print(f"   🔄 '{anonymized_tag}' -> '{original_value}' (position: {inst})")
-            
-            # Appliquer toutes les redactions sur cette page
-            if page_replacements > 0:
-                page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)  # Préserver les images
-                print(f"   ✅ Page {page_num + 1}: {page_replacements} remplacements appliqués")
+        print(f"📄 Texte extrait de {page_count} pages")
+        print(f"📝 Longueur du texte extrait: {len(text)} caractères")
         
-        print(f"🎯 Total: {total_replacements} remplacements effectués sur {pdf_doc.page_count} pages")
+        # Dé-anonymiser le texte
+        deanonymized_text = deanonymize_text(text, mapping)
         
-        # Sauvegarder le PDF modifié en mémoire
-        pdf_bytes = pdf_doc.tobytes()
-        pdf_doc.close()
+        print(f"🔓 Texte dé-anonymisé")
         
-        print(f"✅ PDF dé-anonymisé généré avec préservation des images/graphiques")
+        # Générer le nouveau PDF avec le texte dé-anonymisé
+        pdf_bytes = create_pdf_from_text(deanonymized_text, "document_desanonymise.pdf")
+        
+        print(f"✅ PDF dé-anonymisé généré avec succès")
         return pdf_bytes
         
     except Exception as e:
