@@ -884,13 +884,12 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
                             has_changes = True
                             break  # Sortir de la boucle des variants une fois qu'on a trouvé et remplacé
                         else:
-                            print(f"⚠️ Run: Aucun remplacement de mot entier pour '{variant}', tentative de remplacement simple")
-                            # Fallback: remplacement simple si le pattern de mot entier ne fonctionne pas
-                            if variant in modified_text:
-                                modified_text = modified_text.replace(variant, valeur_originale)
-                                print(f"🔄 Run: Remplacement simple effectué pour '{variant}'")
-                                has_changes = True
-                                break  # Sortir de la boucle des variants
+                            print(f"⚠️ Run: Balise '{variant}' présente mais aucun remplacement de mot entier effectué")
+                            print(f"❌ DEBUG: La balise '{variant}' pourrait être une sous-chaîne d'une autre balise (ex: NOM dans PRENOM)")
+                            # ✅ NE PLUS FAIRE DE FALLBACK avec replace() simple car cela cause le problème PRENOM
+                            # Le fallback replace() sans limites de mots causait: PRENOM1 -> PREHuissoud1
+                            print(f"🚫 Pas de remplacement fallback pour éviter les remplacements partiels dans d'autres balises")
+                            # break supprimé car on continue à chercher les autres variants
             
             # Remplacer le texte du run seulement si modifié (le formatage est automatiquement préservé)
             if has_changes:
@@ -1659,11 +1658,21 @@ def deanonymize_pdf_secure_with_graphics(pdf_content: bytes, mapping: Dict[str, 
                 anonymized_text = text_element["text"]
                 restored_text = anonymized_text
                 
-                # Appliquer les remplacements inverses
-                for anonymized, original in reverse_replacements.items():
+                # ✅ CORRECTION: Appliquer les remplacements inverses avec limites de mots
+                # Trier par longueur décroissante pour éviter les remplacements partiels
+                sorted_anonymized = sorted(reverse_replacements.keys(), key=len, reverse=True)
+                
+                for anonymized in sorted_anonymized:
+                    original = reverse_replacements[anonymized]
                     if anonymized in restored_text:
-                        restored_text = restored_text.replace(anonymized, original)
-                        print(f"🔄 Restauration: '{anonymized}' → '{original}'")
+                        # Utiliser une expression régulière avec limites de mots pour éviter 
+                        # le problème PRENOM1 -> PREHuissoud1 quand on remplace NOM1
+                        pattern = re.compile(r'\b' + re.escape(anonymized) + r'\b')
+                        if pattern.search(restored_text):
+                            restored_text = pattern.sub(original, restored_text)
+                            print(f"✅ Restauration avec limites de mots: '{anonymized}' → '{original}'")
+                        else:
+                            print(f"⚠️ Balise '{anonymized}' trouvée mais pas en tant que mot entier (probablement dans une autre balise)")
                 
                 text_element["text"] = restored_text
         

@@ -44,7 +44,8 @@ def deanonymize_text(anonymized_text: str, mapping: Dict[str, str]) -> str:
             # Compter les occurrences avant remplacement
             count_before = deanonymized.count(tag)
             
-            # Utiliser une expression régulière pour remplacer la balise exacte (pas de remplacement partiel)
+            # ✅ CORRECTION: Utiliser SEULEMENT l'expression régulière avec limites de mots
+            # Cela évite le problème de "PRENOM1" devenant "PREHuissoud1" quand on remplace "NOM1"
             pattern = re.compile(r'\b' + re.escape(tag) + r'\b')
             deanonymized_new = pattern.sub(original, deanonymized)
             
@@ -57,12 +58,11 @@ def deanonymize_text(anonymized_text: str, mapping: Dict[str, str]) -> str:
                 replacements_made += actual_replacements
                 deanonymized = deanonymized_new
             else:
-                print(f"⚠️ Aucun remplacement effectué pour '{tag}' (peut-être pas de correspondance de mots entiers)")
-                # Essayer un remplacement simple comme fallback
-                if tag in deanonymized:
-                    deanonymized = deanonymized.replace(tag, original)
-                    print(f"🔄 Remplacement simple effectué pour '{tag}'")
-                    replacements_made += 1
+                print(f"⚠️ PROBLÈME: Balise '{tag}' présente mais aucun remplacement de mot entier effectué")
+                print(f"❌ DEBUG: La balise '{tag}' pourrait être une sous-chaîne d'une autre balise (ex: NOM dans PRENOM)")
+                # ✅ NE PLUS FAIRE DE FALLBACK avec replace() simple car cela cause le problème PRENOM
+                # Le fallback replace() sans limites de mots causait: PRENOM1 -> PREHuissoud1
+                print(f"🚫 Pas de remplacement fallback pour éviter les remplacements partiels dans d'autres balises")
     
     print(f"📈 Total des remplacements effectués: {replacements_made}")
     print(f"📝 Texte de sortie (premiers 300 chars): {deanonymized[:300]}...")
