@@ -18,7 +18,6 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.units import inch
-from reportlab.lib.utils import ImageReader
 
 from .anonymizer import anonymize_text
 from .deanonymizer import deanonymize_text
@@ -474,13 +473,13 @@ async def anonymize_file_download(
         
         if file_extension == ".pdf":
             print(f"📄 Traitement fichier PDF...")
-            # Traitement des fichiers PDF - Utilisation de la méthode sécurisée par défaut
+            # Traitement des fichiers PDF
             content = await file.read()
-            anonymized_file, mapping = anonymize_pdf_secure_with_graphics(content, tiers)
+            anonymized_file, mapping = anonymize_pdf_file(content, tiers)
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
-            anonymized_filename = f"{base_name}_ANONYM_SECURE.pdf"
+            anonymized_filename = f"{base_name}_ANONYM.pdf"
             
             print(f"✅ Fichier PDF anonymisé: {anonymized_filename}")
             
@@ -558,18 +557,16 @@ async def deanonymize_file_download(
         
         if file_extension == ".pdf":
             print(f"📄 Traitement fichier PDF...")
-            # Traitement des fichiers PDF - Utilisation de la méthode sécurisée
+            # Traitement des fichiers PDF
             content = await file.read()
-            deanonymized_file = deanonymize_pdf_secure_with_graphics(content, mapping)
+            deanonymized_file = deanonymize_pdf_file(content, mapping)
             
             # Créer un nom de fichier pour le téléchargement
             base_name = os.path.splitext(filename)[0]
-            # Retirer les suffixes d'anonymisation si présents
-            for suffix in ["_ANONYM_SECURE", "_ANONYM"]:
-                if base_name.endswith(suffix):
-                    base_name = base_name[:-len(suffix)]
-                    break
-            deanonymized_filename = f"{base_name}_DESANONYM_SECURE.pdf"
+            # Retirer "_ANONYM" du nom si présent
+            if base_name.endswith("_ANONYM"):
+                base_name = base_name[:-7]
+            deanonymized_filename = f"{base_name}_DESANONYM.pdf"
             
             print(f"✅ Fichier PDF dé-anonymisé: {deanonymized_filename}")
             
@@ -1292,33 +1289,60 @@ def create_pdf_from_text(text: str, filename: str) -> bytes:
 
 def anonymize_pdf_file(content: bytes, tiers: List[Dict[str, Any]]):
     """
-    Anonymise un fichier PDF en extrayant le texte, l'anonymisant, 
-    puis générant un nouveau PDF avec le texte anonymisé.
+    Anonymise un fichier PDF en modifiant directement le texte dans le PDF original.
+    PRESERVE les images, graphiques, mise en forme et disposition originales.
+    Utilise la technique de redaction de PyMuPDF pour remplacer le texte in-situ.
     """
     try:
-        print(f"🚀 ANONYMIZE_PDF_FILE - Début du traitement")
+        print(f"🚀 ANONYMIZE_PDF_FILE - Début du traitement avec préservation d'images")
         print(f"👥 Nombre de tiers: {len(tiers)}")
         
-        # Extraire le texte du PDF original
-        with fitz.open(stream=content, filetype="pdf") as pdf:
-            text = ""
-            page_count = 0
-            for page in pdf:
-                text += page.get_text()
-                page_count += 1
+        # Ouvrir le PDF depuis les bytes
+        pdf_doc = fitz.open(stream=content, filetype="pdf")
         
-        print(f"📄 Texte extrait de {page_count} pages")
-        print(f"📝 Longueur du texte extrait: {len(text)} caractères")
+        # Extraire d'abord tout le texte pour générer le mapping
+        full_text = ""
+        for page in pdf_doc:
+            full_text += page.get_text()
         
-        # Anonymiser le texte
-        anonymized_text, mapping = anonymize_text(text, tiers)
+        print(f"📄 Texte extrait de {pdf_doc.page_count} pages")
+        print(f"📝 Longueur du texte extrait: {len(full_text)} caractères")
         
-        print(f"🔒 Texte anonymisé, {len(mapping)} remplacements")
+        # Générer le mapping d'anonymisation
+        anonymized_text, mapping = anonymize_text(full_text, tiers)
+        print(f"🔒 Mapping généré avec {len(mapping)} remplacements")
         
-        # Générer le nouveau PDF avec le texte anonymisé
-        pdf_bytes = create_pdf_from_text(anonymized_text, "document_anonymise.pdf")
+        # Parcourir chaque page pour appliquer les remplacements
+        total_replacements = 0
+        for page_num in range(pdf_doc.page_count):
+            page = pdf_doc[page_num]
+            print(f"📄 Traitement de la page {page_num + 1}...")
+            
+            # Pour chaque terme à remplacer dans le mapping
+            page_replacements = 0
+            for original_value, anonymized_tag in mapping.items():
+                # Chercher toutes les occurrences du terme original
+                text_instances = page.search_for(original_value)
+                
+                for inst in text_instances:
+                    # Créer une annotation de redaction pour masquer le texte original
+                    redact = page.add_redact_annot(inst, text=anonymized_tag, fill=(1, 1, 1))
+                    page_replacements += 1
+                    total_replacements += 1
+                    print(f"   🔄 '{original_value}' -> '{anonymized_tag}' (position: {inst})")
+            
+            # Appliquer toutes les redactions sur cette page
+            if page_replacements > 0:
+                page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)  # Préserver les images
+                print(f"   ✅ Page {page_num + 1}: {page_replacements} remplacements appliqués")
         
-        print(f"✅ PDF anonymisé généré avec succès")
+        print(f"🎯 Total: {total_replacements} remplacements effectués sur {pdf_doc.page_count} pages")
+        
+        # Sauvegarder le PDF modifié en mémoire
+        pdf_bytes = pdf_doc.tobytes()
+        pdf_doc.close()
+        
+        print(f"✅ PDF anonymisé généré avec préservation des images/graphiques")
         return pdf_bytes, mapping
         
     except Exception as e:
@@ -1327,585 +1351,51 @@ def anonymize_pdf_file(content: bytes, tiers: List[Dict[str, Any]]):
 
 def deanonymize_pdf_file(content: bytes, mapping: Dict[str, str]):
     """
-    Dé-anonymise un fichier PDF en extrayant le texte, le dé-anonymisant,
-    puis générant un nouveau PDF avec le texte dé-anonymisé.
+    Dé-anonymise un fichier PDF en modifiant directement le texte dans le PDF.
+    PRESERVE les images, graphiques, mise en forme et disposition originales.
+    Utilise la technique de redaction de PyMuPDF pour remplacer le texte in-situ.
     """
     try:
-        print(f"🚀 DEANONYMIZE_PDF_FILE - Début du traitement")
+        print(f"🚀 DEANONYMIZE_PDF_FILE - Début du traitement avec préservation d'images")
         print(f"🗂️ Mapping reçu: {mapping}")
         print(f"📊 Nombre de balises dans le mapping: {len(mapping)}")
         
-        # Extraire le texte du PDF anonymisé
-        with fitz.open(stream=content, filetype="pdf") as pdf:
-            text = ""
-            page_count = 0
-            for page in pdf:
-                text += page.get_text()
-                page_count += 1
+        # Ouvrir le PDF depuis les bytes
+        pdf_doc = fitz.open(stream=content, filetype="pdf")
         
-        print(f"📄 Texte extrait de {page_count} pages")
-        print(f"📝 Longueur du texte extrait: {len(text)} caractères")
+        # Parcourir chaque page pour appliquer les remplacements
+        total_replacements = 0
+        for page_num in range(pdf_doc.page_count):
+            page = pdf_doc[page_num]
+            print(f"📄 Traitement de la page {page_num + 1}...")
+            
+            # Pour chaque balise à remplacer dans le mapping
+            page_replacements = 0
+            for anonymized_tag, original_value in mapping.items():
+                # Chercher toutes les occurrences de la balise anonymisée
+                text_instances = page.search_for(anonymized_tag)
+                
+                for inst in text_instances:
+                    # Créer une annotation de redaction pour remplacer par la valeur originale
+                    redact = page.add_redact_annot(inst, text=original_value, fill=(1, 1, 1))
+                    page_replacements += 1
+                    total_replacements += 1
+                    print(f"   🔄 '{anonymized_tag}' -> '{original_value}' (position: {inst})")
+            
+            # Appliquer toutes les redactions sur cette page
+            if page_replacements > 0:
+                page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)  # Préserver les images
+                print(f"   ✅ Page {page_num + 1}: {page_replacements} remplacements appliqués")
         
-        # Dé-anonymiser le texte
-        deanonymized_text = deanonymize_text(text, mapping)
+        print(f"🎯 Total: {total_replacements} remplacements effectués sur {pdf_doc.page_count} pages")
         
-        print(f"🔓 Texte dé-anonymisé")
+        # Sauvegarder le PDF modifié en mémoire
+        pdf_bytes = pdf_doc.tobytes()
+        pdf_doc.close()
         
-        # Générer le nouveau PDF avec le texte dé-anonymisé
-        pdf_bytes = create_pdf_from_text(deanonymized_text, "document_desanonymise.pdf")
-        
-        print(f"✅ PDF dé-anonymisé généré avec succès")
+        print(f"✅ PDF dé-anonymisé généré avec préservation des images/graphiques")
         return pdf_bytes
         
     except Exception as e:
         print(f"❌ Erreur dans deanonymize_pdf_file: {str(e)}")
         raise Exception(f"Erreur lors de la dé-anonymisation du fichier PDF: {str(e)}") 
-
-def extract_pdf_elements(doc):
-    """
-    Extrait tous les éléments du PDF : texte, images, graphiques avec leurs positions.
-    """
-    pdf_elements = []
-    
-    for page_num in range(doc.page_count):
-        page = doc[page_num]
-        page_elements = {
-            "page_number": page_num,
-            "page_size": page.rect,
-            "text_elements": [],
-            "images": [],
-            "drawings": []
-        }
-        
-        # Extraire le texte avec positions exactes
-        text_dict = page.get_text("dict")
-        for block in text_dict.get("blocks", []):
-            if "lines" in block:  # Bloc de texte
-                for line in block["lines"]:
-                    for span in line["spans"]:
-                        text_element = {
-                            "text": span["text"],
-                            "bbox": span["bbox"],
-                            "font": span["font"],
-                            "size": span["size"],
-                            "flags": span["flags"],
-                            "color": span.get("color", 0)
-                        }
-                        page_elements["text_elements"].append(text_element)
-        
-        # Extraire les images avec leurs vraies positions
-        image_list = page.get_images()
-        print(f"🖼️ Page {page_num + 1}: {len(image_list)} images détectées")
-        
-        # Obtenir les positions réelles des images sur la page
-        image_rects = []
-        try:
-            # Méthode moderne pour obtenir les rectangles des images
-            image_rects = page.get_image_rects(image_list)
-            print(f"📐 Page {page_num + 1}: {len(image_rects)} positions d'images obtenues")
-        except Exception as e:
-            print(f"⚠️ Impossible d'obtenir les positions d'images avec get_image_rects: {e}")
-            # Fallback: créer des rectangles par défaut
-            image_rects = [fitz.Rect(0, 0, 100, 100) for _ in image_list]
-        
-        for img_index, img in enumerate(image_list):
-            try:
-                print(f"📸 Traitement image {img_index + 1}")
-                
-                # Vérifier que l'image a suffisamment d'éléments
-                if len(img) < 1:
-                    print(f"⚠️ Image {img_index + 1}: structure invalide")
-                    continue
-                
-                xref = img[0]
-                print(f"🔍 Image {img_index + 1}: xref={xref}")
-                
-                # Vérifier que le xref est valide
-                if not isinstance(xref, int) or xref <= 0:
-                    print(f"⚠️ Image {img_index + 1}: xref invalide ({xref})")
-                    continue
-                
-                # Essayer de créer le pixmap
-                try:
-                    pix = fitz.Pixmap(doc, xref)
-                    if pix is None:
-                        print(f"⚠️ Image {img_index + 1}: pixmap null")
-                        continue
-                        
-                    print(f"✅ Image {img_index + 1}: {pix.width}x{pix.height}, {pix.n} channels")
-                    
-                except Exception as pix_error:
-                    print(f"⚠️ Image {img_index + 1}: erreur pixmap - {pix_error}")
-                    continue
-                
-                # Convertir en PNG
-                try:
-                    if pix.n < 5:  # GRAY or RGB
-                        img_data = pix.tobytes("png")
-                    else:  # CMYK: convert first
-                        pix1 = fitz.Pixmap(fitz.csRGB, pix)
-                        img_data = pix1.tobytes("png")
-                        pix1 = None
-                    
-                    print(f"✅ Image {img_index + 1}: conversion PNG réussie ({len(img_data)} bytes)")
-                    
-                except Exception as convert_error:
-                    print(f"⚠️ Image {img_index + 1}: erreur conversion - {convert_error}")
-                    pix = None
-                    continue
-                
-                # Obtenir la position réelle de l'image
-                img_rect = None
-                if img_index < len(image_rects):
-                    img_rect = image_rects[img_index]
-                    print(f"📐 Image {img_index + 1}: position réelle = {img_rect}")
-                else:
-                    # Fallback: utiliser les dimensions du pixmap
-                    img_rect = fitz.Rect(0, 0, pix.width * 0.75, pix.height * 0.75)  # Conversion points/pixels approximative
-                    print(f"📐 Image {img_index + 1}: position approximative = {img_rect}")
-                
-                image_element = {
-                    "data": img_data,
-                    "bbox": img_rect,
-                    "xref": xref
-                }
-                page_elements["images"].append(image_element)
-                print(f"✅ Image {img_index + 1}: ajoutée avec succès")
-                
-                # Libérer la mémoire
-                pix = None
-                
-            except Exception as e:
-                print(f"❌ Erreur générale image {img_index + 1}: {e}")
-                print(f"🔍 Structure de l'image: {img}")
-                continue
-        
-        # Extraire les dessins/graphiques vectoriels
-        try:
-            drawings = page.get_drawings()
-            for drawing in drawings:
-                page_elements["drawings"].append(drawing)
-        except Exception as e:
-            print(f"⚠️ Erreur lors de l'extraction des dessins: {e}")
-        
-        pdf_elements.append(page_elements)
-    
-    return pdf_elements
-
-def anonymize_pdf_secure_with_graphics(pdf_content: bytes, tiers: List[Any]) -> tuple[bytes, Dict[str, str]]:
-    """
-    Anonymise un PDF de manière sécurisée en remplaçant RÉELLEMENT le texte
-    tout en préservant images, graphiques et mise en page exacte.
-    
-    Méthode sécurisée :
-    1. Extrait tous les éléments (texte, images, graphiques)
-    2. Remplace le texte de manière irréversible
-    3. Reconstitue le PDF avec reportlab en préservant la mise en page
-    """
-    try:
-        print(f"🔒 ANONYMIZE_PDF_SECURE_WITH_GRAPHICS - Début du traitement sécurisé")
-        
-        # DEBUG: Afficher les données des tiers reçues
-        print(f"👥 DONNÉES TIERS REÇUES:")
-        for i, tiers_data in enumerate(tiers):
-            print(f"  Tiers {i+1}: {tiers_data}")
-            print(f"    - nom: '{tiers_data.get('nom', 'NON_DEFINI')}'")
-            print(f"    - prenom: '{tiers_data.get('prenom', 'NON_DEFINI')}'")  
-            print(f"    - adresse: '{tiers_data.get('adresse', 'NON_DEFINI')}'")
-            print(f"    - numero: {tiers_data.get('numero', 'NON_DEFINI')}")
-        
-        # Ouvrir le PDF original
-        doc = fitz.open(stream=pdf_content, filetype="pdf")
-        mapping = {}
-        replacement_counter = 1
-        
-        print(f"📄 PDF ouvert: {doc.page_count} pages")
-        
-        # Créer les remplacements basés sur les tiers
-        replacements = {}
-        for tiers_data in tiers:
-            numero = tiers_data.get('numero', replacement_counter) 
-            print(f"🔧 Traitement tiers numéro {numero}")
-            
-            if tiers_data.get('nom'):
-                original_nom = tiers_data['nom'].strip()
-                anonymized_nom = f"NOM{numero}"  # MAJUSCULES pour cohérence
-                replacements[original_nom] = anonymized_nom
-                mapping[anonymized_nom] = original_nom
-                print(f"  📝 NOM: '{original_nom}' → '{anonymized_nom}'")
-                
-            if tiers_data.get('prenom'):
-                original_prenom = tiers_data['prenom'].strip()
-                anonymized_prenom = f"PRENOM{numero}"  # MAJUSCULES pour cohérence
-                replacements[original_prenom] = anonymized_prenom
-                mapping[anonymized_prenom] = original_prenom
-                print(f"  📝 PRENOM: '{original_prenom}' → '{anonymized_prenom}'")
-                
-            if tiers_data.get('adresse'):
-                original_adresse = tiers_data['adresse'].strip()
-                anonymized_adresse = f"ADRESSE{numero}"  # MAJUSCULES pour cohérence
-                replacements[original_adresse] = anonymized_adresse
-                mapping[anonymized_adresse] = original_adresse
-                print(f"  📝 ADRESSE: '{original_adresse}' → '{anonymized_adresse}'")
-                
-            replacement_counter += 1
-        
-        print(f"🔄 {len(replacements)} remplacements à effectuer")
-        
-        # Afficher les remplacements prévus
-        print("📝 MAPPINGS CRÉÉS:")
-        for original, anonymized in replacements.items():
-            print(f"  '{original}' → '{anonymized}'")
-        
-        # Extraire tous les éléments du PDF
-        pdf_elements = extract_pdf_elements(doc)
-        doc.close()  # Fermer le document original
-        
-        # Anonymiser le texte dans les éléments extraits
-        total_replacements_made = 0
-        for page_idx, page_data in enumerate(pdf_elements):
-            page_replacements = 0
-            print(f"📖 Anonymisation page {page_idx + 1}: {len(page_data['text_elements'])} éléments de texte")
-            
-            for text_idx, text_element in enumerate(page_data["text_elements"]):
-                original_text = text_element["text"]
-                anonymized_text = original_text
-                element_changed = False
-                
-                # Appliquer tous les remplacements (sensible à la casse)
-                for original, anonymized in replacements.items():
-                    if original in anonymized_text:  # Remplacement exact (sensible à la casse)
-                        old_text = anonymized_text
-                        anonymized_text = anonymized_text.replace(original, anonymized)
-                        if old_text != anonymized_text:
-                            print(f"🔄 Page {page_idx + 1}, Élément {text_idx + 1}: '{original}' → '{anonymized}'")
-                            print(f"   Avant: '{old_text}'")
-                            print(f"   Après: '{anonymized_text}'")
-                            element_changed = True
-                            page_replacements += 1
-                            total_replacements_made += 1
-                
-                # Remplacer DÉFINITIVEMENT le texte
-                text_element["text"] = anonymized_text
-                
-                # Log pour les éléments non modifiés (pour debug)
-                if not element_changed and original_text.strip():
-                    print(f"📝 Page {page_idx + 1}, Élément {text_idx + 1}: '{original_text[:50]}...' (non modifié)")
-            
-            print(f"✅ Page {page_idx + 1}: {page_replacements} remplacements effectués")
-        
-        print(f"🎯 TOTAL: {total_replacements_made} remplacements effectués dans le document")
-        
-        # Sauvegarder le mapping final avec plus d'infos
-        print("🗂️ MAPPING FINAL POUR DÉ-ANONYMISATION:")
-        for anonymized, original in mapping.items():
-            print(f"  '{anonymized}' → '{original}'")
-        
-        # Reconstituer le PDF avec reportlab
-        buffer = io.BytesIO()
-        
-        # Utiliser reportlab pour créer le nouveau PDF
-        from reportlab.pdfgen import canvas as rl_canvas
-        
-        # Créer le document avec la taille de la première page
-        first_page = pdf_elements[0] if pdf_elements else None
-        if first_page:
-            page_size = (first_page["page_size"].width, first_page["page_size"].height)
-        else:
-            page_size = A4
-            
-        c = rl_canvas.Canvas(buffer, pagesize=page_size)
-        
-        # Reconstituer chaque page
-        for page_data in pdf_elements:
-            page_size = (page_data["page_size"].width, page_data["page_size"].height)
-            c.setPageSize(page_size)
-            
-            # Ajouter les images d'abord (arrière-plan)
-            for image_element in page_data["images"]:
-                try:
-                    img_data = image_element["data"]
-                    bbox = image_element["bbox"]
-                    
-                    print(f"🖼️ Placement image: bbox={bbox}, page_size={page_size}")
-                    
-                    # Créer un ImageReader à partir des données PNG
-                    img_reader = ImageReader(io.BytesIO(img_data))
-                    
-                    # Correction des coordonnées : PyMuPDF vs reportlab
-                    # PyMuPDF: origine en haut-gauche, Y vers le bas (0,0 = coin haut-gauche)
-                    # Reportlab: origine en bas-gauche, Y vers le haut (0,0 = coin bas-gauche)
-                    
-                    # Vérifier que la bbox est valide
-                    if not bbox or bbox.width <= 0 or bbox.height <= 0:
-                        print(f"⚠️ Image ignorée: bbox invalide ({bbox})")
-                        continue
-                    
-                    # Position corrigée avec validation
-                    x = max(0, bbox.x0)  # Position X (même référentiel)
-                    y = max(0, page_size[1] - bbox.y1)  # Conversion Y: haut-gauche → bas-gauche
-                    width = min(bbox.width, page_size[0] - x)  # Largeur limitée
-                    height = min(bbox.height, page_size[1] - y)  # Hauteur limitée
-                    
-                    # Vérifications finales
-                    if width <= 0 or height <= 0:
-                        print(f"⚠️ Image ignorée: dimensions finales invalides (w={width}, h={height})")
-                        continue
-                    
-                    if x >= page_size[0] or y >= page_size[1]:
-                        print(f"⚠️ Image ignorée: position hors page (x={x}, y={y}, page={page_size})")
-                        continue
-                    
-                    print(f"✅ Image placée à: x={x:.1f}, y={y:.1f}, w={width:.1f}, h={height:.1f}")
-                    print(f"📏 Conversion: PyMuPDF({bbox.x0:.1f},{bbox.y0:.1f},{bbox.x1:.1f},{bbox.y1:.1f}) → Reportlab({x:.1f},{y:.1f},{width:.1f},{height:.1f})")
-                    
-                    # Dessiner l'image à sa position corrigée
-                    c.drawImage(
-                        img_reader,
-                        x, y,
-                        width=width,
-                        height=height,
-                        preserveAspectRatio=True,  # Préserver les proportions
-                        anchor='sw'  # Ancrage en bas-gauche (south-west)
-                    )
-                except Exception as e:
-                    print(f"⚠️ Erreur lors de l'ajout d'image: {e}")
-                    import traceback
-                    traceback.print_exc()
-            
-            # Ajouter les dessins vectoriels
-            for drawing in page_data["drawings"]:
-                try:
-                    # Simplification : dessiner les formes basiques
-                    if drawing.get("type") == "l":  # Ligne
-                        points = drawing.get("items", [])
-                        if len(points) >= 2:
-                            c.line(points[0][1][0], page_size[1] - points[0][1][1],
-                                  points[1][1][0], page_size[1] - points[1][1][1])
-                    elif drawing.get("type") == "re":  # Rectangle
-                        rect = drawing.get("rect")
-                        if rect:
-                            c.rect(rect[0], page_size[1] - rect[3], 
-                                  rect[2] - rect[0], rect[3] - rect[1])
-                except Exception as e:
-                    print(f"⚠️ Erreur lors de l'ajout de dessin: {e}")
-            
-            # Ajouter le texte anonymisé avec la mise en forme exacte
-            for text_element in page_data["text_elements"]:
-                try:
-                    text = text_element["text"].strip()
-                    if not text:
-                        continue
-                        
-                    bbox = text_element["bbox"]
-                    font_size = text_element["size"]
-                    
-                    # Convertir les coordonnées (PDF vs reportlab)
-                    x = bbox[0]
-                    y = page_size[1] - bbox[3]  # Inverser Y
-                    
-                    # Appliquer la police et la taille
-                    c.setFont("Helvetica", font_size)
-                    
-                    # Dessiner le texte à la position exacte
-                    c.drawString(x, y, text)
-                    
-                except Exception as e:
-                    print(f"⚠️ Erreur lors de l'ajout de texte: {e}")
-            
-            # Passer à la page suivante
-            c.showPage()
-        
-        # Finaliser le PDF
-        c.save()
-        pdf_bytes = buffer.getvalue()
-        
-        print(f"✅ PDF anonymisé sécurisé avec graphiques préservés généré")
-        print(f"🗂️ Mapping créé avec {len(mapping)} entrées")
-        
-        return pdf_bytes, mapping
-        
-    except Exception as e:
-        print(f"❌ Erreur dans anonymize_pdf_secure_with_graphics: {str(e)}")
-        raise Exception(f"Erreur lors de l'anonymisation sécurisée du PDF: {str(e)}")
-
-def deanonymize_pdf_secure_with_graphics(pdf_content: bytes, mapping: Dict[str, str]) -> bytes:
-    """
-    Dé-anonymise un PDF en restaurant le texte original de manière sécurisée
-    tout en préservant les images et graphiques.
-    """
-    try:
-        print(f"🔒 DEANONYMIZE_PDF_SECURE_WITH_GRAPHICS - Début du traitement")
-        
-        # Afficher le mapping reçu pour debug
-        print(f"🗂️ MAPPING REÇU ({len(mapping)} entrées):")
-        for anonymized, original in mapping.items():
-            print(f"  '{anonymized}' → '{original}'")
-        
-        # Créer les remplacements inverses
-        reverse_replacements = {anonymized: original for anonymized, original in mapping.items()}
-        print(f"🔄 REMPLACEMENTS INVERSES CRÉÉS ({len(reverse_replacements)} entrées):")
-        for anonymized, original in reverse_replacements.items():
-            print(f"  '{anonymized}' → '{original}'")
-        
-        # Même processus que l'anonymisation mais avec les remplacements inversés
-        doc = fitz.open(stream=pdf_content, filetype="pdf")
-        print(f"📄 PDF dé-anonymisation ouvert: {doc.page_count} pages")
-        
-        # Extraire tous les éléments
-        pdf_elements = extract_pdf_elements(doc)
-        doc.close()
-        
-        # Dé-anonymiser le texte
-        total_restorations_made = 0
-        for page_idx, page_data in enumerate(pdf_elements):
-            page_restorations = 0
-            print(f"📖 Dé-anonymisation page {page_idx + 1}: {len(page_data['text_elements'])} éléments de texte")
-            
-            for text_idx, text_element in enumerate(page_data["text_elements"]):
-                anonymized_text = text_element["text"]
-                restored_text = anonymized_text
-                element_changed = False
-                
-                # Appliquer les remplacements inverses
-                for anonymized, original in reverse_replacements.items():
-                    if anonymized in restored_text:
-                        old_text = restored_text
-                        restored_text = restored_text.replace(anonymized, original)
-                        if old_text != restored_text:
-                            print(f"🔄 Page {page_idx + 1}, Élément {text_idx + 1}: '{anonymized}' → '{original}'")
-                            print(f"   Avant: '{old_text}'")
-                            print(f"   Après: '{restored_text}'")
-                            element_changed = True
-                            page_restorations += 1
-                            total_restorations_made += 1
-                
-                # Remplacer le texte
-                text_element["text"] = restored_text
-                
-                # Log pour les éléments contenant potentiellement des balises anonymisées
-                if not element_changed and anonymized_text.strip():
-                    # Vérifier si l'élément contient des patterns qui ressemblent à nos balises
-                    contains_pattern = False
-                    for anonymized in reverse_replacements.keys():
-                        if anonymized.lower() in anonymized_text.lower():
-                            contains_pattern = True
-                            break
-                    
-                    if contains_pattern:
-                        print(f"🔍 Page {page_idx + 1}, Élément {text_idx + 1}: POTENTIEL NON TRAITÉ")
-                        print(f"   Texte: '{anonymized_text}'")
-                        print(f"   Balises recherchées: {list(reverse_replacements.keys())}")
-                    else:
-                        print(f"📝 Page {page_idx + 1}, Élément {text_idx + 1}: '{anonymized_text[:50]}...' (pas de balise)")
-            
-            print(f"✅ Page {page_idx + 1}: {page_restorations} restaurations effectuées")
-        
-        print(f"🎯 TOTAL DEANONYMISATION: {total_restorations_made} restaurations effectuées")
-        
-        if total_restorations_made == 0:
-            print("⚠️ ALERTE: Aucune restauration effectuée ! Vérifiez que les balises sont présentes dans le PDF.")
-        
-        # Reconstituer le PDF (même logique que l'anonymisation)
-        buffer = io.BytesIO()
-        from reportlab.pdfgen import canvas as rl_canvas
-        
-        first_page = pdf_elements[0] if pdf_elements else None
-        if first_page:
-            page_size = (first_page["page_size"].width, first_page["page_size"].height)
-        else:
-            page_size = A4
-            
-        c = rl_canvas.Canvas(buffer, pagesize=page_size)
-        
-        # Reconstituer chaque page avec le texte restauré
-        for page_data in pdf_elements:
-            page_size = (page_data["page_size"].width, page_data["page_size"].height)
-            c.setPageSize(page_size)
-            
-            # Images
-            for image_element in page_data["images"]:
-                try:
-                    img_data = image_element["data"]
-                    bbox = image_element["bbox"]
-                    
-                    print(f"🖼️ Dé-anonymisation - Placement image: bbox={bbox}")
-                    
-                    img_reader = ImageReader(io.BytesIO(img_data))
-                    
-                    # Correction des coordonnées (même logique que l'anonymisation)
-                    x = bbox.x0
-                    y = page_size[1] - bbox.y1
-                    width = bbox.width
-                    height = bbox.height
-                    
-                    # Vérifications de cohérence
-                    if width <= 0 or height <= 0:
-                        print(f"⚠️ Image ignorée: dimensions invalides ({width}x{height})")
-                        continue
-                    
-                    if x < 0 or y < 0 or x > page_size[0] or y > page_size[1]:
-                        print(f"⚠️ Image repositionnée: position hors page ({x}, {y})")
-                        x = max(0, min(x, page_size[0] - width))
-                        y = max(0, min(y, page_size[1] - height))
-                    
-                    print(f"✅ Image dé-anonymisation placée à: x={x:.1f}, y={y:.1f}, w={width:.1f}, h={height:.1f}")
-                    
-                    c.drawImage(
-                        img_reader,
-                        x, y,
-                        width=width,
-                        height=height,
-                        preserveAspectRatio=True,
-                        anchor='sw'
-                    )
-                except Exception as e:
-                    print(f"⚠️ Erreur image: {e}")
-                    import traceback
-                    traceback.print_exc()
-            
-            # Dessins
-            for drawing in page_data["drawings"]:
-                try:
-                    if drawing.get("type") == "l":
-                        points = drawing.get("items", [])
-                        if len(points) >= 2:
-                            c.line(points[0][1][0], page_size[1] - points[0][1][1],
-                                  points[1][1][0], page_size[1] - points[1][1][1])
-                    elif drawing.get("type") == "re":
-                        rect = drawing.get("rect")
-                        if rect:
-                            c.rect(rect[0], page_size[1] - rect[3], 
-                                  rect[2] - rect[0], rect[3] - rect[1])
-                except Exception as e:
-                    print(f"⚠️ Erreur dessin: {e}")
-            
-            # Texte restauré
-            for text_element in page_data["text_elements"]:
-                try:
-                    text = text_element["text"].strip()
-                    if not text:
-                        continue
-                        
-                    bbox = text_element["bbox"]
-                    font_size = text_element["size"]
-                    x = bbox[0]
-                    y = page_size[1] - bbox[3]
-                    
-                    c.setFont("Helvetica", font_size)
-                    c.drawString(x, y, text)
-                    
-                except Exception as e:
-                    print(f"⚠️ Erreur texte: {e}")
-            
-            c.showPage()
-        
-        c.save()
-        pdf_bytes = buffer.getvalue()
-        
-        print(f"✅ PDF dé-anonymisé sécurisé généré")
-        return pdf_bytes
-        
-    except Exception as e:
-        print(f"❌ Erreur dans deanonymize_pdf_secure_with_graphics: {str(e)}")
-        raise Exception(f"Erreur lors de la dé-anonymisation sécurisée: {str(e)}") 
