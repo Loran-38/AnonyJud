@@ -25,7 +25,7 @@ const Navbar = () => {
           <div className="flex items-center space-x-3">
             <Link to="/" className="flex items-center space-x-2">
               <img 
-                src="/logo-anonym-ia.png" 
+                src="/anonym-ia-logo_ss_nom-ss_fond.png" 
                 alt="Anonym-IA Logo" 
                 className="w-8 h-8 object-contain"
                 onError={(e) => {

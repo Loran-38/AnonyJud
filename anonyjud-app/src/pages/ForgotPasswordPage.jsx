@@ -34,7 +34,7 @@ const ForgotPasswordPage = () => {
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center space-x-2 text-2xl font-bold text-blue-600 hover:text-blue-700 transition-colors">
             <img 
-              src="/logo-anonym-ia.png" 
+              src="/anonym-ia-logo_ss_nom-ss_fond.png" 
               alt="Anonym-IA Logo" 
               className="w-8 h-8 object-contain"
               onError={(e) => {

@@ -40,7 +40,7 @@ function Sidebar({ projects, selectedProject, setSelectedProject, createProject,
         <div className="p-4 border-b border-gray-700">
           <h2 className="text-xl font-bold flex items-center">
             <img 
-              src="/logo-anonym-ia.png" 
+              src="/anonym-ia-logo_ss_nom-ss_fond.png" 
               alt="Anonym-IA Logo" 
               className="h-6 w-6 mr-2 object-contain"
               onError={(e) => {
