@@ -23,6 +23,7 @@ from reportlab.lib.utils import ImageReader
 from .anonymizer import anonymize_text
 from .deanonymizer import deanonymize_text
 from .models import TextAnonymizationRequest, TextDeanonymizationRequest
+from .pdf_utils import safe_extract_text_from_pdf, validate_pdf_content, safe_pdf_operation
 
 app = FastAPI()
 
@@ -631,21 +632,64 @@ async def deanonymize_file_download(
 
 def extract_and_anonymize_pdf(content: bytes, tiers: List[Dict[str, Any]]):
     """
-    Extrait le texte d'un PDF et l'anonymise.
+    Extrait le texte d'un PDF et l'anonymise de manière sécurisée.
+    Utilise safe_extract_text_from_pdf pour gérer les erreurs get_text().
     """
     try:
-        # Ouvrir le PDF depuis les bytes
-        with fitz.open(stream=content, filetype="pdf") as pdf:
-            text = ""
-            # Extraire le texte de chaque page
-            for page in pdf:
-                text += page.get_text()
+        print(f"🔍 EXTRACT_AND_ANONYMIZE_PDF - Début du traitement sécurisé")
+        print(f"👥 Nombre de tiers: {len(tiers)}")
+        
+        # Extraction sécurisée du texte
+        text, extraction_success = safe_extract_text_from_pdf(content)
+        
+        if not extraction_success:
+            print(f"⚠️ Extraction partielle ou échec - tentative avec méthode de fallback")
+            # Fallback: essayer l'ancienne méthode pour compatibilité
+            try:
+                with fitz.open(stream=content, filetype="pdf") as pdf:
+                    text = ""
+                    for page_num in range(pdf.page_count):
+                        try:
+                            page = pdf[page_num]
+                            if page is not None:
+                                try:
+                                    page_text = page.get_text()
+                                    text += page_text
+                                except Exception as page_error:
+                                    print(f"⚠️ Erreur get_text page {page_num + 1}: {str(page_error)}")
+                                    # Essayer avec get_text("text")
+                                    try:
+                                        page_text = page.get_text("text")
+                                        text += page_text
+                                    except Exception as page_error2:
+                                        print(f"⚠️ Erreur get_text('text') page {page_num + 1}: {str(page_error2)}")
+                                        # Passer à la page suivante sans arrêter le processus
+                                        continue
+                        except Exception as e:
+                            print(f"⚠️ Erreur traitement page {page_num + 1}: {str(e)}")
+                            continue
+                            
+                print(f"📝 Fallback: {len(text)} caractères extraits")
+            except Exception as fallback_error:
+                print(f"❌ Fallback aussi en échec: {str(fallback_error)}")
+                if not text:  # Si aucun texte n'a été extrait
+                    raise Exception(f"Impossible d'extraire le texte du PDF: {str(fallback_error)}")
+        
+        if not text or len(text.strip()) == 0:
+            print(f"⚠️ Aucun texte extrait du PDF")
+            return "", {}
+        
+        print(f"📝 Texte extrait: {len(text)} caractères")
+        print(f"📝 Aperçu (premiers 200 chars): {text[:200]}...")
         
         # Anonymiser le texte extrait
         anonymized, mapping = anonymize_text(text, tiers)
+        
+        print(f"🔒 Anonymisation terminée: {len(mapping)} remplacements")
         return anonymized, mapping
         
     except Exception as e:
+        print(f"❌ Erreur dans extract_and_anonymize_pdf: {str(e)}")
         raise Exception(f"Erreur lors du traitement du PDF: {str(e)}")
 
 def extract_and_anonymize_docx(content: bytes, tiers: List[Dict[str, Any]]):
@@ -947,21 +991,65 @@ def deanonymize_docx_file(content: bytes, mapping: Dict[str, str]):
 
 def extract_and_deanonymize_pdf(content: bytes, mapping: Dict[str, str]):
     """
-    Extrait le texte d'un PDF et le dé-anonymise.
+    Extrait le texte d'un PDF et le dé-anonymise de manière sécurisée.
+    Utilise safe_extract_text_from_pdf pour gérer les erreurs get_text().
     """
     try:
-        # Ouvrir le PDF depuis les bytes
-        with fitz.open(stream=content, filetype="pdf") as pdf:
-            text = ""
-            # Extraire le texte de chaque page
-            for page in pdf:
-                text += page.get_text()
+        print(f"🔍 EXTRACT_AND_DEANONYMIZE_PDF - Début du traitement sécurisé")
+        print(f"🗂️ Mapping reçu: {mapping}")
+        print(f"📊 Nombre de balises: {len(mapping)}")
+        
+        # Extraction sécurisée du texte
+        text, extraction_success = safe_extract_text_from_pdf(content)
+        
+        if not extraction_success:
+            print(f"⚠️ Extraction partielle ou échec - tentative avec méthode de fallback")
+            # Fallback: essayer l'ancienne méthode pour compatibilité
+            try:
+                with fitz.open(stream=content, filetype="pdf") as pdf:
+                    text = ""
+                    for page_num in range(pdf.page_count):
+                        try:
+                            page = pdf[page_num]
+                            if page is not None:
+                                try:
+                                    page_text = page.get_text()
+                                    text += page_text
+                                except Exception as page_error:
+                                    print(f"⚠️ Erreur get_text page {page_num + 1}: {str(page_error)}")
+                                    # Essayer avec get_text("text")
+                                    try:
+                                        page_text = page.get_text("text")
+                                        text += page_text
+                                    except Exception as page_error2:
+                                        print(f"⚠️ Erreur get_text('text') page {page_num + 1}: {str(page_error2)}")
+                                        # Passer à la page suivante sans arrêter le processus
+                                        continue
+                        except Exception as e:
+                            print(f"⚠️ Erreur traitement page {page_num + 1}: {str(e)}")
+                            continue
+                            
+                print(f"📝 Fallback: {len(text)} caractères extraits")
+            except Exception as fallback_error:
+                print(f"❌ Fallback aussi en échec: {str(fallback_error)}")
+                if not text:  # Si aucun texte n'a été extrait
+                    raise Exception(f"Impossible d'extraire le texte du PDF: {str(fallback_error)}")
+        
+        if not text or len(text.strip()) == 0:
+            print(f"⚠️ Aucun texte extrait du PDF")
+            return ""
+        
+        print(f"📝 Texte extrait: {len(text)} caractères")
+        print(f"📝 Aperçu (premiers 200 chars): {text[:200]}...")
         
         # Dé-anonymiser le texte extrait
         deanonymized = deanonymize_text(text, mapping)
+        
+        print(f"🔓 Dé-anonymisation terminée")
         return deanonymized
         
     except Exception as e:
+        print(f"❌ Erreur dans extract_and_deanonymize_pdf: {str(e)}")
         raise Exception(f"Erreur lors du traitement du PDF: {str(e)}")
 
 def extract_and_deanonymize_docx(content: bytes, mapping: Dict[str, str]):
@@ -1298,13 +1386,55 @@ def anonymize_pdf_file(content: bytes, tiers: List[Dict[str, Any]]):
         print(f"🚀 ANONYMIZE_PDF_FILE - Début du traitement")
         print(f"👥 Nombre de tiers: {len(tiers)}")
         
-        # Extraire le texte du PDF original
-        with fitz.open(stream=content, filetype="pdf") as pdf:
-            text = ""
-            page_count = 0
-            for page in pdf:
-                text += page.get_text()
-                page_count += 1
+        # Extraire le texte du PDF original de manière sécurisée
+        text, extraction_success = safe_extract_text_from_pdf(content)
+        
+        if not extraction_success:
+            print(f"⚠️ Extraction partielle ou échec - tentative avec méthode de fallback")
+            # Fallback: essayer l'ancienne méthode pour compatibilité
+            try:
+                with fitz.open(stream=content, filetype="pdf") as pdf:
+                    text = ""
+                    page_count = 0
+                    for page_num in range(pdf.page_count):
+                        try:
+                            page = pdf[page_num]
+                            if page is not None:
+                                try:
+                                    page_text = page.get_text()
+                                    text += page_text
+                                    page_count += 1
+                                except Exception as page_error:
+                                    print(f"⚠️ Erreur get_text page {page_num + 1}: {str(page_error)}")
+                                    # Essayer avec get_text("text")
+                                    try:
+                                        page_text = page.get_text("text")
+                                        text += page_text
+                                        page_count += 1
+                                    except Exception as page_error2:
+                                        print(f"⚠️ Erreur get_text('text') page {page_num + 1}: {str(page_error2)}")
+                                        # Passer à la page suivante sans arrêter le processus
+                                        continue
+                        except Exception as e:
+                            print(f"⚠️ Erreur traitement page {page_num + 1}: {str(e)}")
+                            continue
+                            
+                print(f"📝 Fallback: {len(text)} caractères extraits de {page_count} pages")
+            except Exception as fallback_error:
+                print(f"❌ Fallback aussi en échec: {str(fallback_error)}")
+                if not text:  # Si aucun texte n'a été extrait
+                    raise Exception(f"Impossible d'extraire le texte du PDF: {str(fallback_error)}")
+        else:
+            # Compter les pages pour les logs
+            try:
+                with fitz.open(stream=content, filetype="pdf") as pdf:
+                    page_count = pdf.page_count
+            except:
+                page_count = "inconnu"
+        
+        if not text or len(text.strip()) == 0:
+            print(f"⚠️ Aucun texte extrait du PDF")
+            return b"", {}
         
         print(f"📄 Texte extrait de {page_count} pages")
         print(f"📝 Longueur du texte extrait: {len(text)} caractères")
