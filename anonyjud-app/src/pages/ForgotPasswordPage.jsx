@@ -33,10 +33,19 @@ const ForgotPasswordPage = () => {
         {/* Logo et titre */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center space-x-2 text-2xl font-bold text-blue-600 hover:text-blue-700 transition-colors">
-            <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2L2 7v10c0 5.55 3.84 9.739 9 11 5.16-1.261 9-5.45 9-11V7l-10-5z"/>
+            <img 
+              src="/logo-anonym-ia.png" 
+              alt="Anonym-IA Logo" 
+              className="w-8 h-8 object-contain"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextElementSibling.style.display = 'block';
+              }}
+            />
+            <svg className="w-8 h-8 hidden" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
             </svg>
-            <span>AnonyJud</span>
+            <span>Anonym-IA</span>
           </Link>
         </div>
 

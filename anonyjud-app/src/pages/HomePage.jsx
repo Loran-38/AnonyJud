@@ -31,8 +31,8 @@ const HomePage = () => {
 
           {/* Titre principal avec animation */}
           <h1 className="text-6xl md:text-7xl font-black text-gray-900 mb-6 leading-tight">
-            <span className="inline-block animate-fade-in-up" style={{animationDelay: '0.2s'}}>Anony</span>
-            <span className="inline-block text-blue-600 animate-fade-in-up" style={{animationDelay: '0.4s'}}>Jud</span>
+            <span className="inline-block animate-fade-in-up" style={{animationDelay: '0.2s'}}>Anonym</span>
+            <span className="inline-block text-blue-600 animate-fade-in-up" style={{animationDelay: '0.4s'}}>-IA</span>
           </h1>
 
           {/* Sous-titre animé */}

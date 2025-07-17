@@ -24,10 +24,20 @@ const Navbar = () => {
           {/* Logo à gauche */}
           <div className="flex items-center space-x-3">
             <Link to="/" className="flex items-center space-x-2">
-              <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              <img 
+                src="/logo-anonym-ia.png" 
+                alt="Anonym-IA Logo" 
+                className="w-8 h-8 object-contain"
+                onError={(e) => {
+                  // Fallback vers l'icône SVG si l'image n'est pas trouvée
+                  e.target.style.display = 'none';
+                  e.target.nextElementSibling.style.display = 'block';
+                }}
+              />
+              <svg className="w-8 h-8 text-blue-600 hidden" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
               </svg>
-              <span className="text-2xl font-bold text-blue-600">AnonyJud</span>
+              <span className="text-2xl font-bold text-blue-600">Anonym-IA</span>
             </Link>
           </div>
 

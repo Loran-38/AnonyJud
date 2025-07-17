@@ -39,12 +39,22 @@ function Sidebar({ projects, selectedProject, setSelectedProject, createProject,
       <aside className="w-full h-full bg-gray-800 text-white flex flex-col shadow-lg">
         <div className="p-4 border-b border-gray-700">
           <h2 className="text-xl font-bold flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+            <img 
+              src="/logo-anonym-ia.png" 
+              alt="Anonym-IA Logo" 
+              className="h-6 w-6 mr-2 object-contain"
+              onError={(e) => {
+                // Fallback vers l'icône SVG si l'image n'est pas trouvée
+                e.target.style.display = 'none';
+                e.target.nextElementSibling.style.display = 'flex';
+              }}
+            />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" />
             </svg>
-            AnonyJud
+            Anonym-IA
           </h2>
-          <p className="text-sm text-gray-400 mt-1">Anonymisation de documents</p>
+          <p className="text-sm text-gray-400 mt-1">IA d'anonymisation juridique</p>
         </div>
         
         <div className="p-4">
@@ -132,7 +142,7 @@ function Sidebar({ projects, selectedProject, setSelectedProject, createProject,
         
         <div className="mt-auto border-t border-gray-700 p-4">
           <div className="text-xs text-gray-500 text-center">
-            AnonyJud v1.0.0
+            Anonym-IA v1.0.0
           </div>
         </div>
       </aside>
