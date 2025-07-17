@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import PricingPage from './pages/PricingPage';
+import ResourcesPage from './pages/ResourcesPage';
 import SignupPage from './pages/SignupPage';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -32,6 +33,7 @@ function AppContent() {
           {/* Routes publiques */}
           <Route path="/" element={<HomePage />} />
           <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/resources" element={<ResourcesPage />} />
           
           {/* Routes d'authentification */}
           <Route 

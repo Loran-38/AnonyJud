@@ -59,6 +59,14 @@ const Navbar = () => {
             >
               Tarifs
             </Link>
+            <Link
+              to="/resources"
+              className={`text-gray-700 hover:text-blue-600 transition-colors font-medium ${
+                isActive('/resources') ? 'text-blue-600 border-b-2 border-blue-600 pb-1' : ''
+              }`}
+            >
+              Ressources
+            </Link>
             {currentUser && (
               <Link
                 to="/dashboard"
@@ -157,6 +165,15 @@ const Navbar = () => {
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Tarifs
+                </Link>
+                <Link
+                  to="/resources"
+                  className={`block px-3 py-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-white transition-colors ${
+                    isActive('/resources') ? 'text-blue-600 bg-white font-medium' : ''
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Ressources
                 </Link>
                 {currentUser && (
                   <Link
