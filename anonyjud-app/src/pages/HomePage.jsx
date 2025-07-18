@@ -6,17 +6,74 @@ const HomePage = () => {
     <div className="min-h-screen bg-white">
       {/* Hero Section avec animations */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Arrière-plan animé avec particules */}
+        {/* Arrière-plan animé avec éléments professionnels */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100">
-          {/* Particules flottantes */}
-          <div className="absolute top-20 left-10 w-4 h-4 bg-blue-300 rounded-full animate-bounce opacity-70" style={{animationDelay: '0s'}}></div>
-          <div className="absolute top-40 right-20 w-3 h-3 bg-indigo-400 rounded-full animate-bounce opacity-60" style={{animationDelay: '1s'}}></div>
-          <div className="absolute bottom-40 left-20 w-5 h-5 bg-blue-400 rounded-full animate-bounce opacity-50" style={{animationDelay: '2s'}}></div>
-          <div className="absolute bottom-20 right-10 w-2 h-2 bg-indigo-300 rounded-full animate-bounce opacity-80" style={{animationDelay: '0.5s'}}></div>
           
-          {/* Formes géométriques flottantes */}
-          <div className="absolute top-1/4 left-1/4 w-16 h-16 border-2 border-blue-300 rotate-45 animate-spin opacity-30" style={{animationDuration: '20s'}}></div>
-          <div className="absolute bottom-1/4 right-1/4 w-12 h-12 border-2 border-indigo-300 animate-pulse opacity-40"></div>
+          {/* Logos en arrière-plan avec mouvement lent */}
+          <div className="absolute top-1/4 left-1/3 animate-background-logo" style={{animationDelay: '0s'}}>
+            <img 
+              src="/anonym-ia-logo_ss_nom-ss_fond.png" 
+              alt="" 
+              className="w-24 h-24 object-contain opacity-5"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextElementSibling.style.display = 'block';
+              }}
+            />
+            <div className="w-24 h-24 text-blue-300 opacity-5 hidden">
+              <svg fill="currentColor" viewBox="0 0 24 24" className="w-full h-full">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+          </div>
+          
+          <div className="absolute bottom-1/3 right-1/4 animate-background-logo" style={{animationDelay: '15s'}}>
+            <img 
+              src="/anonym-ia-logo_ss_nom-ss_fond.png" 
+              alt="" 
+              className="w-20 h-20 object-contain opacity-4"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextElementSibling.style.display = 'block';
+              }}
+            />
+            <div className="w-20 h-20 text-blue-200 opacity-4 hidden">
+              <svg fill="currentColor" viewBox="0 0 24 24" className="w-full h-full">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+          </div>
+
+          <div className="absolute top-1/2 left-1/6 animate-background-logo" style={{animationDelay: '30s'}}>
+            <img 
+              src="/anonym-ia-logo_ss_nom-ss_fond.png" 
+              alt="" 
+              className="w-16 h-16 object-contain opacity-3"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextElementSibling.style.display = 'block';
+              }}
+            />
+            <div className="w-16 h-16 text-indigo-200 opacity-3 hidden">
+              <svg fill="currentColor" viewBox="0 0 24 24" className="w-full h-full">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+          </div>
+          
+          {/* Particules flottantes améliorées */}
+          <div className="absolute top-20 left-10 w-3 h-3 bg-blue-300 rounded-full animate-drift-v animate-pulse-gentle" style={{animationDelay: '0s'}}></div>
+          <div className="absolute top-40 right-20 w-2 h-2 bg-indigo-400 rounded-full animate-drift-h animate-pulse-gentle" style={{animationDelay: '3s'}}></div>
+          <div className="absolute bottom-40 left-20 w-4 h-4 bg-blue-400 rounded-full animate-float-slow" style={{animationDelay: '6s'}}></div>
+          <div className="absolute bottom-20 right-10 w-2 h-2 bg-indigo-300 rounded-full animate-drift-v animate-pulse-gentle" style={{animationDelay: '9s'}}></div>
+          <div className="absolute top-60 right-1/3 w-3 h-3 bg-blue-200 rounded-full animate-drift-h" style={{animationDelay: '12s'}}></div>
+          <div className="absolute bottom-60 left-1/3 w-2 h-2 bg-indigo-200 rounded-full animate-float-slow" style={{animationDelay: '15s'}}></div>
+          
+          {/* Formes géométriques raffinées */}
+          <div className="absolute top-1/4 left-1/4 w-12 h-12 border border-blue-300 rotate-45 animate-float-slow opacity-20" style={{animationDelay: '5s'}}></div>
+          <div className="absolute bottom-1/4 right-1/4 w-10 h-10 border border-indigo-300 animate-pulse-gentle opacity-25" style={{animationDelay: '10s'}}></div>
+          <div className="absolute top-3/4 left-3/4 w-8 h-8 border border-blue-200 rotate-12 animate-drift-h opacity-15" style={{animationDelay: '18s'}}></div>
+          <div className="absolute top-1/3 right-1/6 w-6 h-6 border border-indigo-200 animate-float-slow opacity-20" style={{animationDelay: '22s'}}></div>
         </div>
 
         {/* Contenu principal */}
