@@ -591,15 +591,15 @@ const ResourcesPage = () => {
                   </div>
                 </a>
                 <a 
-                  href="https://www.cnb.avocat.fr" 
+                  href="https://eur-lex.europa.eu/eli/reg/2024/1689/oj" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
                 >
-                  <span className="mr-3 text-xl">⚖️</span>
+                  <span className="mr-3 text-xl">🤖</span>
                   <div>
-                    <div className="font-medium text-gray-900">Conseil National des Barreaux</div>
-                    <div className="text-sm text-gray-600">Ressources pour la profession d'avocat</div>
+                    <div className="font-medium text-gray-900">AI Act - Règlement européen sur l'IA</div>
+                    <div className="text-sm text-gray-600">Règlement (UE) 2024/1689 du 13 juin 2024</div>
                   </div>
                 </a>
                 <a 
