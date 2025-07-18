@@ -23,21 +23,21 @@ const Navbar = () => {
         <div className="flex items-center justify-between py-4">
           {/* Logo à gauche */}
           <div className="flex items-center space-x-3">
-            <Link to="/" className="flex items-center space-x-2">
+            <Link to="/" className="flex items-center space-x-2 logo-hover-effect">
               <img 
                 src="/anonym-ia-logo_ss_nom-ss_fond.png" 
                 alt="Anonym-IA Logo" 
-                className="w-8 h-8 object-contain"
+                className="w-8 h-8 object-contain animate-breathe-navbar"
                 onError={(e) => {
                   // Fallback vers l'icône SVG si l'image n'est pas trouvée
                   e.target.style.display = 'none';
                   e.target.nextElementSibling.style.display = 'block';
                 }}
               />
-              <svg className="w-8 h-8 text-blue-600 hidden" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-8 h-8 text-blue-600 hidden animate-breathe-navbar" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
               </svg>
-              <span className="text-2xl font-bold text-blue-600">Anonym-IA</span>
+              <span className="text-2xl font-bold text-blue-600 animate-logo-glow-navbar">Anonym-IA</span>
             </Link>
           </div>
 

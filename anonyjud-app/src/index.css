@@ -34,4 +34,68 @@ code {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Animations personnalisées pour le logo */
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.015);
+    filter: brightness(1.03);
+  }
+}
+
+@keyframes logo-glow {
+  0%, 100% {
+    text-shadow: 0 0 3px rgba(37, 99, 235, 0.2);
+  }
+  50% {
+    text-shadow: 0 0 6px rgba(37, 99, 235, 0.4);
+  }
+}
+
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Classes utilitaires pour les animations */
+.animate-breathe {
+  animation: breathe 6s ease-in-out infinite;
+}
+
+.animate-logo-glow {
+  animation: logo-glow 4s ease-in-out infinite;
+}
+
+.animate-breathe-navbar {
+  animation: breathe 8s ease-in-out infinite;
+}
+
+.animate-logo-glow-navbar {
+  animation: logo-glow 6s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.8s ease-out forwards;
+  opacity: 0;
+}
+
+.logo-hover-effect {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.logo-hover-effect:hover {
+  transform: translateY(-2px) scale(1.05);
+  filter: brightness(1.1);
+  text-shadow: 0 4px 20px rgba(37, 99, 235, 0.4);
 } 
