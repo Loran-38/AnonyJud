@@ -21,6 +21,10 @@ const ResourcesPage = () => {
       answer: "Anonym-IA supporte les formats PDF, DOCX (Word) et ODT (LibreOffice/OpenOffice). La solution préserve la mise en forme originale du document lors de l'anonymisation."
     },
     {
+      question: "Y a-t-il des limites au traitement des fichiers PDF ?",
+      answer: "Oui. Pour des raisons techniques liées à la structure spécifique des fichiers PDF, certaines limites doivent être prises en compte lors de l'anonymisation : Images non traitées : les images contenues dans le PDF ne sont pas analysées ni conservées. Les fichiers anonymisés ou désanonymisés ne contiennent donc pas les images présentes dans vos documents originaux. Variations de police et de mise en page : après anonymisation, des différences mineures peuvent apparaître dans les polices de caractères (style, taille) ainsi que dans la mise en page générale du document, en raison du rendu PDF propre aux bibliothèques de traitement. Optimisation pour l'IA : le fichier PDF anonymisé est reconstruit pour être lisible par une intelligence artificielle. Cela signifie que tout le contenu textuel est interprétable et exploitable par le modèle de langage (LLM), ce qui garantit une analyse pertinente en aval."
+    },
+    {
       question: "Puis-je dé-anonymiser un document ?",
       answer: "Oui, Anonym-IA permet la dé-anonymisation sécurisée. Vous pouvez récupérer les données originales en utilisant la clé de dé-anonymisation fournie lors du processus initial. Cette fonctionnalité est essentielle pour les cabinets d'avocats qui doivent pouvoir revenir au document original."
     },
