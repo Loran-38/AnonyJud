@@ -7,7 +7,7 @@ const HomePage = () => {
       {/* Hero Section avec animations */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         {/* Arrière-plan animé avec éléments professionnels */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100">
+        <div className="absolute inset-0 gradient-hero animate-gradient-shift">
           
           {/* Logos en arrière-plan avec mouvements variés autour du contenu */}
           <div className="absolute top-16 left-1/4 animate-logo-orbit" style={{animationDelay: '0s'}}>
@@ -118,45 +118,47 @@ const HomePage = () => {
           </h1>
 
           {/* Sous-titre animé */}
-          <p className="text-xl md:text-2xl text-gray-600 mb-12 max-w-3xl mx-auto leading-relaxed animate-fade-in-up" style={{animationDelay: '0.6s'}}>
+          <p className="text-xl md:text-2xl text-gray-600 mb-12 max-w-3xl mx-auto leading-relaxed animate-text-reveal" style={{animationDelay: '0.6s'}}>
             Transformez vos documents juridiques en données 
-            <span className="text-blue-600 font-semibold"> anonymisées </span>
-            pour une utilisation sécurisée de l'IA
+            <span className="text-blue-600 font-semibold animate-word-emphasis"> anonymisées </span>
+            pour une utilisation 
+            <span className="text-green-600 font-semibold animate-word-emphasis" style={{animationDelay: '1s'}}> sécurisée </span>
+            de l'IA
           </p>
 
           {/* Boutons avec animations */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-fade-in-up" style={{animationDelay: '0.8s'}}>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-scroll-fade-in" style={{animationDelay: '0.8s'}}>
             <Link 
               to="/signup" 
-              className="group relative bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              className="group relative bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg btn-professional"
             >
               <span className="relative z-10">Commencer gratuitement</span>
               <div className="absolute inset-0 bg-blue-700 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </Link>
             <Link 
               to="/pricing" 
-              className="group bg-white hover:bg-gray-50 text-blue-600 px-8 py-4 rounded-xl font-semibold text-lg border-2 border-blue-600 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
+              className="group bg-white hover:bg-gray-50 text-blue-600 px-8 py-4 rounded-xl font-semibold text-lg border-2 border-blue-600 shadow-lg btn-professional"
             >
               Découvrir les tarifs
-              <svg className="inline-block w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="inline-block w-5 h-5 ml-2 icon-interactive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
           </div>
 
           {/* Statistiques animées */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto animate-fade-in-up" style={{animationDelay: '1s'}}>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600 mb-2 animate-counter">100%</div>
-              <div className="text-gray-600">Conforme RGPD</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto animate-scroll-fade-in" style={{animationDelay: '1s'}}>
+            <div className="text-center animate-parallax-float" style={{animationDelay: '0s'}}>
+              <div className="text-3xl font-bold text-blue-600 mb-2 animate-counter" style={{animationDelay: '1.2s'}}>100%</div>
+              <div className="text-gray-600 animate-text-reveal" style={{animationDelay: '1.4s'}}>Conforme RGPD</div>
             </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600 mb-2 animate-counter">Sécurisé</div>
-              <div className="text-gray-600">Chiffrement avancé</div>
+            <div className="text-center animate-parallax-float" style={{animationDelay: '0.5s'}}>
+              <div className="text-3xl font-bold text-green-600 mb-2 animate-counter" style={{animationDelay: '1.6s'}}>Sécurisé</div>
+              <div className="text-gray-600 animate-text-reveal" style={{animationDelay: '1.8s'}}>Chiffrement avancé</div>
             </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600 mb-2 animate-counter">Instantané</div>
-              <div className="text-gray-600">Traitement rapide</div>
+            <div className="text-center animate-parallax-float" style={{animationDelay: '1s'}}>
+              <div className="text-3xl font-bold text-purple-600 mb-2 animate-counter" style={{animationDelay: '2s'}}>Instantané</div>
+              <div className="text-gray-600 animate-text-reveal" style={{animationDelay: '2.2s'}}>Traitement rapide</div>
             </div>
           </div>
         </div>
@@ -170,25 +172,30 @@ const HomePage = () => {
       </section>
 
       {/* Section Problématique avec animations au scroll */}
-      <section className="py-20 bg-white">
+      <section className="py-20 gradient-professional">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Pourquoi anonymiser vos documents juridiques ?
+          <div className="text-center mb-16 animate-scroll-fade-in">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4 animate-text-reveal">
+              Pourquoi 
+              <span className="animate-word-emphasis text-blue-600"> anonymiser </span>
+              vos documents juridiques ?
             </h2>
-            <div className="w-24 h-1 bg-blue-600 mx-auto rounded-full"></div>
+            <div className="w-24 h-1 bg-blue-600 mx-auto rounded-full animate-parallax-float"></div>
           </div>
           
           <div className="grid md:grid-cols-2 gap-12">
             {/* Risques */}
-            <div className="group bg-gradient-to-br from-red-50 to-pink-50 p-8 rounded-2xl border border-red-100 hover:shadow-xl transition-all duration-500 hover:-translate-y-2">
+            <div className="group card-interactive bg-gradient-to-br from-red-50 to-pink-50 p-8 rounded-2xl border border-red-100 animate-scroll-fade-in" style={{animationDelay: '0.2s'}}>
               <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-4 icon-interactive">
                   <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-red-800">Risques sans anonymisation</h3>
+                <h3 className="text-2xl font-bold text-red-800 animate-text-reveal" style={{animationDelay: '0.4s'}}>
+                  Risques sans 
+                  <span className="animate-word-emphasis"> anonymisation</span>
+                </h3>
               </div>
               <ul className="space-y-4 text-red-700">
                 <li className="flex items-start">
@@ -211,14 +218,17 @@ const HomePage = () => {
             </div>
 
             {/* Avantages */}
-            <div className="group bg-gradient-to-br from-green-50 to-emerald-50 p-8 rounded-2xl border border-green-100 hover:shadow-xl transition-all duration-500 hover:-translate-y-2">
+            <div className="group card-interactive bg-gradient-to-br from-green-50 to-emerald-50 p-8 rounded-2xl border border-green-100 animate-scroll-fade-in" style={{animationDelay: '0.4s'}}>
               <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4 icon-interactive">
                   <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-green-800">Avantages de l'anonymisation</h3>
+                <h3 className="text-2xl font-bold text-green-800 animate-text-reveal" style={{animationDelay: '0.6s'}}>
+                  Avantages de 
+                  <span className="animate-word-emphasis"> l'anonymisation</span>
+                </h3>
               </div>
               <ul className="space-y-4 text-green-700">
                 <li className="flex items-start">
@@ -244,13 +254,15 @@ const HomePage = () => {
       </section>
 
       {/* Section Comment ça fonctionne */}
-      <section className="py-20 bg-gradient-to-br from-blue-50 to-indigo-50">
+      <section className="py-20 gradient-dynamic animate-gradient-shift">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Comment ça fonctionne ?
+          <div className="text-center mb-16 animate-scroll-fade-in">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4 animate-text-reveal">
+              Comment ça 
+              <span className="animate-word-emphasis text-blue-600"> fonctionne </span>
+              ?
             </h2>
-            <div className="w-24 h-1 bg-blue-600 mx-auto rounded-full"></div>
+            <div className="w-24 h-1 bg-blue-600 mx-auto rounded-full animate-parallax-float"></div>
           </div>
           
           <div className="grid md:grid-cols-3 gap-8">
@@ -277,9 +289,9 @@ const HomePage = () => {
                 color: "purple"
               }
             ].map((item, index) => (
-              <div key={index} className="group text-center hover:scale-105 transition-all duration-500">
-                <div className={`relative w-24 h-24 bg-${item.color}-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-${item.color}-200 transition-colors duration-300`}>
-                  <span className={`absolute -top-2 -right-2 w-8 h-8 bg-${item.color}-600 text-white rounded-full flex items-center justify-center text-sm font-bold`}>
+              <div key={index} className="group text-center card-interactive animate-scroll-fade-in" style={{animationDelay: `${0.2 + index * 0.2}s`}}>
+                <div className={`relative w-24 h-24 bg-${item.color}-100 rounded-full flex items-center justify-center mx-auto mb-6 icon-interactive animate-parallax-float`} style={{animationDelay: `${index * 0.5}s`}}>
+                  <span className={`absolute -top-2 -right-2 w-8 h-8 bg-${item.color}-600 text-white rounded-full flex items-center justify-center text-sm font-bold animate-counter`} style={{animationDelay: `${0.4 + index * 0.2}s`}}>
                     {item.step}
                   </span>
                   <svg className={`w-10 h-10 text-${item.color}-600`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
