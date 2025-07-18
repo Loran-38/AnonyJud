@@ -7,6 +7,18 @@ const ResourcesPage = () => {
     setOpenFaqItem(openFaqItem === index ? null : index);
   };
 
+  const formatAnswer = (text) => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .split('\n')
+      .map((line, index) => (
+        <span key={index}>
+          {index > 0 && <br />}
+          <span dangerouslySetInnerHTML={{ __html: line }} />
+        </span>
+      ));
+  };
+
   const faqData = [
     {
       question: "Qu'est-ce qu'Anonym-IA ?",
@@ -22,7 +34,13 @@ const ResourcesPage = () => {
     },
     {
       question: "Y a-t-il des limites au traitement des fichiers PDF ?",
-      answer: "Oui. Pour des raisons techniques liées à la structure spécifique des fichiers PDF, certaines limites doivent être prises en compte lors de l'anonymisation : Images non traitées : les images contenues dans le PDF ne sont pas analysées ni conservées. Les fichiers anonymisés ou désanonymisés ne contiennent donc pas les images présentes dans vos documents originaux. Variations de police et de mise en page : après anonymisation, des différences mineures peuvent apparaître dans les polices de caractères (style, taille) ainsi que dans la mise en page générale du document, en raison du rendu PDF propre aux bibliothèques de traitement. Optimisation pour l'IA : le fichier PDF anonymisé est reconstruit pour être lisible par une intelligence artificielle. Cela signifie que tout le contenu textuel est interprétable et exploitable par le modèle de langage (LLM), ce qui garantit une analyse pertinente en aval."
+      answer: `Oui. Pour des raisons techniques liées à la structure spécifique des fichiers PDF, certaines limites doivent être prises en compte lors de l'anonymisation :
+
+• **Images non traitées** : les images contenues dans le PDF ne sont pas analysées ni conservées. Les fichiers anonymisés ou désanonymisés ne contiennent donc pas les images présentes dans vos documents originaux.
+
+• **Variations de police et de mise en page** : après anonymisation, des différences mineures peuvent apparaître dans les polices de caractères (style, taille) ainsi que dans la mise en page générale du document, en raison du rendu PDF propre aux bibliothèques de traitement.
+
+• **Optimisation pour l'IA** : le fichier PDF anonymisé est reconstruit pour être lisible par une intelligence artificielle. Cela signifie que tout le contenu textuel est interprétable et exploitable par le modèle de langage (LLM), ce qui garantit une analyse pertinente en aval.`
     },
     {
       question: "Puis-je dé-anonymiser un document ?",
@@ -152,7 +170,7 @@ const ResourcesPage = () => {
                   </button>
                   {openFaqItem === index && (
                     <div className="px-6 pb-4">
-                      <p className="text-gray-700 leading-relaxed">{item.answer}</p>
+                      <div className="text-gray-700 leading-relaxed">{formatAnswer(item.answer)}</div>
                     </div>
                   )}
                 </div>
