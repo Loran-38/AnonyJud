@@ -105,8 +105,11 @@ code {
   0% {
     transform: translateX(0px);
   }
-  50% {
-    transform: translateX(30px);
+  33% {
+    transform: translateX(40px);
+  }
+  66% {
+    transform: translateX(-30px);
   }
   100% {
     transform: translateX(0px);
@@ -117,34 +120,147 @@ code {
   0% {
     transform: translateY(0px);
   }
-  50% {
-    transform: translateY(-25px);
+  25% {
+    transform: translateY(-35px);
+  }
+  75% {
+    transform: translateY(25px);
   }
   100% {
     transform: translateY(0px);
   }
 }
 
+@keyframes random-drift {
+  0% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  20% {
+    transform: translate(25px, -15px) rotate(72deg);
+  }
+  40% {
+    transform: translate(-10px, -30px) rotate(144deg);
+  }
+  60% {
+    transform: translate(-35px, 10px) rotate(216deg);
+  }
+  80% {
+    transform: translate(15px, 35px) rotate(288deg);
+  }
+  100% {
+    transform: translate(0px, 0px) rotate(360deg);
+  }
+}
+
+@keyframes chaotic-float {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  14% {
+    transform: translate(30px, -20px) scale(0.9);
+  }
+  28% {
+    transform: translate(-25px, -35px) scale(1.1);
+  }
+  42% {
+    transform: translate(-40px, 15px) scale(0.95);
+  }
+  56% {
+    transform: translate(20px, 40px) scale(1.05);
+  }
+  70% {
+    transform: translate(45px, 10px) scale(0.85);
+  }
+  84% {
+    transform: translate(-15px, -25px) scale(1.15);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
 @keyframes background-logo-move {
   0% {
     transform: translate(0px, 0px) rotate(0deg);
-    opacity: 0.03;
+    opacity: 0.04;
   }
   25% {
-    transform: translate(100px, -50px) rotate(90deg);
-    opacity: 0.06;
+    transform: translate(150px, -80px) rotate(90deg);
+    opacity: 0.07;
   }
   50% {
-    transform: translate(200px, -100px) rotate(180deg);
-    opacity: 0.08;
+    transform: translate(300px, -160px) rotate(180deg);
+    opacity: 0.09;
   }
   75% {
-    transform: translate(100px, -50px) rotate(270deg);
+    transform: translate(150px, -240px) rotate(270deg);
+    opacity: 0.07;
+  }
+  100% {
+    transform: translate(0px, -320px) rotate(360deg);
+    opacity: 0.04;
+  }
+}
+
+@keyframes logo-orbit-around-center {
+  0% {
+    transform: translate(0px, 0px) rotate(0deg);
+    opacity: 0.05;
+  }
+  25% {
+    transform: translate(250px, 100px) rotate(90deg);
+    opacity: 0.08;
+  }
+  50% {
+    transform: translate(0px, 200px) rotate(180deg);
+    opacity: 0.10;
+  }
+  75% {
+    transform: translate(-250px, 100px) rotate(270deg);
+    opacity: 0.08;
+  }
+  100% {
+    transform: translate(0px, 0px) rotate(360deg);
+    opacity: 0.05;
+  }
+}
+
+@keyframes logo-figure-eight {
+  0% {
+    transform: translate(0px, 0px) rotate(0deg);
+    opacity: 0.04;
+  }
+  12.5% {
+    transform: translate(120px, -60px) rotate(45deg);
+    opacity: 0.06;
+  }
+  25% {
+    transform: translate(200px, 0px) rotate(90deg);
+    opacity: 0.08;
+  }
+  37.5% {
+    transform: translate(120px, 60px) rotate(135deg);
+    opacity: 0.09;
+  }
+  50% {
+    transform: translate(0px, 0px) rotate(180deg);
+    opacity: 0.10;
+  }
+  62.5% {
+    transform: translate(-120px, -60px) rotate(225deg);
+    opacity: 0.09;
+  }
+  75% {
+    transform: translate(-200px, 0px) rotate(270deg);
+    opacity: 0.08;
+  }
+  87.5% {
+    transform: translate(-120px, 60px) rotate(315deg);
     opacity: 0.06;
   }
   100% {
     transform: translate(0px, 0px) rotate(360deg);
-    opacity: 0.03;
+    opacity: 0.04;
   }
 }
 
@@ -161,23 +277,39 @@ code {
 
 /* Classes utilitaires pour les nouveaux éléments de fond */
 .animate-float-slow {
-  animation: float-slow 15s ease-in-out infinite;
+  animation: float-slow 12s ease-in-out infinite;
 }
 
 .animate-drift-h {
-  animation: drift-horizontal 12s ease-in-out infinite;
+  animation: drift-horizontal 8s ease-in-out infinite;
 }
 
 .animate-drift-v {
-  animation: drift-vertical 18s ease-in-out infinite;
+  animation: drift-vertical 10s ease-in-out infinite;
 }
 
 .animate-background-logo {
-  animation: background-logo-move 45s linear infinite;
+  animation: background-logo-move 35s linear infinite;
+}
+
+.animate-logo-orbit {
+  animation: logo-orbit-around-center 30s ease-in-out infinite;
+}
+
+.animate-logo-figure-eight {
+  animation: logo-figure-eight 25s ease-in-out infinite;
+}
+
+.animate-random-drift {
+  animation: random-drift 9s ease-in-out infinite;
+}
+
+.animate-chaotic-float {
+  animation: chaotic-float 11s ease-in-out infinite;
 }
 
 .animate-pulse-gentle {
-  animation: pulse-gentle 8s ease-in-out infinite;
+  animation: pulse-gentle 6s ease-in-out infinite;
 }
 
 .animate-fade-in-up {

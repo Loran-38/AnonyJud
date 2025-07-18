@@ -9,71 +9,96 @@ const HomePage = () => {
         {/* Arrière-plan animé avec éléments professionnels */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100">
           
-          {/* Logos en arrière-plan avec mouvement lent */}
-          <div className="absolute top-1/4 left-1/3 animate-background-logo" style={{animationDelay: '0s'}}>
+          {/* Logos en arrière-plan avec mouvements variés autour du contenu */}
+          <div className="absolute top-16 left-1/4 animate-logo-orbit" style={{animationDelay: '0s'}}>
             <img 
               src="/anonym-ia-logo_ss_nom-ss_fond.png" 
               alt="" 
-              className="w-24 h-24 object-contain opacity-5"
+              className="w-20 h-20 object-contain opacity-6"
               onError={(e) => {
                 e.target.style.display = 'none';
                 e.target.nextElementSibling.style.display = 'block';
               }}
             />
-            <div className="w-24 h-24 text-blue-300 opacity-5 hidden">
+            <div className="w-20 h-20 text-blue-300 opacity-6 hidden">
               <svg fill="currentColor" viewBox="0 0 24 24" className="w-full h-full">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
             </div>
           </div>
           
-          <div className="absolute bottom-1/3 right-1/4 animate-background-logo" style={{animationDelay: '15s'}}>
+          <div className="absolute bottom-20 right-1/3 animate-logo-figure-eight" style={{animationDelay: '10s'}}>
             <img 
               src="/anonym-ia-logo_ss_nom-ss_fond.png" 
               alt="" 
-              className="w-20 h-20 object-contain opacity-4"
+              className="w-18 h-18 object-contain opacity-5"
               onError={(e) => {
                 e.target.style.display = 'none';
                 e.target.nextElementSibling.style.display = 'block';
               }}
             />
-            <div className="w-20 h-20 text-blue-200 opacity-4 hidden">
+            <div className="w-18 h-18 text-blue-200 opacity-5 hidden">
               <svg fill="currentColor" viewBox="0 0 24 24" className="w-full h-full">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
             </div>
           </div>
 
-          <div className="absolute top-1/2 left-1/6 animate-background-logo" style={{animationDelay: '30s'}}>
+          <div className="absolute top-1/3 right-20 animate-background-logo" style={{animationDelay: '20s'}}>
             <img 
               src="/anonym-ia-logo_ss_nom-ss_fond.png" 
               alt="" 
-              className="w-16 h-16 object-contain opacity-3"
+              className="w-16 h-16 object-contain opacity-4"
               onError={(e) => {
                 e.target.style.display = 'none';
                 e.target.nextElementSibling.style.display = 'block';
               }}
             />
-            <div className="w-16 h-16 text-indigo-200 opacity-3 hidden">
+            <div className="w-16 h-16 text-indigo-200 opacity-4 hidden">
+              <svg fill="currentColor" viewBox="0 0 24 24" className="w-full h-full">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+          </div>
+
+          <div className="absolute bottom-1/4 left-20 animate-logo-orbit" style={{animationDelay: '15s'}}>
+            <img 
+              src="/anonym-ia-logo_ss_nom-ss_fond.png" 
+              alt="" 
+              className="w-14 h-14 object-contain opacity-5"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextElementSibling.style.display = 'block';
+              }}
+            />
+            <div className="w-14 h-14 text-blue-400 opacity-5 hidden">
               <svg fill="currentColor" viewBox="0 0 24 24" className="w-full h-full">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
             </div>
           </div>
           
-          {/* Particules flottantes améliorées */}
-          <div className="absolute top-20 left-10 w-3 h-3 bg-blue-300 rounded-full animate-drift-v animate-pulse-gentle" style={{animationDelay: '0s'}}></div>
-          <div className="absolute top-40 right-20 w-2 h-2 bg-indigo-400 rounded-full animate-drift-h animate-pulse-gentle" style={{animationDelay: '3s'}}></div>
-          <div className="absolute bottom-40 left-20 w-4 h-4 bg-blue-400 rounded-full animate-float-slow" style={{animationDelay: '6s'}}></div>
-          <div className="absolute bottom-20 right-10 w-2 h-2 bg-indigo-300 rounded-full animate-drift-v animate-pulse-gentle" style={{animationDelay: '9s'}}></div>
-          <div className="absolute top-60 right-1/3 w-3 h-3 bg-blue-200 rounded-full animate-drift-h" style={{animationDelay: '12s'}}></div>
-          <div className="absolute bottom-60 left-1/3 w-2 h-2 bg-indigo-200 rounded-full animate-float-slow" style={{animationDelay: '15s'}}></div>
+          {/* Particules flottantes dispersées sur toute la page */}
+          <div className="absolute top-16 left-12 w-3 h-3 bg-blue-300 rounded-full animate-random-drift" style={{animationDelay: '0s'}}></div>
+          <div className="absolute top-32 right-16 w-2 h-2 bg-indigo-400 rounded-full animate-chaotic-float" style={{animationDelay: '2s'}}></div>
+          <div className="absolute bottom-32 left-16 w-4 h-4 bg-blue-400 rounded-full animate-drift-v" style={{animationDelay: '4s'}}></div>
+          <div className="absolute bottom-16 right-12 w-2 h-2 bg-indigo-300 rounded-full animate-random-drift" style={{animationDelay: '6s'}}></div>
+          <div className="absolute top-1/4 right-8 w-3 h-3 bg-blue-200 rounded-full animate-drift-h" style={{animationDelay: '8s'}}></div>
+          <div className="absolute bottom-1/4 left-8 w-2 h-2 bg-indigo-200 rounded-full animate-chaotic-float" style={{animationDelay: '10s'}}></div>
+          <div className="absolute top-1/2 left-6 w-3 h-3 bg-blue-100 rounded-full animate-float-slow" style={{animationDelay: '12s'}}></div>
+          <div className="absolute top-3/4 right-6 w-2 h-2 bg-indigo-100 rounded-full animate-random-drift" style={{animationDelay: '14s'}}></div>
+          <div className="absolute top-1/3 left-1/2 w-2 h-2 bg-blue-200 rounded-full animate-drift-v" style={{animationDelay: '16s'}}></div>
+          <div className="absolute bottom-1/3 right-1/2 w-3 h-3 bg-indigo-200 rounded-full animate-chaotic-float" style={{animationDelay: '18s'}}></div>
           
-          {/* Formes géométriques raffinées */}
-          <div className="absolute top-1/4 left-1/4 w-12 h-12 border border-blue-300 rotate-45 animate-float-slow opacity-20" style={{animationDelay: '5s'}}></div>
-          <div className="absolute bottom-1/4 right-1/4 w-10 h-10 border border-indigo-300 animate-pulse-gentle opacity-25" style={{animationDelay: '10s'}}></div>
-          <div className="absolute top-3/4 left-3/4 w-8 h-8 border border-blue-200 rotate-12 animate-drift-h opacity-15" style={{animationDelay: '18s'}}></div>
-          <div className="absolute top-1/3 right-1/6 w-6 h-6 border border-indigo-200 animate-float-slow opacity-20" style={{animationDelay: '22s'}}></div>
+          {/* Formes géométriques dispersées aléatoirement */}
+          <div className="absolute top-20 left-1/5 w-10 h-10 border border-blue-300 rotate-45 animate-random-drift opacity-25" style={{animationDelay: '1s'}}></div>
+          <div className="absolute bottom-24 right-1/5 w-8 h-8 border border-indigo-300 animate-chaotic-float opacity-30" style={{animationDelay: '3s'}}></div>
+          <div className="absolute top-1/3 left-12 w-6 h-6 border border-blue-200 rotate-12 animate-drift-h opacity-20" style={{animationDelay: '5s'}}></div>
+          <div className="absolute bottom-1/3 right-12 w-12 h-12 border border-indigo-200 animate-float-slow opacity-25" style={{animationDelay: '7s'}}></div>
+          <div className="absolute top-2/3 right-1/3 w-7 h-7 border border-blue-100 rotate-30 animate-random-drift opacity-20" style={{animationDelay: '9s'}}></div>
+          <div className="absolute bottom-2/3 left-1/3 w-9 h-9 border border-indigo-100 animate-drift-v opacity-15" style={{animationDelay: '11s'}}></div>
+          <div className="absolute top-1/6 right-1/6 w-5 h-5 border border-blue-300 rotate-60 animate-chaotic-float opacity-25" style={{animationDelay: '13s'}}></div>
+          <div className="absolute bottom-1/6 left-1/6 w-11 h-11 border border-indigo-300 animate-drift-h opacity-20" style={{animationDelay: '15s'}}></div>
         </div>
 
         {/* Contenu principal */}
