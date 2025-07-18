@@ -23,7 +23,7 @@ from reportlab.lib.utils import ImageReader
 from .anonymizer import anonymize_text
 from .deanonymizer import deanonymize_text
 from .models import TextAnonymizationRequest, TextDeanonymizationRequest
-from .pdf_utils import safe_extract_text_from_pdf, validate_pdf_content, safe_pdf_operation
+from .pdf_utils import safe_extract_text_from_pdf, validate_pdf_content
 
 app = FastAPI()
 
@@ -58,36 +58,21 @@ def deanonymize_text_endpoint(request: TextDeanonymizationRequest):
     Si aucun mapping n'est fourni, tente de générer le mapping à partir des tiers.
     """
     try:
-        print(f"🔍 DEANONYMIZE_TEXT_ENDPOINT - Début du traitement")
-        print(f"📝 Texte reçu (premiers 200 chars): {request.anonymized_text[:200]}...")
-        print(f"🗂️ Mapping reçu: {request.mapping}")
-        print(f"👥 Tiers reçus: {request.tiers}")
-        print(f"🔄 A mapping: {request.has_mapping}")
-        
         # Si le mapping est vide, générer le mapping à partir des tiers
         if not request.has_mapping or not request.mapping or len(request.mapping) == 0:
-            print(f"⚠️ Mapping vide détecté, génération à partir des tiers...")
             if request.tiers and len(request.tiers) > 0:
                 mapping = generate_mapping_from_tiers(request.tiers)
-                print(f"🔧 Mapping généré à partir des tiers: {mapping}")
             else:
-                print(f"❌ Aucun tiers disponible pour générer le mapping")
                 # Fallback: essayer de détecter automatiquement
-                print(f"🔍 Tentative de détection automatique...")
                 mapping = detect_anonymized_patterns(request.anonymized_text)
-                print(f"🔍 Patterns détectés automatiquement: {mapping}")
                 
                 if not mapping:
-                    print(f"❌ Aucun pattern d'anonymisation détecté")
                     return {"deanonymized_text": request.anonymized_text, "mapping": {}, "message": "Aucun pattern d'anonymisation détecté dans le texte"}
         else:
             # Utiliser le mapping fourni
             mapping = request.mapping
-            print(f"✅ Utilisation du mapping fourni: {mapping}")
         
-        print(f"🔄 Début de la dé-anonymisation avec mapping: {mapping}")
         deanonymized = deanonymize_text(request.anonymized_text, mapping)
-        print(f"✅ Dé-anonymisation terminée avec succès")
         
         return {"deanonymized_text": deanonymized, "mapping": mapping}
         
