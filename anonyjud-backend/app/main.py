@@ -24,7 +24,6 @@ from .anonymizer import anonymize_text
 from .deanonymizer import deanonymize_text
 from .models import TextAnonymizationRequest, TextDeanonymizationRequest
 from .pdf_utils import safe_extract_text_from_pdf, validate_pdf_content, safe_pdf_operation
-from .pdf_layout_enhancer import PDFLayoutEnhancer, enhance_pdf_layout_after_anonymization, proof_of_concept_extract_reinject_images
 
 app = FastAPI()
 
@@ -535,95 +534,6 @@ async def anonymize_file_download(
     except Exception as e:
         print(f"❌ Erreur dans anonymize_file_download: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/anonymize/pdf/enhanced")
-async def anonymize_pdf_enhanced_layout(
-    file: UploadFile = File(...),
-    tiers_json: str = Form(...)
-):
-    """
-    Anonymise un fichier PDF avec amélioration de la mise en page.
-    Préserve les images, tableaux et graphiques tout en anonymisant le texte.
-    """
-    try:
-        print(f"🎨 ANONYMIZE_PDF_ENHANCED_LAYOUT - Début du traitement amélioré")
-        print(f"📁 Fichier reçu: {file.filename}")
-        
-        # Vérifier que c'est bien un PDF
-        filename = file.filename or ""
-        if not filename.lower().endswith('.pdf'):
-            raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont supportés pour cette fonctionnalité")
-        
-        # Convertir la chaîne JSON en liste de tiers
-        tiers = json.loads(tiers_json)
-        print(f"👥 Nombre de tiers: {len(tiers)}")
-        
-        # Lire le contenu du fichier
-        original_content = await file.read()
-        
-        # 1. Anonymiser avec la méthode actuelle
-        print(f"🔒 Étape 1: Anonymisation du texte")
-        anonymized_content, mapping = anonymize_pdf_secure_with_graphics(original_content, tiers)
-        
-        # 2. Améliorer la mise en page
-        print(f"🎨 Étape 2: Amélioration de la mise en page")
-        enhanced_content = enhance_pdf_layout_after_anonymization(original_content, anonymized_content)
-        
-        # Créer un nom de fichier pour le téléchargement
-        base_name = os.path.splitext(filename)[0]
-        enhanced_filename = f"{base_name}_ANONYM_ENHANCED.pdf"
-        
-        print(f"✅ Fichier PDF anonymisé avec mise en page améliorée: {enhanced_filename}")
-        
-        # Retourner le fichier amélioré
-        return StreamingResponse(
-            io.BytesIO(enhanced_content),
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f"attachment; filename={enhanced_filename}",
-                "X-Mapping": json.dumps(mapping)  # Inclure le mapping dans les headers
-            }
-        )
-        
-    except Exception as e:
-        print(f"❌ Erreur dans anonymize_pdf_enhanced_layout: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors du traitement: {str(e)}")
-
-@app.post("/test/extract-images")
-async def test_extract_images(file: UploadFile = File(...)):
-    """
-    Endpoint de test pour extraire et réinjecter les images d'un PDF.
-    Preuve de concept pour validation de la faisabilité technique.
-    """
-    try:
-        print(f"🧪 TEST_EXTRACT_IMAGES - Preuve de concept")
-        print(f"📁 Fichier reçu: {file.filename}")
-        
-        # Vérifier que c'est bien un PDF
-        if not file.filename or not file.filename.lower().endswith('.pdf'):
-            raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont supportés")
-        
-        # Lire le contenu
-        content = await file.read()
-        
-        # Appliquer la preuve de concept
-        result_pdf = proof_of_concept_extract_reinject_images(content)
-        
-        # Créer un nom de fichier pour le test
-        base_name = os.path.splitext(file.filename)[0]
-        test_filename = f"{base_name}_TEST_IMAGES.pdf"
-        
-        print(f"✅ Test terminé: {test_filename}")
-        
-        return StreamingResponse(
-            io.BytesIO(result_pdf),
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename={test_filename}"}
-        )
-        
-    except Exception as e:
-        print(f"❌ Erreur dans test_extract_images: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors du test: {str(e)}")
 
 @app.post("/deanonymize/file/download")
 async def deanonymize_file_download(
