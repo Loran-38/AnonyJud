@@ -1,7 +1,12 @@
 User-agent: *
 Allow: /
 
-# Fichiers non indexables
+# Pages privées non indexables (nécessitent authentification)
+Disallow: /dashboard
+Disallow: /account
+Disallow: /forgot-password
+
+# Fichiers techniques non indexables
 Disallow: /api/
 Disallow: /_next/
 Disallow: /static/

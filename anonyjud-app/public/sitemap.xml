@@ -12,28 +12,12 @@
     <priority>1.0</priority>
   </url>
   
-  <!-- Anonymisation de texte -->
+  <!-- Page Tarifs -->
   <url>
-    <loc>https://www.anonym-ia.com/anonymize</loc>
+    <loc>https://www.anonym-ia.com/pricing</loc>
     <lastmod>2024-01-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
-  </url>
-  
-  <!-- Dé-anonymisation -->
-  <url>
-    <loc>https://www.anonym-ia.com/deanonymize</loc>
-    <lastmod>2024-01-15</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  
-  <!-- Chat IA -->
-  <url>
-    <loc>https://www.anonym-ia.com/chat</loc>
-    <lastmod>2024-01-15</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
   </url>
   
   <!-- Page Ressources -->
@@ -41,15 +25,25 @@
     <loc>https://www.anonym-ia.com/resources</loc>
     <lastmod>2024-01-15</lastmod>
     <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  
+  <!-- Pages d'authentification (publiques) -->
+  <url>
+    <loc>https://www.anonym-ia.com/signup</loc>
+    <lastmod>2024-01-15</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   
-  <!-- Page Contact -->
   <url>
-    <loc>https://www.anonym-ia.com/contact</loc>
+    <loc>https://www.anonym-ia.com/login</loc>
     <lastmod>2024-01-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
+  
+  <!-- Note: Dashboard et Account sont des pages privées protégées -->
+  <!-- Elles ne sont pas incluses dans le sitemap car nécessitent une authentification -->
   
 </urlset> 
