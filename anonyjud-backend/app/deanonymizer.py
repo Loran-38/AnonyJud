@@ -12,6 +12,7 @@ def deanonymize_text(anonymized_text: str, mapping: Dict[str, str]) -> str:
     Returns:
         Le texte dé-anonymisé
     """
+    # Fix 2024-01-XX: Correction problèmes d'indentation Railway
     print(f"🔍 DEANONYMIZE_TEXT - Début du processus")
     print(f"📝 Texte d'entrée (premiers 300 chars): {anonymized_text[:300]}...")
     print(f"🗂️ Mapping reçu: {mapping}")
@@ -38,7 +39,7 @@ def deanonymize_text(anonymized_text: str, mapping: Dict[str, str]) -> str:
     replacements_made = 0
     for tag in sorted_tags:
         if tag in deanonymized:
-        original = mapping[tag]
+            original = mapping[tag]
             print(f"🔄 Tentative de remplacement: '{tag}' -> '{original}'")
             
             # Compter les occurrences avant remplacement
@@ -46,7 +47,7 @@ def deanonymize_text(anonymized_text: str, mapping: Dict[str, str]) -> str:
             
             # ✅ CORRECTION: Utiliser SEULEMENT l'expression régulière avec limites de mots
             # Cela évite le problème de "PRENOM1" devenant "PREHuissoud1" quand on remplace "NOM1"
-        pattern = re.compile(r'\b' + re.escape(tag) + r'\b')
+            pattern = re.compile(r'\b' + re.escape(tag) + r'\b')
             deanonymized_new = pattern.sub(original, deanonymized)
             
             # Compter les occurrences après remplacement
