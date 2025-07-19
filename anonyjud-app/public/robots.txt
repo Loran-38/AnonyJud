@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# Fichiers non indexables
+Disallow: /api/
+Disallow: /_next/
+Disallow: /static/
+Disallow: *.json
+
+# Sitemap
+Sitemap: https://www.anonym-ia.com/sitemap.xml
+
+# Crawl-delay pour éviter la surcharge
+Crawl-delay: 1 
