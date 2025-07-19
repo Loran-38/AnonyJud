@@ -1,18 +1,18 @@
-// Configuration des domaines pour AnonyJud
+// Configuration des domaines pour Anonym-IA
 // Permet de basculer facilement vers un domaine personnalisé plus tard
 
 const DOMAIN_CONFIG = {
   // Domaine actuel (Railway)
   current: {
     primary: 'https://anonyjud-app-production.up.railway.app',
-    name: 'AnonyJud App',
+    name: 'Anonym-IA App',
     isCustomDomain: false
   },
   
-  // Domaine futur (à configurer quand vous l'achèterez)
+  // Domaine personnalisé (anonym-ia.com)
   future: {
-    primary: 'https://anonyjud.com', // Exemple de domaine futur
-    name: 'AnonyJud',
+    primary: 'https://www.anonym-ia.com',
+    name: 'Anonym-IA',
     isCustomDomain: true
   }
 };
@@ -35,7 +35,7 @@ export const EMAIL_URLS = {
   pricing: `${APP_DOMAIN.primary}/pricing`,
   dashboard: `${APP_DOMAIN.primary}/dashboard`,
   account: `${APP_DOMAIN.primary}/account`,
-  support: 'mailto:support@anonyjud.com' // Email de support
+  support: 'mailto:contact@anonym-ia.com' // Email de support
 };
 
 // Configuration Firebase Auth
@@ -57,24 +57,20 @@ export const FIREBASE_AUTH_CONFIG = {
 export const switchToCustomDomain = (newDomain) => {
   console.log(`🔄 Migration vers domaine personnalisé : ${newDomain}`);
   console.log('📋 Étapes à suivre :');
-  console.log('1. Acheter et configurer le domaine');
-  console.log('2. Ajouter le domaine dans Firebase Console');
-  console.log('3. Mettre à jour REACT_APP_CUSTOM_DOMAIN=true');
-  console.log('4. Redéployer l\'application');
+  console.log('1. Configurer les DNS OVH');
+  console.log('2. Ajouter le domaine dans Railway');
+  console.log('3. Ajouter le domaine dans Firebase Console');
+  console.log('4. Mettre à jour REACT_APP_CUSTOM_DOMAIN=true');
+  console.log('5. Redéployer l\'application');
 };
 
-// Domaines suggérés pour l'avenir
-export const SUGGESTED_DOMAINS = [
-  'anonyjud.com',
-  'anonyjud.fr',
-  'anony-jud.com',
-  'anonymisation-juridique.com'
-];
+// Domaine actuel configuré
+export const CURRENT_DOMAIN = 'www.anonym-ia.com';
 
 export default {
   APP_DOMAIN,
   EMAIL_URLS,
   FIREBASE_AUTH_CONFIG,
   switchToCustomDomain,
-  SUGGESTED_DOMAINS
+  CURRENT_DOMAIN
 }; 
